@@ -52,7 +52,8 @@ npx playwright test
 - Feito: AMB-01 (pom), AMB-03 parcial (perfil `local`, `.env`/`.env.example`), DB-01 a DB-10 (V1–V10 com as correções CRITICAL: partidas dobradas por transação, sem TRUNCATE, papel `coe_app`), teste das migrações com Testcontainers Postgres 16 e JaCoCo com regra de 80%.
 - Feito (DB-12): **V11** com as correções HIGH (webhook só ocupa o id com assinatura válida + corpo bruto; uma liberação ou um reembolso por diária; cidades versionadas), as lacunas frente às RN (RN27, RN20/RN56, RN13, RN08, RN17) e os demais apontamentos do database-reviewer (exclusão de conta por anonimização, provas sem cascata, índices em todas as FKs, configuração validada, versão no gatilho). Custódia por contrato e saldo nunca negativo ficaram para o DOM-07.
 - Feito (etapa 0): AMB-02 (`docker-compose` com Postgres 16 e Mailpit; S3 local fica para o CORE-09), AMB-03 (perfis `local`, `test` e `prod`), AMB-04 (pacotes por domínio com `package-info`), AMB-05 (base `IntegracaoTest` + fumaça do health), AMB-06 (Spotless com palantir-java-format no `verify`), AMB-07 (README), AMB-08 (`TratadorDeErros`: Problem Details em pt-BR, `type` = `urn:coe:erro:<codigo>`; 401/403 ficam para o CORE-03/06).
-- Depois: CORE-01 (`Dinheiro`).
+- Cronograma em **fatias verticais** (`docs/plano-desenvolvimento.md`, seção 11): primeiro clique no dia 10, versão local completa no dia 46.
+- Próximo: dia 3 (fatia 0), CORE-01 (`Dinheiro`), CORE-12 (configuração) e CORE-13 (`Clock`).
 
 ## Estrutura do backend (por domínio, não por camada)
 `usuario` (conta, login, SMS) · `catalogo` (cidades, profissões, serviços) · `profissional` (cadastro, verificação, portfólio, agenda) · `contrato` (contratos e diárias) · `pagamento` (gateway, webhooks, ledger, repasse, reembolso) · `mensagem` (chat + censura) · `avaliacao` · `disputa` · `moderacao` (denúncias) · `admin` · `config` · `compartilhado` (Dinheiro, erros, auditoria, armazenamento)
@@ -65,11 +66,15 @@ npx playwright test
 
 ## Regras de negócio já decididas (resumo; a fonte é `docs/regras-negocio.md`)
 - Parâmetros vêm da tabela `configuracao` (view `configuracao_vigente`). **Nunca fixar no código**: comissão 10%, liberação em 12 h, disputa decidida em 48 h, 3 tentativas de contato antes de análise, limite LC 150 = 2.
-- Comissão e "quem paga a taxa" são **copiados para o contrato** na compra. Mudar a configuração não altera contrato fechado. Quem paga a taxa: padrão cliente, decisão final **A DEFINIR** (PA05).
+- Comissão e "quem paga a taxa" são **copiados para o contrato** na compra. Mudar a configuração não altera contrato fechado. A comissão é **paga pelo cliente**, somada ao total (PA05).
+- **Liberação automática**: 12 h contadas a partir do "Terminei o dia" (`terminou_em`) (PA08).
+- **Idade mínima** do profissional: 18 anos, obrigatório, validado com `Clock` injetado. Mensagem: "Para trabalhar na COE é preciso ter 18 anos ou mais."
+- **Falta do profissional** (PA07): reembolso integral da diária da falta; o cliente escolhe manter ou cancelar as outras (canceladas futuras = reembolso integral); falta registrada em `ocorrencia_profissional` (só inserção); alerta com 2 faltas em 90 dias; inativação **manual e reversível** (status `suspenso` com motivo, auditado); o mesmo CPF não cria outro cadastro.
+- **Retenção LGPD**: CPF, Pix e data de nascimento de quem excluiu a conta ficam 5 anos; depois, expurgo (tarefa futura).
 - **Reembolso** devolve exatamente o que o cliente pagou por aquela diária: diária + comissão se a taxa é do cliente; só a diária se a taxa é do profissional. Comissão só vira receita quando a diária é liberada.
-- **LC 150**: mesma diarista + mesmo cliente = no máximo 2 diárias em **qualquer janela de 7 dias seguidos** (não semana fixa). Meia diária conta como um dia.
+- **LC 150**: mesma diarista + mesmo cliente = no máximo 2 diárias em **qualquer janela de 7 dias seguidos** (não semana fixa; confirmado com o advogado). Meia diária conta como um dia.
 - **Uma diária por profissional por dia**, inteira ou meia. Duas meias no mesmo dia só na fase 2.
-- Contato (telefone, endereço completo) só aparece **depois do pagamento confirmado**. Antes disso, censura no servidor em chat, bio, pedido e legendas.
+- Contato (telefone, endereço completo) só aparece **depois do pagamento confirmado**. Antes disso, censura no servidor em chat, bio, pedido e legendas. CEP (`00000-000` ou "CEP" + 8 dígitos) passa; telefone não (PA13).
 - Reclamação trava **só aquela diária**; a equipe decide liberar ou reembolsar.
 
 ## Regras técnicas inegociáveis
@@ -97,8 +102,9 @@ npx playwright test
 ### Segurança (prioridade máxima)
 - Spring Security com papéis CLIENTE, PROFISSIONAL e ADMIN.
 - **Autorização por objeto em toda consulta** (anti-IDOR): cada usuário só acessa os próprios contratos, diárias, conversas e documentos. Recurso de outro usuário retorna 403 ou 404.
-- Senhas com BCrypt ou Argon2. Autenticação: **JWT** (PA03 decidido). **A DEFINIR** antes do CORE-03: duração do token, refresh e onde o front guarda; proposta: token de acesso curto (15 min) no header `Authorization`, guardado só em memória no front; refresh token rotativo em cookie HttpOnly/Secure/SameSite=Strict, válido só no endpoint de renovação e guardado como hash no banco (revogado no logout e na troca de senha). As tabelas `spring_session*` saem na V12 (DB-13).
-- CORS restrito ao domínio da COE. CSRF onde houver cookie (renovação do token, se o refresh ficar em cookie).
+- Senhas com BCrypt ou Argon2. Autenticação: **JWT** (PA03 decidido): token de acesso de **15 min** (HS256, chave com `kid` no Secrets Manager), guardado **só na memória** do front e enviado no header `Authorization`; dentro dele só o id do usuário, os papéis, emissão, expiração e um id único (nada de celular, CPF ou nome). Refresh token de **30 dias**, renovado a cada uso, em cookie **HttpOnly/Secure/SameSite=Strict** enviado só ao endpoint de renovação, guardado como **hash** no banco; revogado no logout, na troca de senha e quando o admin inativa a conta; refresh reutilizado (sinal de roubo) revoga todos os tokens daquele login. **Uma sessão por aparelho**, com "sair de todos os aparelhos". As tabelas `spring_session*` saem na V12 (DB-13).
+- **MFA opcional**: o login padrão é celular + senha, sem SMS. Quem quiser liga um segundo passo com código por SMS. Entrar só com código por SMS continua como alternativa à senha (RF01). A confirmação do celular no cadastro (RN08) é outra coisa e continua obrigatória, uma vez.
+- CORS restrito ao domínio da COE. CSRF só no endpoint de renovação (único que usa cookie; o SameSite=Strict já cobre quase tudo).
 - Rate limit em login, SMS, recuperação de senha, chat e criação de conta.
 - Bean Validation em toda entrada. **Nunca confiar no front.**
 - **LGPD:**
@@ -136,7 +142,9 @@ npx playwright test
   - dois clientes reservando o mesmo dia do mesmo profissional
   - LC 150: 3ª diária na janela de 7 dias recusada, inclusive virando a semana
   - acesso a recurso de outro usuário
-  - censura: frases que devem bloquear e frases que devem passar (valores em R$, medidas, datas, CEP)
+  - censura: frases que devem bloquear e frases que devem passar (valores em R$, medidas, datas, `CEP 89010-000`, `CEP 89010000`)
+  - idade mínima: 17 anos e 364 dias recusado; exatos 18 anos aceito
+  - falta do profissional: reembolso integral, registro em `ocorrencia_profissional` e inativação só manual
   - transação financeira desbalanceada recusada
 
 ## Fluxo de trabalho (ECC)
