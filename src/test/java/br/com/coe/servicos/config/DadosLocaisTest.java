@@ -24,6 +24,7 @@ class DadosLocaisTest {
             "\\('[0-9a-f-]{36}',\\s*'[^']*',\\s*'(?<celular>[^']*)',\\s*now\\(\\),\\s*'[^']*',\\s*'(?<senha>[^']*)'");
     /** Celulares claramente falsos reservados para o seed: 47 9 0000 00xx (47900000001, 47900000002…). */
     private static final Pattern CELULAR_FICTICIO = Pattern.compile("^479000000\\d{2}$");
+
     private static final Pattern INSERT_CIDADE = Pattern.compile("(?i)INSERT\\s+INTO\\s+(public\\.)?cidade\\b");
 
     private static String seed;
@@ -42,7 +43,8 @@ class DadosLocaisTest {
     @DisplayName("todo usuário do seed tem senha em BCrypt igual à documentada (coe-local-123)")
     void senhaDocumentada() {
         BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder();
-        List<String> senhas = usuarios.stream().map(usuario -> usuario.group("senha")).toList();
+        List<String> senhas =
+                usuarios.stream().map(usuario -> usuario.group("senha")).toList();
 
         assertThat(senhas).isNotEmpty();
         assertThat(senhas).allMatch(senha -> HASH_BCRYPT.matcher(senha).matches(), "hash BCrypt bem formado");
@@ -52,10 +54,12 @@ class DadosLocaisTest {
     @Test
     @DisplayName("todo celular do seed é fictício")
     void celularesFicticios() {
-        List<String> celulares = usuarios.stream().map(usuario -> usuario.group("celular")).toList();
+        List<String> celulares =
+                usuarios.stream().map(usuario -> usuario.group("celular")).toList();
 
         assertThat(celulares).isNotEmpty();
-        assertThat(celulares).allMatch(celular -> CELULAR_FICTICIO.matcher(celular).matches(), "celular fictício");
+        assertThat(celulares)
+                .allMatch(celular -> CELULAR_FICTICIO.matcher(celular).matches(), "celular fictício");
     }
 
     @Test

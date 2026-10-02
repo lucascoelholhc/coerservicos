@@ -9,5 +9,4 @@ public class CoeServicosApplication {
     public static void main(String[] args) {
         SpringApplication.run(CoeServicosApplication.class, args);
     }
-
 }

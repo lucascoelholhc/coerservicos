@@ -36,8 +36,7 @@ class MigracoesFlywayTest extends BancoIntegracaoTest {
     @Test
     @DisplayName("perfil de teste não aplica os dados do perfil local (repeatable de db/local)")
     void naoAplicaDadosDoPerfilLocal() {
-        assertThat(flyway.info().applied())
-                .noneMatch(migracao -> migracao.getVersion() == null);
+        assertThat(flyway.info().applied()).noneMatch(migracao -> migracao.getVersion() == null);
     }
 
     @Test
@@ -99,8 +98,13 @@ class MigracoesFlywayTest extends BancoIntegracaoTest {
             UUID cliente = fixtures.usuario();
             UUID profissional = fixtures.profissional();
 
-            PSQLException erro = erroDoBanco(() -> fixtures.contrato(cliente, profissional,
-                    FixturesBanco.TAXA_CLIENTE, valor("280.00"), valor("28.00"), valor("280.00")));
+            PSQLException erro = erroDoBanco(() -> fixtures.contrato(
+                    cliente,
+                    profissional,
+                    FixturesBanco.TAXA_CLIENTE,
+                    valor("280.00"),
+                    valor("28.00"),
+                    valor("280.00")));
 
             assertConstraint(erro, CHECK_VIOLATION, "ck_contrato_total");
         }
@@ -111,8 +115,13 @@ class MigracoesFlywayTest extends BancoIntegracaoTest {
             UUID cliente = fixtures.usuario();
             UUID profissional = fixtures.profissional();
 
-            assertThatCode(() -> fixtures.contrato(cliente, profissional,
-                    FixturesBanco.TAXA_CLIENTE, valor("280.00"), valor("28.00"), valor("308.00")))
+            assertThatCode(() -> fixtures.contrato(
+                            cliente,
+                            profissional,
+                            FixturesBanco.TAXA_CLIENTE,
+                            valor("280.00"),
+                            valor("28.00"),
+                            valor("308.00")))
                     .doesNotThrowAnyException();
         }
 
@@ -122,8 +131,13 @@ class MigracoesFlywayTest extends BancoIntegracaoTest {
             UUID cliente = fixtures.usuario();
             UUID profissional = fixtures.profissional();
 
-            assertThatCode(() -> fixtures.contrato(cliente, profissional,
-                    FixturesBanco.TAXA_PROFISSIONAL, valor("280.00"), valor("28.00"), valor("280.00")))
+            assertThatCode(() -> fixtures.contrato(
+                            cliente,
+                            profissional,
+                            FixturesBanco.TAXA_PROFISSIONAL,
+                            valor("280.00"),
+                            valor("28.00"),
+                            valor("280.00")))
                     .doesNotThrowAnyException();
         }
     }
@@ -226,8 +240,8 @@ class MigracoesFlywayTest extends BancoIntegracaoTest {
         void barraUpdateEmLancamento() {
             long lancamento = lancamentoExistente();
 
-            PSQLException erro = erroDoBanco(
-                    () -> jdbc.update("UPDATE lancamento SET valor = 1.00 WHERE id = ?", lancamento));
+            PSQLException erro =
+                    erroDoBanco(() -> jdbc.update("UPDATE lancamento SET valor = 1.00 WHERE id = ?", lancamento));
 
             assertMensagem(erro, INSUFFICIENT_PRIVILEGE, "lancamento aceita apenas INSERT");
         }
@@ -237,8 +251,7 @@ class MigracoesFlywayTest extends BancoIntegracaoTest {
         void barraDeleteEmLancamento() {
             long lancamento = lancamentoExistente();
 
-            PSQLException erro = erroDoBanco(
-                    () -> jdbc.update("DELETE FROM lancamento WHERE id = ?", lancamento));
+            PSQLException erro = erroDoBanco(() -> jdbc.update("DELETE FROM lancamento WHERE id = ?", lancamento));
 
             assertMensagem(erro, INSUFFICIENT_PRIVILEGE, "lancamento aceita apenas INSERT");
         }
