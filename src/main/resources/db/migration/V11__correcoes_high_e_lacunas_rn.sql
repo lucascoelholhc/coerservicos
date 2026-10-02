@@ -231,14 +231,17 @@ CREATE UNIQUE INDEX uq_reembolso_externo ON reembolso (id_externo) WHERE id_exte
 
 -- -----------------------------------------------------------------------------
 -- 14. Exclusão de conta por anonimização (RN60): usuario nunca é apagado.
---     Excluído pode ficar sem celular, e-mail e senha; os demais exigem celular e senha.
---     O UNIQUE do celular continua valendo para os não nulos.
+--     Excluído pode ficar sem celular, e-mail e senha; os demais exigem os três
+--     (RF03: a conta de cliente pede e-mail). Os UNIQUE de celular e e-mail
+--     continuam valendo para os não nulos.
 --     Provas (aceite dos termos, evidências, anexos de disputa) não apagam em cascata.
+--     CPF, chave Pix e data de nascimento do profissional ficam retidos pelo prazo
+--     legal mesmo após a exclusão (dados financeiros e fiscais; RNF16).
 -- -----------------------------------------------------------------------------
 ALTER TABLE usuario ALTER COLUMN celular DROP NOT NULL;
 ALTER TABLE usuario ALTER COLUMN senha_hash DROP NOT NULL;
 ALTER TABLE usuario ADD CONSTRAINT ck_usuario_credenciais
-  CHECK (status = 'excluido' OR (celular IS NOT NULL AND senha_hash IS NOT NULL));
+  CHECK (status = 'excluido' OR (celular IS NOT NULL AND email IS NOT NULL AND senha_hash IS NOT NULL));
 
 CREATE OR REPLACE FUNCTION fn_usuario_sem_delete() RETURNS trigger
 LANGUAGE plpgsql AS $$

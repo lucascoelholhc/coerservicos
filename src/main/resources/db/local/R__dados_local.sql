@@ -25,14 +25,10 @@ VALUES
  ('00000000-0000-0000-0000-00000000a001', 'Admin COE (local)', '47900000001', now(), 'admin@coe.local',
   '$2b$10$zOKDWSG5FMKsE/sN70vnTu1CwZwHPYncMFywJ0QaR6x2ZhP3KE23y', '89010000', 'ativo',
   (SELECT id FROM cidade WHERE codigo_ibge = 4202404)),
- ('00000000-0000-0000-0000-00000000c001', 'Juliana (cliente de teste)', '47999990002', now(), 'juliana@coe.local',
+ ('00000000-0000-0000-0000-00000000c001', 'Juliana (cliente de teste)', '47900000002', now(), 'juliana@coe.local',
   '$2b$10$zOKDWSG5FMKsE/sN70vnTu1CwZwHPYncMFywJ0QaR6x2ZhP3KE23y', '89010000', 'ativo',
   (SELECT id FROM cidade WHERE codigo_ibge = 4202404))
 ON CONFLICT DO NOTHING;
-
--- Bancos locais criados antes desta versão do seed ainda têm o celular antigo da cliente
-UPDATE usuario SET celular = '47999990002'
- WHERE id = '00000000-0000-0000-0000-00000000c001' AND celular IS DISTINCT FROM '47999990002';
 
 INSERT INTO usuario_papel (usuario_id, papel) VALUES
  ('00000000-0000-0000-0000-00000000a001', 'ADMIN'),

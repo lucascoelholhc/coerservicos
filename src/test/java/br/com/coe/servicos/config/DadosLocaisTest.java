@@ -22,8 +22,8 @@ class DadosLocaisTest {
     /** Cada linha de usuário do seed: ('uuid', 'nome', 'celular', now(), 'email', 'senha_hash', ... */
     private static final Pattern LINHA_USUARIO = Pattern.compile(
             "\\('[0-9a-f-]{36}',\\s*'[^']*',\\s*'(?<celular>[^']*)',\\s*now\\(\\),\\s*'[^']*',\\s*'(?<senha>[^']*)'");
-    /** Celulares fictícios reservados para o seed: DDD 47 + 9 0000 00xx ou 9 9999 00xx. */
-    private static final Pattern CELULAR_FICTICIO = Pattern.compile("^47(900000|999990)\\d{3}$");
+    /** Celulares claramente falsos reservados para o seed: 47 9 0000 00xx (47900000001, 47900000002…). */
+    private static final Pattern CELULAR_FICTICIO = Pattern.compile("^479000000\\d{2}$");
     private static final Pattern INSERT_CIDADE = Pattern.compile("(?i)INSERT\\s+INTO\\s+(public\\.)?cidade\\b");
 
     private static String seed;

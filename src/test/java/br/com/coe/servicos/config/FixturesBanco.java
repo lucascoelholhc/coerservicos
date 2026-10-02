@@ -27,11 +27,12 @@ class FixturesBanco {
     }
 
     UUID usuario() {
-        String celular = String.valueOf(47_900_000_000L + SEQUENCIA.incrementAndGet());
+        long numero = SEQUENCIA.incrementAndGet();
+        String celular = String.valueOf(47_900_000_000L + numero);
         return jdbc.queryForObject("""
-                INSERT INTO usuario (nome, celular, senha_hash)
-                VALUES ('Usuário de teste', ?, 'hash-de-teste') RETURNING id
-                """, UUID.class, celular);
+                INSERT INTO usuario (nome, celular, email, senha_hash)
+                VALUES ('Usuário de teste', ?, ?, 'hash-de-teste') RETURNING id
+                """, UUID.class, celular, "usuario" + numero + "@teste.coe.local");
     }
 
     UUID cidade() {
