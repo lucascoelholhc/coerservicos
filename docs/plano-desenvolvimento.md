@@ -101,6 +101,7 @@ O schema está em 10 migrações versionadas (V1–V10) + dados locais. Detalhe 
 | DB-10 | `V10__indices_busca` | Índices e view de busca por cidade e raio |
 | DB-11 | `R__dados_local` + seeder Java | Só no perfil local; profissionais de exemplo pelo seeder (campos cifrados) |
 | DB-13 | `V12__autenticacao_jwt` | Remove `spring_session*` (PA03 = JWT) e cria o que os detalhes do JWT pedirem (ex.: refresh token guardado como hash) |
+| DB-14 | `V13__ocorrencia_profissional` | Junto do DOM-09. `ocorrencia_profissional` só de inserção (gatilhos `fn_somente_insercao` de linha e TRUNCATE, sem UPDATE/DELETE/TRUNCATE para o `coe_app`); `profissional.motivo_suspensao` obrigatório com status `suspenso`; parâmetros `FALTAS_ALERTA` = 2 e `FALTAS_JANELA_DIAS` = 90 com faixa validada (PA07) |
 
 Correções CRITICAL já aplicadas em V1–V10 (antes do primeiro commit): partidas dobradas conferidas por transação no COMMIT (sem transação vazia e sem lançamento em transação fechada); tabelas só de inserção também barram TRUNCATE; papel `coe_app` sem posse do schema.
 
@@ -134,22 +135,42 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 | ID | Módulo | O que constrói | Pronto quando |
 |---|---|---|---|
 | DOM-01 | Catálogo | Categorias, profissões, serviços e cidades ativas | O front monta os filtros só com dados da API |
-| DOM-02 | Cadastro do profissional | 11 etapas com rascunho, bio com censura, fotos, documento + selfie, Pix | Cadastro completo fica "em análise" e fora da busca |
+| DOM-02 | Cadastro do profissional | 11 etapas com rascunho, bio com censura, fotos, documento + selfie, Pix; idade mínima de 18 anos com `Clock` injetado (RN08) | Cadastro completo fica "em análise" e fora da busca; menor de 18 é recusado com "Para trabalhar na COE é preciso ter 18 anos ou mais." |
 | DOM-03 | Verificação | Fila do admin; aprovar ou recusar com motivo; selo NR-10 | Aprovado vira ativo; tudo auditado |
 | DOM-04 | Busca e perfil | Filtros (profissão, cidade no raio, dia livre, valor, experiência); perfil sem contato | Nenhum campo de contato sai antes do pagamento |
-| DOM-05 | Chat e censura | Censura no servidor; conta em análise após N tentativas | Testes com padrões que bloqueiam e que passam (R$, medidas, datas, CEP) |
+| DOM-05 | Chat e censura | Censura no servidor; conta em análise após N tentativas; CEP passa (PA13) | Testes com padrões que bloqueiam e que passam (R$, medidas, datas, `CEP 89010-000`, `CEP 89010000`) |
 | DOM-06 | Contratação | Pedido, datas, agenda, LC 150 (janela de 7 dias), comissão congelada | 3ª diária na janela é recusada; dia ocupado é recusado |
 | DOM-07 | Pagamento e custódia | `GatewayPagamento` + adaptador falso; webhook assinado e idempotente; ledger; custódia rastreada por contrato | Webhook repetido não duplica nada; saldos batem; custódia por contrato nunca negativa |
-| DOM-08 | Execução da diária | Cheguei, terminei com foto, aprovar; job das 12 h (ShedLock); repasse | Duas instâncias não liberam a mesma diária |
-| DOM-09 | Disputa e reembolso | Reclamação trava só o dia; decisão do admin; reembolso = o que o cliente pagou | Os dois caminhos testados no ledger |
+| DOM-08 | Execução da diária | Cheguei, terminei com foto, aprovar; job das 12 h a partir do `terminou_em` (PA08, ShedLock); repasse | Duas instâncias não liberam a mesma diária |
+| DOM-09 | Disputa e reembolso | Reclamação trava só o dia; decisão do admin; reembolso = o que o cliente pagou; falta do profissional (PA07) com DB-14 | Os dois caminhos testados no ledger; casos obrigatórios da falta abaixo |
 | DOM-10 | Avaliações | Nota dos dois lados; média no perfil | Só avalia quem pagou pelo app |
-| DOM-11 | Admin e notificações | Usuários, denúncias, financeiro, configuração; SMS e e-mail | Toda ação do admin em `log_auditoria` |
+| DOM-11 | Admin e notificações | Usuários, denúncias, financeiro, configuração; faltas por profissional com histórico e alerta (RN44d); inativar e reativar profissional (RN44e); SMS e e-mail | Toda ação do admin em `log_auditoria`; alerta com 2 faltas em 90 dias |
 
 **Casos de teste obrigatórios do DOM-07** (decididos no DB-12, ficaram fora da V11):
 - Custódia rastreada **por contrato**: liberar a diária de um contrato nunca usa dinheiro guardado de outro contrato.
 - Saldo de custódia de um contrato **nunca fica negativo**, nem com duas liberações concorrentes (trava por contrato).
 - Saldo do profissional nunca fica negativo no repasse.
 - Os totais batem centavo por centavo: custódia + repassado + receita = total pago.
+
+**Casos de teste obrigatórios do DOM-02** (RN08, idade mínima, com `Clock` injetado):
+- 17 anos e 364 dias: cadastro recusado com "Para trabalhar na COE é preciso ter 18 anos ou mais."
+- Exatos 18 anos (no dia do aniversário): cadastro aceito
+
+**Casos de teste obrigatórios do DOM-05** (PA13):
+- `CEP 89010-000` e `CEP 89010000` passam pela censura
+- Telefone (com e sem separadores) continua bloqueado
+
+**Casos de teste obrigatórios do DOM-09** (PA07, falta do profissional):
+- Falta confirmada: reembolso **integral** da diária da falta (diária + comissão), conferido no ledger
+- Cliente mantém as outras diárias: elas seguem normais
+- Cliente cancela: as diárias futuras do contrato são reembolsadas integralmente; as já liberadas não mudam
+- Falta confirmada grava uma linha em `ocorrencia_profissional`
+- Disputa `nao_compareceu` decidida a favor do profissional **não** grava falta
+- `ocorrencia_profissional` recusa UPDATE, DELETE e TRUNCATE
+- Alerta no painel com `FALTAS_ALERTA` faltas em `FALTAS_JANELA_DIAS` dias, e sem alerta com uma falta a menos ou fora da janela
+- Inativação é manual: nenhuma quantidade de faltas muda o status sozinha; inativar exige motivo e grava `log_auditoria`
+- Reativação pelo admin volta o profissional a `ativo`, auditada
+- O mesmo CPF não cria outro cadastro de profissional
 
 **Teste de ponta a ponta da etapa:** profissional se cadastra, admin aprova, cliente busca, conversa, contrata 2 diárias, paga, profissional marca cheguei e terminei, cliente aprova uma e a outra libera sozinha em 12 h (relógio avançado). Os saldos do ledger batem centavo por centavo.
 
@@ -226,13 +247,13 @@ Tudo em código (Terraform ou AWS CDK), nada configurado à mão no console.
 | Ponto | Precisa estar decidido antes de | Proposta |
 |---|---|---|
 | PA03 Autenticação: detalhes do JWT | Dia 5 (CORE-03) | JWT decidido. Falta: duração, refresh e onde o front guarda o token (proposta no PA03) |
-| PA13 CEP na censura | Dia 18 (DOM-05) | Deixar passar o formato 00000-000 |
-| PA05 Quem paga a comissão | Dia 20 (DOM-06) | Cliente (padrão atual) |
-| PA08 Marco das 12 h | Dia 25 (DOM-08) | A partir do "Terminei o dia" |
-| PA07 Falta do profissional | Dia 28 (DOM-09) | Decidir a política |
-| PA02 Gateway | Dia 52 (AWS-09) | Abrir o sandbox com antecedência |
+| PA02 Gateway | Dia 52 (AWS-09) | Escolher o gateway e **abrir o sandbox até o dia 40**, para o AWS-09 ter conta e credenciais de teste prontas |
 
-Já decididos: PA01 (PostgreSQL), PA03 (JWT; detalhes do token antes do CORE-03), PA04 (React), PA06 (reembolso = o que o cliente pagou), LC 150 em janela de 7 dias, uma diária por profissional por dia.
+Já decididos: PA01 (PostgreSQL), PA03 (JWT; detalhes do token antes do CORE-03), PA04 (React), PA05 (comissão paga pelo cliente), PA06 (reembolso = o que o cliente pagou), PA07 (falta do profissional, RN44a–RN44e), PA08 (12 h a partir do "Terminei o dia"), PA13 (CEP passa na censura), LC 150 em janela de 7 dias (confirmada com o advogado), uma diária por profissional por dia, idade mínima de 18 anos, retenção LGPD de 5 anos.
+
+### Tarefas futuras registradas
+- **Expurgo LGPD** (job agendado, idempotente, com log): 5 anos após a exclusão da conta, apaga CPF, chave Pix e data de nascimento; mantém o `cpf_hash` só de quem estiver inativado (`suspenso`). Precisa de migração nova: hoje o `ck_profissional_completo` exige esses campos fora do rascunho.
+- **Reativação após exclusão de conta**: **A DEFINIR**. Enquanto isso, o mesmo CPF não cria novo cadastro.
 
 ## 11. Cronograma dia a dia
 Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "Status atual" do CLAUDE.md atualizado. Os dias 10, 33 e 44 são de revisão e servem de folga se o cronograma atrasar. Sem uma decisão necessária, marque o dia como travado e adiante o seguinte.

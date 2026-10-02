@@ -65,11 +65,15 @@ npx playwright test
 
 ## Regras de negócio já decididas (resumo; a fonte é `docs/regras-negocio.md`)
 - Parâmetros vêm da tabela `configuracao` (view `configuracao_vigente`). **Nunca fixar no código**: comissão 10%, liberação em 12 h, disputa decidida em 48 h, 3 tentativas de contato antes de análise, limite LC 150 = 2.
-- Comissão e "quem paga a taxa" são **copiados para o contrato** na compra. Mudar a configuração não altera contrato fechado. Quem paga a taxa: padrão cliente, decisão final **A DEFINIR** (PA05).
+- Comissão e "quem paga a taxa" são **copiados para o contrato** na compra. Mudar a configuração não altera contrato fechado. A comissão é **paga pelo cliente**, somada ao total (PA05).
+- **Liberação automática**: 12 h contadas a partir do "Terminei o dia" (`terminou_em`) (PA08).
+- **Idade mínima** do profissional: 18 anos, obrigatório, validado com `Clock` injetado. Mensagem: "Para trabalhar na COE é preciso ter 18 anos ou mais."
+- **Falta do profissional** (PA07): reembolso integral da diária da falta; o cliente escolhe manter ou cancelar as outras (canceladas futuras = reembolso integral); falta registrada em `ocorrencia_profissional` (só inserção); alerta com 2 faltas em 90 dias; inativação **manual e reversível** (status `suspenso` com motivo, auditado); o mesmo CPF não cria outro cadastro.
+- **Retenção LGPD**: CPF, Pix e data de nascimento de quem excluiu a conta ficam 5 anos; depois, expurgo (tarefa futura).
 - **Reembolso** devolve exatamente o que o cliente pagou por aquela diária: diária + comissão se a taxa é do cliente; só a diária se a taxa é do profissional. Comissão só vira receita quando a diária é liberada.
-- **LC 150**: mesma diarista + mesmo cliente = no máximo 2 diárias em **qualquer janela de 7 dias seguidos** (não semana fixa). Meia diária conta como um dia.
+- **LC 150**: mesma diarista + mesmo cliente = no máximo 2 diárias em **qualquer janela de 7 dias seguidos** (não semana fixa; confirmado com o advogado). Meia diária conta como um dia.
 - **Uma diária por profissional por dia**, inteira ou meia. Duas meias no mesmo dia só na fase 2.
-- Contato (telefone, endereço completo) só aparece **depois do pagamento confirmado**. Antes disso, censura no servidor em chat, bio, pedido e legendas.
+- Contato (telefone, endereço completo) só aparece **depois do pagamento confirmado**. Antes disso, censura no servidor em chat, bio, pedido e legendas. CEP (`00000-000` ou "CEP" + 8 dígitos) passa; telefone não (PA13).
 - Reclamação trava **só aquela diária**; a equipe decide liberar ou reembolsar.
 
 ## Regras técnicas inegociáveis
@@ -136,7 +140,9 @@ npx playwright test
   - dois clientes reservando o mesmo dia do mesmo profissional
   - LC 150: 3ª diária na janela de 7 dias recusada, inclusive virando a semana
   - acesso a recurso de outro usuário
-  - censura: frases que devem bloquear e frases que devem passar (valores em R$, medidas, datas, CEP)
+  - censura: frases que devem bloquear e frases que devem passar (valores em R$, medidas, datas, `CEP 89010-000`, `CEP 89010000`)
+  - idade mínima: 17 anos e 364 dias recusado; exatos 18 anos aceito
+  - falta do profissional: reembolso integral, registro em `ocorrencia_profissional` e inativação só manual
   - transação financeira desbalanceada recusada
 
 ## Fluxo de trabalho (ECC)

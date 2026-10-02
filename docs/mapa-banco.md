@@ -1298,3 +1298,13 @@ Notas para o código:
 - A V11 parte da premissa de que não há dados de produção. Com dados reais, CHECK nova entra como `NOT VALID` e depois `VALIDATE CONSTRAINT`.
 
 Ficaram para o DOM-07: custódia rastreada por contrato e saldo nunca negativo.
+
+## 8. Planejado (ainda não aplicado)
+
+| Migração | Conteúdo | Regra |
+|---|---|---|
+| V12 (DB-13) | Remove `spring_session*`; tabelas que o JWT pedir (ex.: refresh token como hash) | PA03 |
+| V13 (DB-14), junto do DOM-09 | `ocorrencia_profissional (profissional_id, diaria_id, disputa_id, tipo 'falta', registrado_por, criado_em)` só de inserção, com os gatilhos de `fn_somente_insercao` (linha e TRUNCATE) e sem UPDATE/DELETE/TRUNCATE para o `coe_app`; `profissional.motivo_suspensao` obrigatório com status `suspenso`; parâmetros `FALTAS_ALERTA` = 2 e `FALTAS_JANELA_DIAS` = 90 | PA07, RN44c–RN44e |
+| Futura (expurgo LGPD) | Permitir apagar CPF, chave Pix e data de nascimento 5 anos após a exclusão (hoje o `ck_profissional_completo` exige esses campos fora do rascunho); `cpf_hash` mantido só para inativados | RN60, RNF16 |
+
+Retenção: `ocorrencia_profissional` e o `cpf_hash` de profissional inativado ficam mesmo se a conta for excluída.
