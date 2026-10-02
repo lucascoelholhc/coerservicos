@@ -57,6 +57,13 @@ class TratadorDeErrosTest extends IntegracaoTest {
 
         record ItemDeTeste(@Min(1) int quantidade) {}
 
+        record PrecoDeTeste(br.com.coe.servicos.compartilhado.dinheiro.Dinheiro valor) {}
+
+        @PostMapping("/preco")
+        PrecoDeTeste preco(@RequestBody PrecoDeTeste preco) {
+            return preco;
+        }
+
         @PostMapping("/validacao")
         PedidoDeTeste validacao(@Valid @RequestBody PedidoDeTeste pedido) {
             return pedido;
@@ -172,6 +179,20 @@ class TratadorDeErrosTest extends IntegracaoTest {
         mockMvc.perform(get("/teste/erros/parametro"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value("Confira os dados enviados."));
+    }
+
+    @Test
+    @DisplayName("400: valor em dinheiro com 3 casas ou negativo no corpo (nunca 500)")
+    void dinheiroInvalidoNoCorpo() throws Exception {
+        for (String valor : new String[] {"280.005", "-1.00", "abc"}) {
+            mockMvc.perform(post("/teste/erros/preco")
+                            .with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"valor\":\"" + valor + "\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(content().contentType(PROBLEM_JSON))
+                    .andExpect(jsonPath("$.type").value("urn:coe:erro:requisicao-invalida"));
+        }
     }
 
     @Test
