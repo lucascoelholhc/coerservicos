@@ -275,7 +275,7 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 ### Fatia 0: Núcleo (dias 3–7)
 | Dia | Tarefas | O que fazer | Pronto quando |
 |---|---|---|---|
-| 3 | CORE-01, CORE-12, CORE-13 | `Dinheiro`, comissão, configuração, `Clock` | 100% no cálculo de comissão e repasse |
+| 3 ✅ | CORE-01, CORE-12, CORE-13 | `Dinheiro`, comissão, configuração, `Clock` | 100% no cálculo de comissão e repasse (**feito**) |
 | 4 | CORE-02 | Cadastro de cliente (com e-mail) | Celular ou e-mail repetido é recusado; e-mail obrigatório |
 | 5 | CORE-03, DB-13 | Login com JWT, renovação, logout, sair de todos; V12 (`refresh_token`, `mfa_sms_ativo`, sem `spring_session*`) | Token expirado ou revogado é recusado; refresh reutilizado revoga a família |
 | 6 | CORE-06, CORE-08 | Papéis, checagem de dono, CORS, CSRF na renovação; 401/403 em Problem Details | 403 no recurso de outro |
