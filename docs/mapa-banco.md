@@ -350,7 +350,7 @@ Regras:
 
 #### `spring_session`
 
-Sessões de login (Spring Session). Sai se o PA03 virar JWT.
+Sessões de login (Spring Session). **Sai na V12** (DB-13): o PA03 decidiu por JWT.
 
 | Coluna | Tipo | Obrigatória | Padrão | Chave |
 |---|---|---|---|---|

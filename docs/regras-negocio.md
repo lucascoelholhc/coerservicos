@@ -11,6 +11,7 @@ A COE é um marketplace de serviços por diária: o cliente paga antes, o dinhei
 | --- | --- | --- |
 | Banco | PostgreSQL 16 + Flyway | PA01 |
 | Front | React + TypeScript + Vite | PA04 |
+| Autenticação | JWT (detalhes do token A DEFINIR antes do CORE-03) | PA03 |
 | Reembolso | Devolve exatamente o que o cliente pagou pela diária (diária + comissão se a taxa é do cliente; só a diária se é do profissional) | RN34, PA06 |
 | LC 150 | Máx. 2 diárias da mesma diarista para o mesmo cliente em **qualquer janela de 7 dias seguidos**; meia diária conta como dia | RN51 |
 | Agenda | Uma diária por profissional por dia, inteira ou meia (duas meias no mesmo dia só na fase 2) | RN26 |
@@ -312,7 +313,7 @@ São 58 requisitos em 7 módulos, cada um ligado às regras que implementa. Prio
 | --- | --- | --- | --- |
 | PA01 | Banco de dados | MySQL ou PostgreSQL | **Decidido: PostgreSQL 16 + Flyway** |
 | PA02 | Gateway de pagamento com custódia e split | Asaas, Pagar.me, Iugu ou Mercado Pago | **A DEFINIR** até o dia 52 do cronograma. Até lá, adaptador falso |
-| PA03 | Autenticação | JWT ou sessão com cookie | **A DEFINIR** antes do dia 5. Proposta: sessão em cookie (Spring Session JDBC) |
+| PA03 | Autenticação | JWT ou sessão com cookie | **Decidido: JWT.** **A DEFINIR** antes do dia 5 (CORE-03): duração do token, refresh e onde o front guarda; proposta: token de acesso curto (15 min) no header `Authorization`, guardado só em memória no front; refresh token rotativo em cookie HttpOnly/Secure/SameSite=Strict, válido só no endpoint de renovação e guardado como hash no banco (revogado no logout e na troca de senha). As tabelas `spring_session*` da V2 saem numa V12 |
 | PA04 | Front final | HTML puro ou React | **Decidido: React + TypeScript + Vite**, seguindo as telas do protótipo HTML aprovado |
 | PA05 | Quem paga a comissão de 10% | Cliente (somada) ou profissional (descontada) | **A DEFINIR** antes do dia 20. Padrão atual: cliente |
 | PA06 | Reembolso de diária | Devolve só a diária ou também a comissão | **Decidido:** devolve o que o cliente pagou pela diária (RN34) |

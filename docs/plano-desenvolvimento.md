@@ -90,7 +90,7 @@ O schema está em 10 migrações versionadas (V1–V10) + dados locais. Detalhe 
 | ID | Migração | Conteúdo |
 |---|---|---|
 | DB-01 | `V1__base` | Extensões (`pgcrypto`, `citext`, `unaccent`, `pg_trgm`), funções utilitárias, `configuracao` |
-| DB-02 | `V2__conta` | `usuario`, `usuario_papel`, `codigo_sms`, `token_senha`, `aceite_termos`, Spring Session |
+| DB-02 | `V2__conta` | `usuario`, `usuario_papel`, `codigo_sms`, `token_senha`, `aceite_termos`, Spring Session (sai na V12: PA03 = JWT) |
 | DB-03 | `V3__catalogo` | `cidade`, `area`, `profissao`, `servico` + dados de referência |
 | DB-04 | `V4__profissional` | Perfil, serviços, cidades, agenda, documentos, portfólio |
 | DB-05 | `V5__contratacao` | `contrato`, `foto_pedido`, `diaria`, `evidencia_diaria`, `historico_diaria` |
@@ -100,6 +100,7 @@ O schema está em 10 migrações versionadas (V1–V10) + dados locais. Detalhe 
 | DB-09 | `V9__admin_auditoria` | `log_auditoria`, `notificacao`, `denuncia` |
 | DB-10 | `V10__indices_busca` | Índices e view de busca por cidade e raio |
 | DB-11 | `R__dados_local` + seeder Java | Só no perfil local; profissionais de exemplo pelo seeder (campos cifrados) |
+| DB-13 | `V12__autenticacao_jwt` | Remove `spring_session*` (PA03 = JWT) e cria o que os detalhes do JWT pedirem (ex.: refresh token guardado como hash) |
 
 Correções CRITICAL já aplicadas em V1–V10 (antes do primeiro commit): partidas dobradas conferidas por transação no COMMIT (sem transação vazia e sem lançamento em transação fechada); tabelas só de inserção também barram TRUNCATE; papel `coe_app` sem posse do schema.
 
@@ -115,12 +116,12 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 |---|---|---|---|
 | CORE-01 | Tipo `Dinheiro` | Value object sobre BigDecimal (escala 2, HALF_EVEN), comissão e repasse | RNF09, RN31 |
 | CORE-02 | Cadastro de cliente | `POST /api/contas/cliente` com nome, celular, e-mail, CEP e senha; aceite dos termos com versão | RF03, RNF18 |
-| CORE-03 | Senha e login | Argon2 ou BCrypt; login por celular + senha; sessão (PA03) | RNF01 |
+| CORE-03 | Senha e login | Argon2 ou BCrypt; login por celular + senha; emissão, renovação e revogação de JWT (PA03) | RNF01 |
 | CORE-04 | Login por SMS | Código de 6 dígitos em hash, 5 min, 5 tentativas; `EnviadorSms` falso no local | RF01 |
 | CORE-05 | Recuperar senha | Token de uso único com validade curta | RF01 |
 | CORE-06 | Papéis e autorização | CLIENTE, PROFISSIONAL, ADMIN; checagem de dono em todo recurso | RNF02 |
 | CORE-07 | Rate limit | Bucket4j em login, SMS, recuperação de senha e chat | RNF03 |
-| CORE-08 | CSRF e CORS | Token CSRF para o React; CORS fechado | RNF01 |
+| CORE-08 | CSRF e CORS | CORS fechado ao domínio da COE; CSRF onde houver cookie (renovação do token, se o refresh ficar em cookie) | RNF01 |
 | CORE-09 | Arquivos | `Armazenamento` (S3): tipo real, tamanho, sem EXIF, nome gerado, URL assinada. Escolher o S3 local do compose (SeaweedFS, LocalStack ou RustFS) | RNF07, RNF14 |
 | CORE-10 | Criptografia de campo | Conversor JPA AES-GCM para CPF, Pix e endereço | RNF13 |
 | CORE-11 | Auditoria e logs | `log_auditoria`; logs JSON com máscara de dados pessoais | RNF08, RNF15 |
@@ -158,7 +159,7 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 | ID | Tarefa | Entrega |
 |---|---|---|
 | FE-01 | Base do React | `frontend/` com Vite + React + TS (strict), React Router, `tokens.css`, fontes, layout (Cabeçalho, MenuInferior) e componentes base (Botao, Carimbo, StatusDiaria, Nota, Chip, Avatar) |
-| FE-02 | Camada `src/api/` | `fetch` com cookie e CSRF, erros Problem Details em português, 401 → entrar; proxy `/api` do Vite para 8080 |
+| FE-02 | Camada `src/api/` | `fetch` com o JWT no header `Authorization`, renovação do token ao receber 401 e, se falhar, tela de entrar; erros Problem Details em português; proxy `/api` do Vite para 8080 |
 | FE-03 | Telas públicas e conta | Início, categorias, busca, perfil, entrar, criar conta (nome, celular, e-mail, CEP e senha; RF03), recuperar senha |
 | FE-04 | Cadastro do profissional | 11 etapas com upload de fotos e documentos |
 | FE-05 | Área do cliente | Contratar, pagar (adaptador falso), acompanhar diárias, aprovar, reclamar, avaliar, chat |
@@ -224,14 +225,14 @@ Tudo em código (Terraform ou AWS CDK), nada configurado à mão no console.
 ## 10. Decisões que travam tarefas
 | Ponto | Precisa estar decidido antes de | Proposta |
 |---|---|---|
-| PA03 Autenticação | Dia 5 (CORE-03) | Sessão em cookie |
+| PA03 Autenticação: detalhes do JWT | Dia 5 (CORE-03) | JWT decidido. Falta: duração, refresh e onde o front guarda o token (proposta no PA03) |
 | PA13 CEP na censura | Dia 18 (DOM-05) | Deixar passar o formato 00000-000 |
 | PA05 Quem paga a comissão | Dia 20 (DOM-06) | Cliente (padrão atual) |
 | PA08 Marco das 12 h | Dia 25 (DOM-08) | A partir do "Terminei o dia" |
 | PA07 Falta do profissional | Dia 28 (DOM-09) | Decidir a política |
 | PA02 Gateway | Dia 52 (AWS-09) | Abrir o sandbox com antecedência |
 
-Já decididos: PA01 (PostgreSQL), PA04 (React), PA06 (reembolso = o que o cliente pagou), LC 150 em janela de 7 dias, uma diária por profissional por dia.
+Já decididos: PA01 (PostgreSQL), PA03 (JWT; detalhes do token antes do CORE-03), PA04 (React), PA06 (reembolso = o que o cliente pagou), LC 150 em janela de 7 dias, uma diária por profissional por dia.
 
 ## 11. Cronograma dia a dia
 Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "Status atual" do CLAUDE.md atualizado. Os dias 10, 33 e 44 são de revisão e servem de folga se o cronograma atrasar. Sem uma decisão necessária, marque o dia como travado e adiante o seguinte.
@@ -247,8 +248,8 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 |---|---|---|---|
 | 3 | CORE-01, CORE-12, CORE-13 | `Dinheiro`, comissão, configuração, `Clock` | 100% no cálculo de comissão e repasse |
 | 4 | CORE-02 | Cadastro de cliente | Celular ou e-mail repetido é recusado; e-mail obrigatório |
-| 5 | CORE-03 | Login, sessão, logout | Cookie `HttpOnly` e `Secure` |
-| 6 | CORE-06, CORE-08 | Papéis, checagem de dono, CSRF, CORS | 403 no recurso de outro |
+| 5 | CORE-03, DB-13 | Login com JWT, renovação, logout; V12 sem `spring_session*` | Token expirado ou revogado é recusado |
+| 6 | CORE-06, CORE-08 | Papéis, checagem de dono, CORS (e CSRF onde houver cookie) | 403 no recurso de outro |
 | 7 | CORE-04, CORE-05 | Login por SMS, recuperar senha | Código expira e trava na 5ª tentativa |
 | 8 | CORE-07, CORE-11 | Rate limit, auditoria, logs mascarados | Logs sem dado pessoal |
 | 9 | CORE-09, CORE-10 | Armazenamento, criptografia de campo | Upload falso rejeitado; CPF cifrado |

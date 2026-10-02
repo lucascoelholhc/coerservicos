@@ -97,8 +97,8 @@ npx playwright test
 ### Segurança (prioridade máxima)
 - Spring Security com papéis CLIENTE, PROFISSIONAL e ADMIN.
 - **Autorização por objeto em toda consulta** (anti-IDOR): cada usuário só acessa os próprios contratos, diárias, conversas e documentos. Recurso de outro usuário retorna 403 ou 404.
-- Senhas com BCrypt ou Argon2. Autenticação: **A DEFINIR** (PA03). Proposta: sessão em cookie HttpOnly/Secure/SameSite salva no Postgres (Spring Session JDBC), com o front no mesmo domínio. Se virar JWT, remover as tabelas `spring_session*`.
-- CSRF ativo para o front; CORS restrito ao domínio da COE.
+- Senhas com BCrypt ou Argon2. Autenticação: **JWT** (PA03 decidido). **A DEFINIR** antes do CORE-03: duração do token, refresh e onde o front guarda; proposta: token de acesso curto (15 min) no header `Authorization`, guardado só em memória no front; refresh token rotativo em cookie HttpOnly/Secure/SameSite=Strict, válido só no endpoint de renovação e guardado como hash no banco (revogado no logout e na troca de senha). As tabelas `spring_session*` saem na V12 (DB-13).
+- CORS restrito ao domínio da COE. CSRF onde houver cookie (renovação do token, se o refresh ficar em cookie).
 - Rate limit em login, SMS, recuperação de senha, chat e criação de conta.
 - Bean Validation em toda entrada. **Nunca confiar no front.**
 - **LGPD:**
@@ -119,10 +119,10 @@ npx playwright test
 - Identidade "Dia carimbado": azul-violeta de carimbo `--carimbo #3B3DC4` (marca e ação principal), amarelo `--sinal #FFCF33` **só no que pede atenção** (texto sempre `--tinta` sobre ele), fundo `--papel #EEF0F4`; uma família só, **Archivo** (títulos 800 com largura 125%). Cores sempre por variável CSS de `tokens.css`, nunca hex solto.
 - **Mobile-first a partir de 360 px**; alvos de toque com pelo menos 44 px (botões 52 px); WCAG 2.1 AA (rótulo em todo campo, foco visível, teclado); status nunca só por cor.
 - Textos em pt-BR simples, pensados para o profissional ("Cheguei", "Terminei o dia", "Dinheiro").
-- Chamadas à API: `fetch` com `credentials: 'include'`, token CSRF, erros Problem Details mostrados em português, 401 → tela de entrar.
+- Chamadas à API: `fetch` com o JWT no header `Authorization`; ao receber 401, renova o token e, se falhar, vai para a tela de entrar; erros Problem Details mostrados em português.
 - **Nenhuma regra de negócio só no front**: valores, comissão, limite LC 150, censura e estados vêm da API. O front pode avisar antes, o backend decide.
 - Toda tela tem estados de carregando, vazio, erro e sem conexão.
-- Local: Vite com proxy `/api` → `http://localhost:8080` (mesma origem para o cookie). Produção: build servido no mesmo domínio da API.
+- Local: Vite com proxy `/api` → `http://localhost:8080` (mesma origem). Produção: build servido no mesmo domínio da API.
 
 ## Testes
 - **TDD obrigatório**: teste falhando primeiro, depois a implementação.
