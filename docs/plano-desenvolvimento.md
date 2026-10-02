@@ -16,7 +16,7 @@ O MVP sai em 7 etapas, de 0 a 6. As etapas 0 a 5 terminam com o sistema rodando 
 | Testes back | JUnit 5, AssertJ, Mockito, Spring Boot Test, Testcontainers (Postgres real), JaCoCo |
 | Front | React + TypeScript + Vite em `frontend/`, seguindo o protótipo "Dia carimbado" (`docs/identidade-visual.md`) |
 | Testes front | Vitest + Testing Library; Playwright para E2E |
-| Ambiente local | Postgres + Docker Compose (MinIO no lugar do S3, Mailpit para e-mail/SMS falso) |
+| Ambiente local | Postgres + Docker Compose (Mailpit para e-mail/SMS falso). S3 local escolhido no CORE-09: a imagem pública do MinIO deixou de existir |
 | Pagamento no local | Adaptador falso do gateway, com a mesma interface do gateway real |
 
 ### Arquitetura
@@ -65,7 +65,7 @@ Toda tarefa passa pelo mesmo ciclo. Uma tarefa corresponde a uma branch e a um P
 | ID | Tarefa | Entrega |
 |---|---|---|
 | AMB-01 | Revisar o projeto | Java 21, Spring Boot 4; dependências webmvc, security, data-jpa, validation, actuator, flyway (starter), flyway-database-postgresql, postgresql, testcontainers |
-| AMB-02 | `docker-compose.yml` | `postgres:16` (volume nomeado), `minio`, `mailpit` |
+| AMB-02 | `docker-compose.yml` | `postgres:16` (volume nomeado, porta 5433, cria o papel `coe_app`), `mailpit`. Sem S3 por ora (entra no CORE-09) |
 | AMB-03 | Perfis Spring | `local`, `test`, `prod`; segredos por variável de ambiente; `.env.example` no repositório e `.env` no `.gitignore` |
 | AMB-04 | Pacotes | Um pacote por domínio + `compartilhado` (erros, dinheiro, auditoria, armazenamento) |
 | AMB-05 | Teste base | Classe `IntegracaoTest` com Testcontainers Postgres reutilizável + teste de fumaça |
@@ -121,7 +121,7 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 | CORE-06 | Papéis e autorização | CLIENTE, PROFISSIONAL, ADMIN; checagem de dono em todo recurso | RNF02 |
 | CORE-07 | Rate limit | Bucket4j em login, SMS, recuperação de senha e chat | RNF03 |
 | CORE-08 | CSRF e CORS | Token CSRF para o React; CORS fechado | RNF01 |
-| CORE-09 | Arquivos | `Armazenamento` (MinIO/S3): tipo real, tamanho, sem EXIF, nome gerado, URL assinada | RNF07, RNF14 |
+| CORE-09 | Arquivos | `Armazenamento` (S3): tipo real, tamanho, sem EXIF, nome gerado, URL assinada. Escolher o S3 local do compose (SeaweedFS, LocalStack ou RustFS) | RNF07, RNF14 |
 | CORE-10 | Criptografia de campo | Conversor JPA AES-GCM para CPF, Pix e endereço | RNF13 |
 | CORE-11 | Auditoria e logs | `log_auditoria`; logs JSON com máscara de dados pessoais | RNF08, RNF15 |
 | CORE-12 | Configuração | Leitura da `configuracao_vigente` | RN31, RN38 |
@@ -199,7 +199,7 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 |---|---|
 | Aplicação local | ECS Fargate atrás de um Application Load Balancer |
 | Postgres local | RDS for PostgreSQL 16, subnet privada, backup automático |
-| MinIO | S3 privado com URL assinada |
+| S3 local (CORE-09) | S3 privado com URL assinada |
 | `.env` | Secrets Manager + KMS |
 | Mailpit / SMS falso | Amazon SES + provedor de SMS |
 | Logs no terminal | CloudWatch Logs e alarmes |
@@ -240,7 +240,7 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 | Dia | Tarefas | O que fazer | Pronto quando |
 |---|---|---|---|
 | 1 | AMB-01 a AMB-04, DB-01 a DB-10 | Conferir o pom; `application.yml`, `application-local.yml`, `.env`; pacotes; migrações V1–V10 e dados locais; subir no perfil local | `flyway_schema_history` com V1 a V10 + R; health UP (**M1**) |
-| 2 | AMB-05 a AMB-08, teste das migrações | Compose (MinIO, Mailpit); `IntegracaoTest`; teste das migrações e constraints; JaCoCo; Problem Details; README | `./mvnw verify` verde (**M0**) |
+| 2 | AMB-05 a AMB-08, teste das migrações | Compose (Postgres, Mailpit); `IntegracaoTest`; teste das migrações e constraints; JaCoCo; Problem Details; README | `./mvnw verify` verde (**M0**) |
 
 ### Etapa 2: Núcleo e segurança (dias 3–10)
 | Dia | Tarefas | O que fazer | Pronto quando |
