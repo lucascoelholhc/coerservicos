@@ -2,10 +2,7 @@
 
 > Banco `coeservicos`, PostgreSQL 16. O schema é criado pelas migrações Flyway V1–V10 (`src/main/resources/db/migration`); os dados locais ficam em `db/local/R__dados_local.sql`. Este mapa foi gerado do schema real em 01/10/2026 (42 tabelas e 3 views) e atualizado em 02/10/2026 com as correções CRITICAL aplicadas em V1–V10: partidas dobradas por transação, bloqueio de TRUNCATE e papel `coe_app`.
 >
-> **Pendente para a V11** (V1–V10 já estão commitadas e não são mais editadas):
-> - `evento_gateway`: unicidade de `(gateway, id_evento)` só quando `assinatura_valida`; coluna com o corpo bruto do webhook.
-> - `transacao_financeira`: no máximo uma transação de `liberacao` ou `reembolso` por diária (índice único parcial).
-> - Cidades do lançamento numa migração versionada, não só no seed local (conferir os códigos IBGE).
+> **V11 aplicada em 02/10/2026** (`V11__correcoes_high_e_lacunas_rn.sql`). O dicionário da seção 6 ainda descreve V1–V10; as mudanças da V11 estão na seção 7.
 >
 > Se o código divergir deste arquivo, **a migração é a fonte da verdade.**
 
@@ -112,7 +109,12 @@ Saldo = créditos − débitos (view `saldo_conta`). A conta `gateway` fica nega
 | Aplicação alterando o ledger ou desligando gatilhos | privilégios do papel `coe_app` |
 | Mesma chave de idempotência duas vezes | `uq_transacao_idempotencia` |
 | Alterar ou apagar lançamento, histórico, auditoria ou configuração | `fn_somente_insercao` |
-| Mesmo webhook duas vezes | `uq_evento_gateway` |
+| Mesmo webhook (assinatura válida) duas vezes | `uq_evento_gateway` (parcial, V11) |
+| Alterar o conteúdo de um webhook recebido | `trg_evento_gateway_imutavel` (V11) |
+| Liberar e reembolsar, ou liberar duas vezes, a mesma diária | `uq_transacao_diaria_destino` (V11) |
+| Contrato com o próprio profissional | `trg_contrato_sem_autocontratacao` (V11) |
+| Apagar usuário (a exclusão é por anonimização) | `trg_usuario_sem_delete` (V11) |
+| Limite da LC 150 configurado acima de 2 | `ck_configuracao_limite_lc150` (V11) |
 | Reembolso diferente de diária + comissão | `ck_reembolso_total` |
 | Dois reembolsos para a mesma diária | `uq_reembolso_diaria` |
 | Nota fora de 1 a 5; duas avaliações do mesmo lado | `avaliacao_nota_check`, `uq_avaliacao_contrato_autor` |
@@ -1270,3 +1272,29 @@ Regras:
 
 - `ix_denuncia_alvo`: `btree (alvo_usuario_id)`
 - `ix_denuncia_fila`: `btree (criado_em) WHERE (status = ANY (ARRAY['aberta'::text, 'em_analise'::text]))`
+
+## 7. Mudanças da V11 (DB-12)
+
+| Tabela | Mudança | Regra |
+|---|---|---|
+| `evento_gateway` | `uq_evento_gateway` virou índice único parcial `WHERE assinatura_valida` (evento forjado não ocupa o id); nova coluna `corpo_bruto bytea NOT NULL`, até 1 MiB (`ck_evento_corpo_tamanho`); `trg_evento_gateway_imutavel` deixa mudar só `processado_em` e `erro`; evento forjado nunca é processado (`ck_evento_processado_valido`) nem entra na fila (`ix_evento_nao_processado` filtra `assinatura_valida`); `coe_app` sem DELETE/TRUNCATE | RNF06 |
+| `transacao_financeira` | `uq_transacao_diaria_destino (diaria_id) WHERE tipo IN ('liberacao','reembolso')`; `ck_transacao_diaria_obrigatoria` (liberação/reembolso exigem diária); `ck_transacao_pagamento_cobranca` (pagamento exige cobrança) | RN39, RNF11 |
+| `cidade` | As 10 cidades do lançamento (Vale do Itajaí) inseridas pela migração, ativas, em todos os ambientes | PA16 |
+| `contrato_servico` (nova) | `(contrato_id, servico_id)`, PK `pk_contrato_servico`: serviços marcados no pedido | RN27 |
+| `contrato` | `descricao` opcional: NULL ou 15–600 caracteres (`ck_contrato_descricao`); `ck_contrato_concluido`; gatilho `trg_contrato_sem_autocontratacao` | RN27 |
+| `profissional` | status ganha `pausado` (só depois de aprovado: `ck_profissional_pausado`) e `correcao_pedida` (`ck_profissional_status`); `motivo_correcao` obrigatório na correção (`ck_profissional_correcao`); `data_nascimento` (> 1900, obrigatória fora do rascunho no `ck_profissional_completo`; 18 anos no serviço); `ck_profissional_raio` só 5/10/20/40; `ck_profissional_cpf_hash` (32 bytes) | RN08, RN13, RN17, RN20, RN56 |
+| `documento_verificacao` | status ganha `correcao_pedida` (`ck_documento_status`); `motivo_correcao` obrigatório nela (`ck_documento_correcao`); `motivo_recusa` só para recusa | RN13 |
+| `configuracao` | `ck_configuracao_valor_tipo` (valor conforme o tipo, inteiro até 9 dígitos); `ck_configuracao_limite_lc150` (1 a 2); `ck_configuracao_faixas` (`COMISSAO` em [0, 1), `TAXA_PAGA_POR` cliente/profissional, horas, minutos e tentativas > 0) | RN52 |
+| `usuario` | `celular` e `senha_hash` só podem ser nulos com status `excluido` (`ck_usuario_credenciais`); DELETE barrado por `trg_usuario_sem_delete` (exclusão de conta = anonimização) e retirado do `coe_app` | RN60 |
+| `aceite_termos`, `evidencia_diaria`, `anexo_disputa` | FKs recriadas como `ON DELETE RESTRICT` (`fk_aceite_termos_usuario`, `fk_evidencia_diaria`, `fk_anexo_disputa`): provas não somem em cascata | RNF18, RN41 |
+| `cobranca`, `reembolso`, `repasse` | `ck_cobranca_estornada`, `ck_reembolso_confirmado`; `uq_repasse_externo` e `uq_reembolso_externo` (id externo único quando preenchido) | — |
+| Todas com `trg_*_toca` | `fn_toca_registro` sobe `versao` em todo UPDATE (trava otimista também para job e SQL nativo; compatível com `@Version`) | RN39 |
+| Índices | Toda FK tem índice começando pela sua coluna (27 índices novos, incluindo `ix_diaria_cliente`, `ix_diaria_profissional`, `ix_disputa_diaria`) | — |
+| Extensões | `pgcrypto` removida (`gen_random_uuid()` é nativa). Os comentários da V1 que citam a pgcrypto ficaram desatualizados (V1 não é editada) | — |
+| Seed local | `R__dados_local` aborta se o placeholder `${ambiente}` não for `local` (definido só no `application-local.yml`); celulares fictícios; cidades saíram do seed | — |
+
+Notas para o código:
+- Com o índice parcial, o upsert do webhook precisa do predicado: `ON CONFLICT (gateway, id_evento) WHERE assinatura_valida DO NOTHING`. Sem o `WHERE`, o Postgres responde "no unique or exclusion constraint matching".
+- A V11 parte da premissa de que não há dados de produção. Com dados reais, CHECK nova entra como `NOT VALID` e depois `VALIDATE CONSTRAINT`.
+
+Ficaram para o DOM-07: custódia rastreada por contrato e saldo nunca negativo.

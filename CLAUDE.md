@@ -44,7 +44,7 @@ npx playwright test
 ## Status atual
 <!-- Atualizar a cada dia concluído do cronograma -->
 - Feito: AMB-01 (pom), AMB-03 parcial (perfil `local`, `.env`/`.env.example`), DB-01 a DB-10 (V1–V10 com as correções CRITICAL: partidas dobradas por transação, sem TRUNCATE, papel `coe_app`), teste das migrações com Testcontainers Postgres 16 e JaCoCo com regra de 80%.
-- Pendente da etapa 1: **V11** com as correções HIGH (webhook só ocupa o id com assinatura válida + corpo bruto; uma liberação ou um reembolso por diária; cidades do lançamento em migração versionada) e as lacunas do schema frente às RN (RN27 serviços do pedido e descrição opcional; RN20/RN56 status `pausado`; RN13 pedir correção; RN08 data de nascimento; RN17 raio 5/10/20/40).
+- Feito (DB-12): **V11** com as correções HIGH (webhook só ocupa o id com assinatura válida + corpo bruto; uma liberação ou um reembolso por diária; cidades versionadas), as lacunas frente às RN (RN27, RN20/RN56, RN13, RN08, RN17) e os demais apontamentos do database-reviewer (exclusão de conta por anonimização, provas sem cascata, índices em todas as FKs, configuração validada, versão no gatilho). Custódia por contrato e saldo nunca negativo ficaram para o DOM-07.
 - Pendente da etapa 0: AMB-02 (`docker-compose`), AMB-03 (perfis `test` e `prod`), AMB-04 (pacotes), AMB-05 (classe base `IntegracaoTest`), AMB-06 (Spotless/Checkstyle), AMB-07 (README), AMB-08 (Problem Details).
 - Depois: CORE-01 (`Dinheiro`).
 
