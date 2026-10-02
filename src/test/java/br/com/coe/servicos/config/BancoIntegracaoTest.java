@@ -11,24 +11,20 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeEach;
 import org.postgresql.util.PSQLException;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.core.NestedExceptionUtils;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 
-import br.com.coe.servicos.TestcontainersConfiguration;
+import br.com.coe.servicos.IntegracaoTest;
 
 /**
  * Base dos testes que exercitam o schema num Postgres real (Testcontainers).
- * Todos compartilham o mesmo contexto Spring e o mesmo container; cada teste roda
+ * Usa o mesmo contexto e o mesmo container de {@link IntegracaoTest}; cada teste roda
  * numa transação desfeita no fim, salvo indicação.
  */
-@SpringBootTest
-@Import(TestcontainersConfiguration.class)
 @Transactional
-abstract class BancoIntegracaoTest {
+abstract class BancoIntegracaoTest extends IntegracaoTest {
 
     protected static final String UNIQUE_VIOLATION = "23505";
     protected static final String CHECK_VIOLATION = "23514";
@@ -69,13 +65,17 @@ abstract class BancoIntegracaoTest {
     protected static void assertConstraint(PSQLException erro, String sqlState, String constraint) {
         assertThat(erro.getSQLState()).as(erro.getMessage()).isEqualTo(sqlState);
         assertThat(erro.getServerErrorMessage()).as(erro.getMessage()).isNotNull();
-        assertThat(erro.getServerErrorMessage().getConstraint()).as(erro.getMessage()).isEqualTo(constraint);
+        assertThat(erro.getServerErrorMessage().getConstraint())
+                .as(erro.getMessage())
+                .isEqualTo(constraint);
     }
 
     protected static void assertMensagem(PSQLException erro, String sqlState, String trecho) {
         assertThat(erro.getSQLState()).as(erro.getMessage()).isEqualTo(sqlState);
         assertThat(erro.getServerErrorMessage()).as(erro.getMessage()).isNotNull();
-        assertThat(erro.getServerErrorMessage().getMessage()).as(erro.getMessage()).contains(trecho);
+        assertThat(erro.getServerErrorMessage().getMessage())
+                .as(erro.getMessage())
+                .contains(trecho);
     }
 
     protected static BigDecimal valor(String valor) {

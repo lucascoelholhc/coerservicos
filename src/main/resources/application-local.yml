@@ -1,3 +1,6 @@
+# O Spring não lê .env sozinho: importa como properties. Só no perfil local:
+# em produção os segredos vêm de variáveis de ambiente, nunca de arquivo.
+spring.config.import: optional:file:.env[.properties]
 spring.flyway.locations: classpath:db/migration,classpath:db/local
 # Trava do seed local (R__dados_local.sql): só roda com ambiente = local
 spring.flyway.placeholders.ambiente: local
