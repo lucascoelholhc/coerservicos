@@ -11,7 +11,7 @@ A COE é um marketplace de serviços por diária: o cliente paga antes, o dinhei
 | --- | --- | --- |
 | Banco | PostgreSQL 16 + Flyway | PA01 |
 | Front | React + TypeScript + Vite | PA04 |
-| Autenticação | JWT (detalhes do token A DEFINIR antes do CORE-03) | PA03 |
+| Autenticação | JWT: acesso de 15 min na memória, refresh de 30 dias em cookie HttpOnly, uma sessão por aparelho; MFA opcional | PA03 |
 | Reembolso | Devolve exatamente o que o cliente pagou pela diária (diária + comissão se a taxa é do cliente; só a diária se é do profissional) | RN34, PA06 |
 | LC 150 | Máx. 2 diárias da mesma diarista para o mesmo cliente em **qualquer janela de 7 dias seguidos**; meia diária conta como dia (confirmado com o advogado) | RN51 |
 | Agenda | Uma diária por profissional por dia, inteira ou meia (duas meias no mesmo dia só na fase 2) | RN26 |
@@ -184,7 +184,7 @@ São 58 requisitos em 7 módulos, cada um ligado às regras que implementa. Prio
 
 | ID | Requisito | Regras | Prioridade |
 | --- | --- | --- | --- |
-| RF01 | Entrar com celular e senha ou com código por SMS; recuperar senha | RN58 | MVP |
+| RF01 | Entrar com celular e senha ou com código por SMS; recuperar senha; ligar ou desligar o segundo passo por SMS (MFA opcional); sair de todos os aparelhos | RN58 | MVP |
 | RF02 | Criar conta perguntando primeiro "contratar" ou "trabalhar" | RN58 | MVP |
 | RF03 | Criar conta de cliente com nome, celular, e-mail, CEP e senha, com aceite dos termos | RN45 | MVP |
 | RF04 | Voltar à tela de origem depois de entrar ou criar conta | RN24 | MVP |
@@ -276,7 +276,7 @@ São 58 requisitos em 7 módulos, cada um ligado às regras que implementa. Prio
 ## Requisitos não funcionais
 
 ### Segurança
-- **RNF01** Autenticação com Spring Security; senhas com BCrypt ou Argon2; papéis CLIENTE, PROFISSIONAL e ADMIN.
+- **RNF01** Autenticação com Spring Security e JWT (PA03); senhas com BCrypt ou Argon2; papéis CLIENTE, PROFISSIONAL e ADMIN. **MFA opcional**: o login padrão é celular + senha, sem SMS. Quem quiser liga um segundo passo com código por SMS. Entrar só com código por SMS continua como alternativa à senha (RF01). A confirmação do celular no cadastro (RN08) é outra coisa e continua obrigatória, uma vez.
 - **RNF02** Autorização por objeto: toda consulta de contrato, diária, conversa ou documento confere se o usuário é dono ou parte (proteção contra IDOR).
 - **RNF03** Limite de tentativas (rate limit) em login, envio de SMS, recuperação de senha e mensagens do chat.
 - **RNF04** Toda validação e a censura de contato rodam no servidor; o front só antecipa o aviso.
@@ -322,7 +322,7 @@ São 58 requisitos em 7 módulos, cada um ligado às regras que implementa. Prio
 | --- | --- | --- | --- |
 | PA01 | Banco de dados | MySQL ou PostgreSQL | **Decidido: PostgreSQL 16 + Flyway** |
 | PA02 | Gateway de pagamento com custódia e split | Asaas, Pagar.me, Iugu ou Mercado Pago | **A DEFINIR** até o dia 52 do cronograma. Até lá, adaptador falso. Ação: escolher e abrir o sandbox **até o dia 40** |
-| PA03 | Autenticação | JWT ou sessão com cookie | **Decidido: JWT.** **A DEFINIR** antes do dia 5 (CORE-03): duração do token, refresh e onde o front guarda; proposta: token de acesso curto (15 min) no header `Authorization`, guardado só em memória no front; refresh token rotativo em cookie HttpOnly/Secure/SameSite=Strict, válido só no endpoint de renovação e guardado como hash no banco (revogado no logout e na troca de senha). As tabelas `spring_session*` da V2 saem numa V12 |
+| PA03 | Autenticação | JWT ou sessão com cookie | **Decidido: JWT.** token de acesso de **15 min** (HS256, chave com `kid` no Secrets Manager), guardado **só na memória** do front e enviado no header `Authorization`; dentro dele só o id do usuário, os papéis, emissão, expiração e um id único (nada de celular, CPF ou nome). Refresh token de **30 dias**, renovado a cada uso, em cookie **HttpOnly/Secure/SameSite=Strict** enviado só ao endpoint de renovação, guardado como **hash** no banco; revogado no logout, na troca de senha e quando o admin inativa a conta; refresh reutilizado (sinal de roubo) revoga todos os tokens daquele login. **Uma sessão por aparelho**, com "sair de todos os aparelhos". **MFA opcional**: o login padrão é celular + senha, sem SMS. Quem quiser liga um segundo passo com código por SMS. Entrar só com código por SMS continua como alternativa à senha (RF01). A confirmação do celular no cadastro (RN08) é outra coisa e continua obrigatória, uma vez. As tabelas `spring_session*` da V2 saem na V12 |
 | PA04 | Front final | HTML puro ou React | **Decidido: React + TypeScript + Vite**, seguindo as telas do protótipo HTML aprovado |
 | PA05 | Quem paga a comissão de 10% | Cliente (somada) ou profissional (descontada) | **Decidido: cliente** (somada ao total). Valor padrão da `configuracao` confirmado |
 | PA06 | Reembolso de diária | Devolve só a diária ou também a comissão | **Decidido:** devolve o que o cliente pagou pela diária (RN34) |

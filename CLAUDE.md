@@ -101,8 +101,9 @@ npx playwright test
 ### Segurança (prioridade máxima)
 - Spring Security com papéis CLIENTE, PROFISSIONAL e ADMIN.
 - **Autorização por objeto em toda consulta** (anti-IDOR): cada usuário só acessa os próprios contratos, diárias, conversas e documentos. Recurso de outro usuário retorna 403 ou 404.
-- Senhas com BCrypt ou Argon2. Autenticação: **JWT** (PA03 decidido). **A DEFINIR** antes do CORE-03: duração do token, refresh e onde o front guarda; proposta: token de acesso curto (15 min) no header `Authorization`, guardado só em memória no front; refresh token rotativo em cookie HttpOnly/Secure/SameSite=Strict, válido só no endpoint de renovação e guardado como hash no banco (revogado no logout e na troca de senha). As tabelas `spring_session*` saem na V12 (DB-13).
-- CORS restrito ao domínio da COE. CSRF onde houver cookie (renovação do token, se o refresh ficar em cookie).
+- Senhas com BCrypt ou Argon2. Autenticação: **JWT** (PA03 decidido): token de acesso de **15 min** (HS256, chave com `kid` no Secrets Manager), guardado **só na memória** do front e enviado no header `Authorization`; dentro dele só o id do usuário, os papéis, emissão, expiração e um id único (nada de celular, CPF ou nome). Refresh token de **30 dias**, renovado a cada uso, em cookie **HttpOnly/Secure/SameSite=Strict** enviado só ao endpoint de renovação, guardado como **hash** no banco; revogado no logout, na troca de senha e quando o admin inativa a conta; refresh reutilizado (sinal de roubo) revoga todos os tokens daquele login. **Uma sessão por aparelho**, com "sair de todos os aparelhos". As tabelas `spring_session*` saem na V12 (DB-13).
+- **MFA opcional**: o login padrão é celular + senha, sem SMS. Quem quiser liga um segundo passo com código por SMS. Entrar só com código por SMS continua como alternativa à senha (RF01). A confirmação do celular no cadastro (RN08) é outra coisa e continua obrigatória, uma vez.
+- CORS restrito ao domínio da COE. CSRF só no endpoint de renovação (único que usa cookie; o SameSite=Strict já cobre quase tudo).
 - Rate limit em login, SMS, recuperação de senha, chat e criação de conta.
 - Bean Validation em toda entrada. **Nunca confiar no front.**
 - **LGPD:**

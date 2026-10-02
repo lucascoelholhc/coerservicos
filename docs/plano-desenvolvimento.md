@@ -100,7 +100,7 @@ O schema está em 10 migrações versionadas (V1–V10) + dados locais. Detalhe 
 | DB-09 | `V9__admin_auditoria` | `log_auditoria`, `notificacao`, `denuncia` |
 | DB-10 | `V10__indices_busca` | Índices e view de busca por cidade e raio |
 | DB-11 | `R__dados_local` + seeder Java | Só no perfil local; profissionais de exemplo pelo seeder (campos cifrados) |
-| DB-13 | `V12__autenticacao_jwt` | Remove `spring_session*` (PA03 = JWT) e cria o que os detalhes do JWT pedirem (ex.: refresh token guardado como hash) |
+| DB-13 | `V12__autenticacao_jwt` | Remove `spring_session*` (PA03 = JWT); cria `refresh_token` (hash único, usuário, aparelho, validade, revogado em, substituído por, família para revogar tudo em caso de reuso); `usuario.mfa_sms_ativo` (padrão falso); finalidade `mfa` no `codigo_sms` |
 | DB-14 | `V13__ocorrencia_profissional` | Junto do DOM-09. `ocorrencia_profissional` só de inserção (gatilhos `fn_somente_insercao` de linha e TRUNCATE, sem UPDATE/DELETE/TRUNCATE para o `coe_app`); `profissional.motivo_suspensao` obrigatório com status `suspenso`; parâmetros `FALTAS_ALERTA` = 2 e `FALTAS_JANELA_DIAS` = 90 com faixa validada (PA07) |
 
 Correções CRITICAL já aplicadas em V1–V10 (antes do primeiro commit): partidas dobradas conferidas por transação no COMMIT (sem transação vazia e sem lançamento em transação fechada); tabelas só de inserção também barram TRUNCATE; papel `coe_app` sem posse do schema.
@@ -117,12 +117,12 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 |---|---|---|---|
 | CORE-01 | Tipo `Dinheiro` | Value object sobre BigDecimal (escala 2, HALF_EVEN), comissão e repasse | RNF09, RN31 |
 | CORE-02 | Cadastro de cliente | `POST /api/contas/cliente` com nome, celular, e-mail, CEP e senha; aceite dos termos com versão | RF03, RNF18 |
-| CORE-03 | Senha e login | Argon2 ou BCrypt; login por celular + senha; emissão, renovação e revogação de JWT (PA03) | RNF01 |
-| CORE-04 | Login por SMS | Código de 6 dígitos em hash, 5 min, 5 tentativas; `EnviadorSms` falso no local | RF01 |
+| CORE-03 | Senha e login | Argon2 ou BCrypt; login por celular + senha; JWT de 15 min (HS256, `kid`) + refresh de 30 dias rotativo em cookie HttpOnly; revogação no logout, na troca de senha e na inativação; reuso de refresh revoga a família; uma sessão por aparelho e "sair de todos" (PA03) | RNF01 |
+| CORE-04 | Login por SMS e MFA opcional | Código de 6 dígitos em hash, 5 min, 5 tentativas; `EnviadorSms` falso no local; entrar só com código (alternativa à senha); segundo passo por SMS **só para quem ligar** (MFA opcional) | RF01 |
 | CORE-05 | Recuperar senha | Token de uso único com validade curta | RF01 |
 | CORE-06 | Papéis e autorização | CLIENTE, PROFISSIONAL, ADMIN; checagem de dono em todo recurso | RNF02 |
 | CORE-07 | Rate limit | Bucket4j em login, SMS, recuperação de senha e chat | RNF03 |
-| CORE-08 | CSRF e CORS | CORS fechado ao domínio da COE; CSRF onde houver cookie (renovação do token, se o refresh ficar em cookie) | RNF01 |
+| CORE-08 | CSRF e CORS | CORS fechado ao domínio da COE; CSRF só no endpoint de renovação do token (único que usa cookie) | RNF01 |
 | CORE-09 | Arquivos | `Armazenamento` (S3): tipo real, tamanho, sem EXIF, nome gerado, URL assinada. Escolher o S3 local do compose (SeaweedFS, LocalStack ou RustFS) | RNF07, RNF14 |
 | CORE-10 | Criptografia de campo | Conversor JPA AES-GCM para CPF, Pix e endereço | RNF13 |
 | CORE-11 | Auditoria e logs | `log_auditoria`; logs JSON com máscara de dados pessoais | RNF08, RNF15 |
@@ -151,6 +151,14 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 - Saldo de custódia de um contrato **nunca fica negativo**, nem com duas liberações concorrentes (trava por contrato).
 - Saldo do profissional nunca fica negativo no repasse.
 - Os totais batem centavo por centavo: custódia + repassado + receita = total pago.
+
+**Casos de teste obrigatórios do CORE-03 e CORE-04** (PA03):
+- Token de acesso expirado (Clock adiantado 15 min) é recusado com 401; renovação devolve um novo par
+- Refresh usado duas vezes: a segunda é recusada e **todos** os tokens daquele login são revogados
+- Logout revoga o refresh daquele aparelho; "sair de todos" revoga todos; troca de senha e inativação pelo admin também
+- O token não contém celular, CPF nem nome
+- O cookie do refresh sai com HttpOnly, Secure, SameSite=Strict e caminho só do endpoint de renovação
+- Sem MFA ligado, login com celular + senha não pede SMS; com MFA ligado, exige o código antes de emitir o token
 
 **Casos de teste obrigatórios do DOM-02** (RN08, idade mínima, com `Clock` injetado):
 - 17 anos e 364 dias: cadastro recusado com "Para trabalhar na COE é preciso ter 18 anos ou mais."
@@ -246,10 +254,9 @@ Tudo em código (Terraform ou AWS CDK), nada configurado à mão no console.
 ## 10. Decisões que travam tarefas
 | Ponto | Precisa estar decidido antes de | Proposta |
 |---|---|---|
-| PA03 Autenticação: detalhes do JWT | Dia 5 (CORE-03) | JWT decidido. Falta: duração, refresh e onde o front guarda o token (proposta no PA03) |
 | PA02 Gateway | Dia 52 (AWS-09) | Escolher o gateway e **abrir o sandbox até o dia 40**, para o AWS-09 ter conta e credenciais de teste prontas |
 
-Já decididos: PA01 (PostgreSQL), PA03 (JWT; detalhes do token antes do CORE-03), PA04 (React), PA05 (comissão paga pelo cliente), PA06 (reembolso = o que o cliente pagou), PA07 (falta do profissional, RN44a–RN44e), PA08 (12 h a partir do "Terminei o dia"), PA13 (CEP passa na censura), LC 150 em janela de 7 dias (confirmada com o advogado), uma diária por profissional por dia, idade mínima de 18 anos, retenção LGPD de 5 anos.
+Já decididos: PA01 (PostgreSQL), PA03 (JWT de 15 min + refresh de 30 dias em cookie HttpOnly, uma sessão por aparelho, MFA opcional), PA04 (React), PA05 (comissão paga pelo cliente), PA06 (reembolso = o que o cliente pagou), PA07 (falta do profissional, RN44a–RN44e), PA08 (12 h a partir do "Terminei o dia"), PA13 (CEP passa na censura), LC 150 em janela de 7 dias (confirmada com o advogado), uma diária por profissional por dia, idade mínima de 18 anos, retenção LGPD de 5 anos.
 
 ### Tarefas futuras registradas
 - **Expurgo LGPD** (job agendado, idempotente, com log): 5 anos após a exclusão da conta, apaga CPF, chave Pix e data de nascimento; mantém o `cpf_hash` só de quem estiver inativado (`suspenso`). Precisa de migração nova: hoje o `ck_profissional_completo` exige esses campos fora do rascunho.
@@ -269,7 +276,7 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 |---|---|---|---|
 | 3 | CORE-01, CORE-12, CORE-13 | `Dinheiro`, comissão, configuração, `Clock` | 100% no cálculo de comissão e repasse |
 | 4 | CORE-02 | Cadastro de cliente | Celular ou e-mail repetido é recusado; e-mail obrigatório |
-| 5 | CORE-03, DB-13 | Login com JWT, renovação, logout; V12 sem `spring_session*` | Token expirado ou revogado é recusado |
+| 5 | CORE-03, DB-13 | Login com JWT, renovação, logout, sair de todos; V12 (`refresh_token`, `mfa_sms_ativo`, sem `spring_session*`) | Token expirado ou revogado é recusado; refresh reutilizado revoga a família |
 | 6 | CORE-06, CORE-08 | Papéis, checagem de dono, CORS (e CSRF onde houver cookie) | 403 no recurso de outro |
 | 7 | CORE-04, CORE-05 | Login por SMS, recuperar senha | Código expira e trava na 5ª tentativa |
 | 8 | CORE-07, CORE-11 | Rate limit, auditoria, logs mascarados | Logs sem dado pessoal |
