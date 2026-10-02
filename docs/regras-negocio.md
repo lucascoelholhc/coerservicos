@@ -163,7 +163,7 @@ A reclamação pode ser aberta com a diária paga, em andamento ou aguardando ap
 - **RN57** Fotos novas do portfólio passam por conferência antes de aparecer.
 - **RN58** Um login (celular) serve para cliente e profissional.
 - **RN59** Toda ação do admin gera registro de auditoria (quem, quando, o quê, antes e depois).
-- **RN60** O cliente pode baixar seus dados e pedir exclusão da conta; contratos em andamento precisam terminar antes.
+- **RN60** O cliente pode baixar seus dados e pedir exclusão da conta; contratos em andamento precisam terminar antes. A exclusão é por **anonimização** (a conta nunca é apagada): nome, celular, e-mail e senha são removidos. Do profissional, CPF, chave Pix e data de nascimento ficam retidos pelo prazo legal (dados financeiros e fiscais).
 
 
 ## Requisitos funcionais
@@ -176,7 +176,7 @@ São 58 requisitos em 7 módulos, cada um ligado às regras que implementa. Prio
 | --- | --- | --- | --- |
 | RF01 | Entrar com celular e senha ou com código por SMS; recuperar senha | RN58 | MVP |
 | RF02 | Criar conta perguntando primeiro "contratar" ou "trabalhar" | RN58 | MVP |
-| RF03 | Criar conta de cliente com nome, celular, CEP e senha, com aceite dos termos | RN45 | MVP |
+| RF03 | Criar conta de cliente com nome, celular, e-mail, CEP e senha, com aceite dos termos | RN45 | MVP |
 | RF04 | Voltar à tela de origem depois de entrar ou criar conta | RN24 | MVP |
 | RF05 | Manter endereços salvos, cartão e preferências de aviso do cliente | RN29 | MVP |
 | RF06 | Baixar meus dados e pedir exclusão da conta | RN60 | MVP |
@@ -285,7 +285,7 @@ São 58 requisitos em 7 módulos, cada um ligado às regras que implementa. Prio
 - **RNF13** CPF, chave Pix e endereço criptografados no banco; exibidos mascarados.
 - **RNF14** Documentos e selfies em bucket privado, acessados só por URL assinada com validade curta.
 - **RNF15** Dados pessoais mascarados nos logs (telefone, CPF, e-mail, endereço).
-- **RNF16** O usuário pode baixar seus dados e pedir exclusão da conta; dados financeiros e fiscais ficam retidos pelo prazo legal.
+- **RNF16** O usuário pode baixar seus dados e pedir exclusão da conta; dados financeiros e fiscais (inclusive CPF, chave Pix e data de nascimento do profissional) ficam retidos pelo prazo legal.
 - **RNF17** Endereço completo e telefone só aparecem para a outra parte depois do pagamento confirmado.
 - **RNF18** Consentimento registrado com data e versão dos termos aceitos.
 

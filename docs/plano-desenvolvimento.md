@@ -114,7 +114,7 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 | ID | Tarefa | O que constrói | Cobre |
 |---|---|---|---|
 | CORE-01 | Tipo `Dinheiro` | Value object sobre BigDecimal (escala 2, HALF_EVEN), comissão e repasse | RNF09, RN31 |
-| CORE-02 | Cadastro de cliente | `POST /api/contas/cliente`; aceite dos termos com versão | RF03, RNF18 |
+| CORE-02 | Cadastro de cliente | `POST /api/contas/cliente` com nome, celular, e-mail, CEP e senha; aceite dos termos com versão | RF03, RNF18 |
 | CORE-03 | Senha e login | Argon2 ou BCrypt; login por celular + senha; sessão (PA03) | RNF01 |
 | CORE-04 | Login por SMS | Código de 6 dígitos em hash, 5 min, 5 tentativas; `EnviadorSms` falso no local | RF01 |
 | CORE-05 | Recuperar senha | Token de uso único com validade curta | RF01 |
@@ -159,7 +159,7 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 |---|---|---|
 | FE-01 | Base do React | `frontend/` com Vite + React + TS (strict), React Router, `tokens.css`, fontes, layout (Cabeçalho, MenuInferior) e componentes base (Botao, Carimbo, StatusDiaria, Nota, Chip, Avatar) |
 | FE-02 | Camada `src/api/` | `fetch` com cookie e CSRF, erros Problem Details em português, 401 → entrar; proxy `/api` do Vite para 8080 |
-| FE-03 | Telas públicas e conta | Início, categorias, busca, perfil, entrar, criar conta, recuperar senha |
+| FE-03 | Telas públicas e conta | Início, categorias, busca, perfil, entrar, criar conta (nome, celular, e-mail, CEP e senha; RF03), recuperar senha |
 | FE-04 | Cadastro do profissional | 11 etapas com upload de fotos e documentos |
 | FE-05 | Área do cliente | Contratar, pagar (adaptador falso), acompanhar diárias, aprovar, reclamar, avaliar, chat |
 | FE-06 | Área do profissional | Hoje, cheguei, terminei com foto, agenda, dinheiro, conversas, perfil |
@@ -246,7 +246,7 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 | Dia | Tarefas | O que fazer | Pronto quando |
 |---|---|---|---|
 | 3 | CORE-01, CORE-12, CORE-13 | `Dinheiro`, comissão, configuração, `Clock` | 100% no cálculo de comissão e repasse |
-| 4 | CORE-02 | Cadastro de cliente | Celular repetido é recusado |
+| 4 | CORE-02 | Cadastro de cliente | Celular ou e-mail repetido é recusado; e-mail obrigatório |
 | 5 | CORE-03 | Login, sessão, logout | Cookie `HttpOnly` e `Secure` |
 | 6 | CORE-06, CORE-08 | Papéis, checagem de dono, CSRF, CORS | 403 no recurso de outro |
 | 7 | CORE-04, CORE-05 | Login por SMS, recuperar senha | Código expira e trava na 5ª tentativa |
