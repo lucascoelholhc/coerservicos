@@ -53,14 +53,21 @@ npx playwright test
 - Feito (DB-12): **V11** com as correções HIGH (webhook só ocupa o id com assinatura válida + corpo bruto; uma liberação ou um reembolso por diária; cidades versionadas), as lacunas frente às RN (RN27, RN20/RN56, RN13, RN08, RN17) e os demais apontamentos do database-reviewer (exclusão de conta por anonimização, provas sem cascata, índices em todas as FKs, configuração validada, versão no gatilho). Custódia por contrato e saldo nunca negativo ficaram para o DOM-07.
 - Feito (etapa 0): AMB-02 (`docker-compose` com Postgres 16 e Mailpit; S3 local fica para o CORE-09), AMB-03 (perfis `local`, `test` e `prod`), AMB-04 (pacotes por domínio com `package-info`), AMB-05 (base `IntegracaoTest` + fumaça do health), AMB-06 (Spotless com palantir-java-format no `verify`), AMB-07 (README), AMB-08 (`TratadorDeErros`: Problem Details em pt-BR, `type` = `urn:coe:erro:<codigo>`; 401/403 ficam para o CORE-03/06).
 - Cronograma em **fatias verticais** (`docs/plano-desenvolvimento.md`, seção 11): primeiro clique no dia 10, versão local completa no dia 46.
-- Próximo: dia 3 (fatia 0), CORE-01 (`Dinheiro`), CORE-12 (configuração) e CORE-13 (`Clock`).
+- Feito (dia 3): CORE-13 (`Clock` UTC + fuso de negócio, ArchUnit proibindo `now()` sem `Clock`), CORE-01 (`Dinheiro`, `Percentual`, `CalculadoraDiaria`, conversores JPA e JSON; 100% de cobertura no pacote), CORE-12 (`ConfiguracaoNegocio` com fail fast e cache de 60 s). Pendência para o DOM-09/DOM-11: chaves `FALTAS_ALERTA` e `FALTAS_JANELA_DIAS` (V13, DB-14).
+- Próximo: dia 4 (fatia 0), CORE-02 (cadastro de cliente).
 
 ## Estrutura do backend (por domínio, não por camada)
 `usuario` (conta, login, SMS) · `catalogo` (cidades, profissões, serviços) · `profissional` (cadastro, verificação, portfólio, agenda) · `contrato` (contratos e diárias) · `pagamento` (gateway, webhooks, ledger, repasse, reembolso) · `mensagem` (chat + censura) · `avaliacao` · `disputa` · `moderacao` (denúncias) · `admin` · `config` · `compartilhado` (Dinheiro, erros, auditoria, armazenamento)
 
 - Cada domínio tem controller, service, repository, entidades e DTOs.
 - Erros: lance `RegraDeNegocioException` (422, com código da regra), `RecursoNaoEncontradoException` (404, também para recurso de outro usuário) ou `ConflitoException` (409), de `compartilhado.erro`. O `TratadorDeErros` converte em Problem Details; nunca monte resposta de erro no controller.
-- Testes de integração estendem `IntegracaoTest` (contexto, Testcontainers e MockMvc compartilhados).
+- Testes de integração estendem `IntegracaoTest` (contexto, Testcontainers, MockMvc e o relógio `RelogioAjustavel` compartilhados).
+
+### Como usar Dinheiro, ConfiguracaoNegocio e Clock
+- **Dinheiro** (`compartilhado.dinheiro`): todo valor em reais é `Dinheiro`, nunca `BigDecimal` solto nem `double`. `Dinheiro.de("280.00")`; `somar`, `subtrair` (negativo lança `RegraDeNegocioException`), `multiplicar(Percentual)` (HALF_EVEN), `formatar()` → `R$ 1.234,56`. Entrada com mais de 2 casas é recusada. Percentuais são `Percentual.de("0.10")`. No JSON os dois são texto (`"280.00"`); nas entidades, os conversores JPA já se aplicam sozinhos.
+- **Valores de uma diária**: sempre `CalculadoraDiaria.calcular(valor, comissao, taxaPagaPor)`, que devolve comissão, total do cliente, repasse e reembolso (= o que o cliente pagou). Totais do contrato = `TotaisContrato.somar(diarias)`; nunca calcule a comissão sobre o total.
+- **ConfiguracaoNegocio** (`config`): injete e leia os getters tipados (`comissao()`, `autoLiberacao()`, `limiteDiaristaJanela7Dias()`...). Num cálculo que usa mais de um parâmetro (ex.: comissão e quem paga), pegue `parametros()` uma vez e use o mesmo snapshot. Se a releitura falhar depois da subida, ela mantém os últimos valores válidos. Nunca fixe esses valores no código. Chave nova = enum `ChaveConfiguracao` + getter + migração com o valor. Depois de o admin mudar um parâmetro, chame `invalidarCache()`.
+- **Clock**: injete `java.time.Clock` em todo serviço com data ou prazo; `Instant.now()`, `LocalDate.now()` e afins sem `Clock` quebram o build (ArchUnit). Datas de negócio (diária, LC 150, idade, "hoje") usam `FusoDeNegocio.hoje(clock)` / `FusoDeNegocio.ZONA` (São Paulo). Nos testes de integração, use `relogio.avancar(...)` ou `relogio.fixarEm(...)`.
 - **Nunca expor entidade JPA na API.**
 - API sob `/api/**`; admin sob `/api/admin/**`.
 
