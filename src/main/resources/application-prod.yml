@@ -1,0 +1,21 @@
+# Perfil de produção (e homologação). Segredos só por variável de ambiente:
+#   DB_URL, DB_USER, DB_PASSWORD           -> login da aplicação (membro do papel coe_app)
+#   SPRING_FLYWAY_USER, SPRING_FLYWAY_PASSWORD -> dono do schema, só para as migrações
+spring:
+  flyway:
+    locations: classpath:db/migration   # nunca db/local (seed com senha pública)
+    clean-disabled: true
+  jpa:
+    show-sql: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+server:
+  forward-headers-strategy: framework   # atrás do load balancer (HTTPS terminado no ALB)

@@ -1,0 +1,11 @@
+# Perfil dos testes (ativado pela IntegracaoTest). O banco vem do Testcontainers
+# (@ServiceConnection), então nenhuma credencial é lida daqui nem do .env.
+spring:
+  flyway:
+    locations: classpath:db/migration   # sem o seed local
+    clean-disabled: true
+
+logging:
+  level:
+    org.flywaydb: warn
+    org.testcontainers: warn

@@ -1,0 +1,31 @@
+# Serviços locais de apoio (o S3 local entra no CORE-09). Uso: docker compose up -d   (lê o .env da raiz)
+#   Postgres 16 ... localhost:5433  (5432 fica para um Postgres instalado na máquina)
+#   Mailpit ...... SMTP localhost:1025, painel http://localhost:8025   (e-mail/SMS falso)
+name: coe-servicos
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: coeservicos
+      POSTGRES_USER: ${DB_USER:?defina DB_USER no .env}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env}
+    ports:
+      - "127.0.0.1:5433:5432"   # só nesta máquina, não na rede
+    volumes:
+      - postgres-dados:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro   # cria o papel coe_app
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d coeservicos"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:v1.31.3
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+
+volumes:
+  postgres-dados:

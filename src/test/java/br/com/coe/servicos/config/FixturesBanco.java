@@ -74,24 +74,53 @@ class FixturesBanco {
 
     /** Contrato válido de uma diária de R$ 280 com 10% de comissão paga pelo cliente. */
     UUID contrato(UUID clienteId, UUID profissionalId) {
-        return contrato(clienteId, profissionalId, TAXA_CLIENTE,
-                new BigDecimal("280.00"), new BigDecimal("28.00"), new BigDecimal("308.00"));
+        return contrato(
+                clienteId,
+                profissionalId,
+                TAXA_CLIENTE,
+                new BigDecimal("280.00"),
+                new BigDecimal("28.00"),
+                new BigDecimal("308.00"));
     }
 
-    UUID contrato(UUID clienteId, UUID profissionalId, String taxaPagaPor,
-                  BigDecimal valorServicos, BigDecimal valorComissao, BigDecimal valorTotal) {
-        return contrato(clienteId, profissionalId, taxaPagaPor, valorServicos, valorComissao, valorTotal,
+    UUID contrato(
+            UUID clienteId,
+            UUID profissionalId,
+            String taxaPagaPor,
+            BigDecimal valorServicos,
+            BigDecimal valorComissao,
+            BigDecimal valorTotal) {
+        return contrato(
+                clienteId,
+                profissionalId,
+                taxaPagaPor,
+                valorServicos,
+                valorComissao,
+                valorTotal,
                 "Reboco da parede da sala");
     }
 
     UUID contratoComDescricao(String descricao) {
-        return contrato(usuario(), profissional(), TAXA_CLIENTE,
-                new BigDecimal("280.00"), new BigDecimal("28.00"), new BigDecimal("308.00"), descricao);
+        return contrato(
+                usuario(),
+                profissional(),
+                TAXA_CLIENTE,
+                new BigDecimal("280.00"),
+                new BigDecimal("28.00"),
+                new BigDecimal("308.00"),
+                descricao);
     }
 
-    private UUID contrato(UUID clienteId, UUID profissionalId, String taxaPagaPor, BigDecimal valorServicos,
-                          BigDecimal valorComissao, BigDecimal valorTotal, String descricao) {
-        return jdbc.queryForObject("""
+    private UUID contrato(
+            UUID clienteId,
+            UUID profissionalId,
+            String taxaPagaPor,
+            BigDecimal valorServicos,
+            BigDecimal valorComissao,
+            BigDecimal valorTotal,
+            String descricao) {
+        return jdbc.queryForObject(
+                """
                 INSERT INTO contrato (cliente_id, profissional_id, profissao_id, descricao, material, cep,
                                       cidade_id, endereco_cifrado, valor_diaria, comissao_pct, taxa_paga_por,
                                       valor_servicos, valor_comissao, valor_total, versao_termos,
@@ -100,8 +129,16 @@ class FixturesBanco {
                         ?, 'combinar', '89010000', ?, '\\x00'::bytea,
                         280.00, 0.1000, ?, ?, ?, ?, '1.0', now() + interval '1 hour')
                 RETURNING id
-                """, UUID.class, clienteId, profissionalId, descricao, cidade(), taxaPagaPor,
-                valorServicos, valorComissao, valorTotal);
+                """,
+                UUID.class,
+                clienteId,
+                profissionalId,
+                descricao,
+                cidade(),
+                taxaPagaPor,
+                valorServicos,
+                valorComissao,
+                valorTotal);
     }
 
     UUID diaria(UUID contratoId, UUID clienteId, UUID profissionalId, LocalDate data) {

@@ -70,8 +70,8 @@ class MigracaoV11Test extends BancoIntegracaoTest {
         void barraAlterarConteudo(String coluna, String novoValor) {
             UUID evento = fixtures.eventoGateway("falso", "evt_4", true);
 
-            PSQLException erro = erroDoBanco(() -> jdbc.update(
-                    "UPDATE evento_gateway SET " + coluna + " = " + novoValor + " WHERE id = ?", evento));
+            PSQLException erro = erroDoBanco(() ->
+                    jdbc.update("UPDATE evento_gateway SET " + coluna + " = " + novoValor + " WHERE id = ?", evento));
 
             assertMensagem(erro, INSUFFICIENT_PRIVILEGE, "só processado_em e erro");
         }
@@ -82,7 +82,7 @@ class MigracaoV11Test extends BancoIntegracaoTest {
             UUID evento = fixtures.eventoGateway("falso", "evt_5", true);
 
             assertThatCode(() -> jdbc.update(
-                    "UPDATE evento_gateway SET processado_em = now(), erro = 'falhou' WHERE id = ?", evento))
+                            "UPDATE evento_gateway SET processado_em = now(), erro = 'falhou' WHERE id = ?", evento))
                     .doesNotThrowAnyException();
         }
 
@@ -91,8 +91,8 @@ class MigracaoV11Test extends BancoIntegracaoTest {
         void barraProcessarForjado() {
             UUID evento = fixtures.eventoGateway("falso", "evt_6", false);
 
-            PSQLException erro = erroDoBanco(() -> jdbc.update(
-                    "UPDATE evento_gateway SET processado_em = now() WHERE id = ?", evento));
+            PSQLException erro = erroDoBanco(
+                    () -> jdbc.update("UPDATE evento_gateway SET processado_em = now() WHERE id = ?", evento));
 
             assertConstraint(erro, CHECK_VIOLATION, "ck_evento_processado_valido");
         }
@@ -120,8 +120,8 @@ class MigracaoV11Test extends BancoIntegracaoTest {
             UUID diaria = fixtures.diariaAvulsa(DIA);
             fixtures.transacaoFinanceira("liberacao", "liberacao:" + diaria, diaria, null);
 
-            PSQLException erro = erroDoBanco(
-                    () -> fixtures.transacaoFinanceira("reembolso", "reembolso:" + diaria, diaria, null));
+            PSQLException erro =
+                    erroDoBanco(() -> fixtures.transacaoFinanceira("reembolso", "reembolso:" + diaria, diaria, null));
 
             assertConstraint(erro, UNIQUE_VIOLATION, "uq_transacao_diaria_destino");
         }
@@ -132,8 +132,8 @@ class MigracaoV11Test extends BancoIntegracaoTest {
             UUID diaria = fixtures.diariaAvulsa(DIA);
             fixtures.transacaoFinanceira("liberacao", "liberacao:a:" + diaria, diaria, null);
 
-            PSQLException erro = erroDoBanco(
-                    () -> fixtures.transacaoFinanceira("liberacao", "liberacao:b:" + diaria, diaria, null));
+            PSQLException erro =
+                    erroDoBanco(() -> fixtures.transacaoFinanceira("liberacao", "liberacao:b:" + diaria, diaria, null));
 
             assertConstraint(erro, UNIQUE_VIOLATION, "uq_transacao_diaria_destino");
         }
@@ -152,8 +152,8 @@ class MigracaoV11Test extends BancoIntegracaoTest {
         @Test
         @DisplayName("barra liberação ou reembolso sem diária (o NULL furaria a unicidade)")
         void barraLiberacaoSemDiaria() {
-            PSQLException erro = erroDoBanco(
-                    () -> fixtures.transacaoFinanceira("liberacao", "liberacao:sem-diaria", null, null));
+            PSQLException erro =
+                    erroDoBanco(() -> fixtures.transacaoFinanceira("liberacao", "liberacao:sem-diaria", null, null));
 
             assertConstraint(erro, CHECK_VIOLATION, "ck_transacao_diaria_obrigatoria");
         }
@@ -161,8 +161,8 @@ class MigracaoV11Test extends BancoIntegracaoTest {
         @Test
         @DisplayName("barra pagamento sem cobrança")
         void barraPagamentoSemCobranca() {
-            PSQLException erro = erroDoBanco(
-                    () -> fixtures.transacaoFinanceira("pagamento", "pagamento:sem-cobranca", null, null));
+            PSQLException erro =
+                    erroDoBanco(() -> fixtures.transacaoFinanceira("pagamento", "pagamento:sem-cobranca", null, null));
 
             assertConstraint(erro, CHECK_VIOLATION, "ck_transacao_pagamento_cobranca");
         }
@@ -182,8 +182,8 @@ class MigracaoV11Test extends BancoIntegracaoTest {
     void cidadesDoLancamentoVersionadas() {
         List<Integer> codigos = jdbc.queryForList("SELECT codigo_ibge FROM cidade WHERE ativa", Integer.class);
 
-        assertThat(codigos).contains(4202008, 4202404, 4202909, 4205902, 4207502,
-                4208203, 4208906, 4211306, 4213203, 4218202);
+        assertThat(codigos)
+                .contains(4202008, 4202404, 4202909, 4205902, 4207502, 4208203, 4208906, 4211306, 4213203, 4218202);
     }
 
     @Nested
@@ -211,7 +211,8 @@ class MigracaoV11Test extends BancoIntegracaoTest {
         @ParameterizedTest(name = "aceita descrição com {0} caracteres")
         @ValueSource(ints = {15, 600})
         void aceitaDescricaoNaFaixa(int tamanho) {
-            assertThatCode(() -> fixtures.contratoComDescricao("x".repeat(tamanho))).doesNotThrowAnyException();
+            assertThatCode(() -> fixtures.contratoComDescricao("x".repeat(tamanho)))
+                    .doesNotThrowAnyException();
         }
 
         @Test
@@ -247,7 +248,8 @@ class MigracaoV11Test extends BancoIntegracaoTest {
             UUID profissional = fixtures.profissionalEmAnalise();
 
             assertThatCode(() -> jdbc.update(
-                    "UPDATE profissional SET status = 'pausado', aprovado_em = now() WHERE id = ?", profissional))
+                            "UPDATE profissional SET status = 'pausado', aprovado_em = now() WHERE id = ?",
+                            profissional))
                     .doesNotThrowAnyException();
         }
 
@@ -278,8 +280,8 @@ class MigracaoV11Test extends BancoIntegracaoTest {
         void barraCorrecaoSemMotivo() {
             UUID profissional = fixtures.profissionalEmAnalise();
 
-            PSQLException erro = erroDoBanco(() -> jdbc.update(
-                    "UPDATE profissional SET status = 'correcao_pedida' WHERE id = ?", profissional));
+            PSQLException erro = erroDoBanco(
+                    () -> jdbc.update("UPDATE profissional SET status = 'correcao_pedida' WHERE id = ?", profissional));
 
             assertConstraint(erro, CHECK_VIOLATION, "ck_profissional_correcao");
         }
@@ -333,8 +335,7 @@ class MigracaoV11Test extends BancoIntegracaoTest {
         @Test
         @DisplayName("barra cadastro enviado para análise sem data de nascimento")
         void barraSemDataNascimento() {
-            PSQLException erro = erroDoBanco(
-                    () -> fixtures.profissionalEmAnalise(null, FixturesBanco.RAIO_PADRAO_KM));
+            PSQLException erro = erroDoBanco(() -> fixtures.profissionalEmAnalise(null, FixturesBanco.RAIO_PADRAO_KM));
 
             assertConstraint(erro, CHECK_VIOLATION, "ck_profissional_completo");
         }
@@ -342,8 +343,8 @@ class MigracaoV11Test extends BancoIntegracaoTest {
         @Test
         @DisplayName("barra data de nascimento absurda")
         void barraDataAbsurda() {
-            PSQLException erro = erroDoBanco(() -> fixtures.profissionalEmAnalise(
-                    LocalDate.of(1899, 12, 31), FixturesBanco.RAIO_PADRAO_KM));
+            PSQLException erro = erroDoBanco(
+                    () -> fixtures.profissionalEmAnalise(LocalDate.of(1899, 12, 31), FixturesBanco.RAIO_PADRAO_KM));
 
             assertConstraint(erro, CHECK_VIOLATION, "ck_profissional_nascimento");
         }
@@ -363,8 +364,8 @@ class MigracaoV11Test extends BancoIntegracaoTest {
         @ParameterizedTest(name = "barra {0} km")
         @ValueSource(ints = {1, 15, 50})
         void barraRaioForaDaLista(int raio) {
-            PSQLException erro = erroDoBanco(
-                    () -> fixtures.profissionalEmAnalise(FixturesBanco.NASCIMENTO_ADULTO, raio));
+            PSQLException erro =
+                    erroDoBanco(() -> fixtures.profissionalEmAnalise(FixturesBanco.NASCIMENTO_ADULTO, raio));
 
             assertConstraint(erro, CHECK_VIOLATION, "ck_profissional_raio");
         }
@@ -380,20 +381,20 @@ class MigracaoV11Test extends BancoIntegracaoTest {
 
         @ParameterizedTest(name = "barra {0} = ''{1}'' ({2}) por {3}")
         @CsvSource({
-                "OUTRO_DECIMAL,           abc,          decimal,  ck_configuracao_valor_tipo",
-                "OUTRO_DECIMAL,           '1,5',        decimal,  ck_configuracao_valor_tipo",
-                "OUTRO_DECIMAL,           1.,           decimal,  ck_configuracao_valor_tipo",
-                "OUTRO_INTEIRO,           9999999999,   inteiro,  ck_configuracao_valor_tipo",
-                "COMISSAO,                1.5,          decimal,  ck_configuracao_faixas",
-                "COMISSAO,                -0.1,         decimal,  ck_configuracao_faixas",
-                "COMISSAO,                abc,          texto,    ck_configuracao_faixas",
-                "AUTO_LIBERA_HORAS,       0,            inteiro,  ck_configuracao_faixas",
-                "TAXA_PAGA_POR,           ninguem,      texto,    ck_configuracao_faixas",
-                "LIMITE_DOMESTICO_SEMANA, 3,            inteiro,  ck_configuracao_limite_lc150",
-                "LIMITE_DOMESTICO_SEMANA, 0,            inteiro,  ck_configuracao_limite_lc150",
-                "LIMITE_DOMESTICO_SEMANA, 99,           inteiro,  ck_configuracao_limite_lc150",
-                "LIMITE_DOMESTICO_SEMANA, abc,          texto,    ck_configuracao_limite_lc150",
-                "NOTIFICAR_POR_EMAIL,     sim,          booleano, ck_configuracao_valor_tipo"
+            "OUTRO_DECIMAL,           abc,          decimal,  ck_configuracao_valor_tipo",
+            "OUTRO_DECIMAL,           '1,5',        decimal,  ck_configuracao_valor_tipo",
+            "OUTRO_DECIMAL,           1.,           decimal,  ck_configuracao_valor_tipo",
+            "OUTRO_INTEIRO,           9999999999,   inteiro,  ck_configuracao_valor_tipo",
+            "COMISSAO,                1.5,          decimal,  ck_configuracao_faixas",
+            "COMISSAO,                -0.1,         decimal,  ck_configuracao_faixas",
+            "COMISSAO,                abc,          texto,    ck_configuracao_faixas",
+            "AUTO_LIBERA_HORAS,       0,            inteiro,  ck_configuracao_faixas",
+            "TAXA_PAGA_POR,           ninguem,      texto,    ck_configuracao_faixas",
+            "LIMITE_DOMESTICO_SEMANA, 3,            inteiro,  ck_configuracao_limite_lc150",
+            "LIMITE_DOMESTICO_SEMANA, 0,            inteiro,  ck_configuracao_limite_lc150",
+            "LIMITE_DOMESTICO_SEMANA, 99,           inteiro,  ck_configuracao_limite_lc150",
+            "LIMITE_DOMESTICO_SEMANA, abc,          texto,    ck_configuracao_limite_lc150",
+            "NOTIFICAR_POR_EMAIL,     sim,          booleano, ck_configuracao_valor_tipo"
         })
         void barraValorInvalido(String chave, String valor, String tipo, String constraint) {
             PSQLException erro = erroDoBanco(() -> jdbc.update(INSERIR, chave, valor, tipo));
@@ -403,13 +404,13 @@ class MigracaoV11Test extends BancoIntegracaoTest {
 
         @ParameterizedTest(name = "aceita {0} = ''{1}'' ({2})")
         @CsvSource({
-                "COMISSAO,                0.10,         decimal",
-                "COMISSAO,                0,            decimal",
-                "AUTO_LIBERA_HORAS,       24,           inteiro",
-                "TAXA_PAGA_POR,           profissional, texto",
-                "LIMITE_DOMESTICO_SEMANA, 2,            inteiro",
-                "LIMITE_DOMESTICO_SEMANA, 1,            inteiro",
-                "NOTIFICAR_POR_EMAIL,     true,         booleano"
+            "COMISSAO,                0.10,         decimal",
+            "COMISSAO,                0,            decimal",
+            "AUTO_LIBERA_HORAS,       24,           inteiro",
+            "TAXA_PAGA_POR,           profissional, texto",
+            "LIMITE_DOMESTICO_SEMANA, 2,            inteiro",
+            "LIMITE_DOMESTICO_SEMANA, 1,            inteiro",
+            "NOTIFICAR_POR_EMAIL,     true,         booleano"
         })
         void aceitaValorValido(String chave, String valor, String tipo) {
             assertThatCode(() -> jdbc.update(INSERIR, chave, valor, tipo)).doesNotThrowAnyException();
@@ -435,8 +436,8 @@ class MigracaoV11Test extends BancoIntegracaoTest {
         void compativelComHibernate() {
             UUID usuario = fixtures.usuario();
 
-            jdbc.update("UPDATE usuario SET nome = 'Outro nome', versao = versao + 1 WHERE id = ? AND versao = 0",
-                    usuario);
+            jdbc.update(
+                    "UPDATE usuario SET nome = 'Outro nome', versao = versao + 1 WHERE id = ? AND versao = 0", usuario);
 
             assertThat(versaoDo(usuario)).isEqualTo(1L);
         }
@@ -468,8 +469,8 @@ class MigracaoV11Test extends BancoIntegracaoTest {
             UUID profissional = fixtures.profissionalDoUsuario(usuarioDoProfissional);
             UUID contrato = fixtures.contrato(fixtures.usuario(), profissional);
 
-            PSQLException erro = erroDoBanco(() -> jdbc.update(
-                    "UPDATE contrato SET cliente_id = ? WHERE id = ?", usuarioDoProfissional, contrato));
+            PSQLException erro = erroDoBanco(() ->
+                    jdbc.update("UPDATE contrato SET cliente_id = ? WHERE id = ?", usuarioDoProfissional, contrato));
 
             assertGatilho(erro);
         }
@@ -489,8 +490,8 @@ class MigracaoV11Test extends BancoIntegracaoTest {
         void barraContratoConcluidoSemData() {
             UUID contrato = fixtures.contrato(fixtures.usuario(), fixtures.profissional());
 
-            PSQLException erro = erroDoBanco(() -> jdbc.update(
-                    "UPDATE contrato SET status = 'concluido', pago_em = now() WHERE id = ?", contrato));
+            PSQLException erro = erroDoBanco(() ->
+                    jdbc.update("UPDATE contrato SET status = 'concluido', pago_em = now() WHERE id = ?", contrato));
 
             assertConstraint(erro, CHECK_VIOLATION, "ck_contrato_concluido");
         }
@@ -510,8 +511,8 @@ class MigracaoV11Test extends BancoIntegracaoTest {
         void barraCobrancaEstornadaSemConfirmacao() {
             UUID cobranca = fixtures.cobranca(fixtures.contrato(fixtures.usuario(), fixtures.profissional()));
 
-            PSQLException erro = erroDoBanco(
-                    () -> jdbc.update("UPDATE cobranca SET status = 'estornada' WHERE id = ?", cobranca));
+            PSQLException erro =
+                    erroDoBanco(() -> jdbc.update("UPDATE cobranca SET status = 'estornada' WHERE id = ?", cobranca));
 
             assertConstraint(erro, CHECK_VIOLATION, "ck_cobranca_estornada");
         }
@@ -522,7 +523,7 @@ class MigracaoV11Test extends BancoIntegracaoTest {
             UUID cobranca = fixtures.cobranca(fixtures.contrato(fixtures.usuario(), fixtures.profissional()));
 
             assertThatCode(() -> jdbc.update(
-                    "UPDATE cobranca SET status = 'estornada', confirmada_em = now() WHERE id = ?", cobranca))
+                            "UPDATE cobranca SET status = 'estornada', confirmada_em = now() WHERE id = ?", cobranca))
                     .doesNotThrowAnyException();
         }
 
@@ -588,7 +589,8 @@ class MigracaoV11Test extends BancoIntegracaoTest {
             UUID profissional = fixtures.profissional();
             jdbc.update(INSERIR_REPASSE, profissional, null);
 
-            assertThatCode(() -> jdbc.update(INSERIR_REPASSE, profissional, null)).doesNotThrowAnyException();
+            assertThatCode(() -> jdbc.update(INSERIR_REPASSE, profissional, null))
+                    .doesNotThrowAnyException();
         }
 
         @Test
@@ -618,8 +620,8 @@ class MigracaoV11Test extends BancoIntegracaoTest {
     void cpfHashCom32Bytes() {
         UUID profissional = fixtures.profissional();
 
-        PSQLException erro = erroDoBanco(() -> jdbc.update(
-                "UPDATE profissional SET cpf_hash = '\\x0102'::bytea WHERE id = ?", profissional));
+        PSQLException erro = erroDoBanco(
+                () -> jdbc.update("UPDATE profissional SET cpf_hash = '\\x0102'::bytea WHERE id = ?", profissional));
 
         assertConstraint(erro, CHECK_VIOLATION, "ck_profissional_cpf_hash");
     }
@@ -627,8 +629,8 @@ class MigracaoV11Test extends BancoIntegracaoTest {
     @Test
     @DisplayName("a extensão pgcrypto não é mais instalada (gen_random_uuid é nativa)")
     void semPgcrypto() {
-        Integer instaladas = jdbc.queryForObject(
-                "SELECT count(*) FROM pg_extension WHERE extname = 'pgcrypto'", Integer.class);
+        Integer instaladas =
+                jdbc.queryForObject("SELECT count(*) FROM pg_extension WHERE extname = 'pgcrypto'", Integer.class);
 
         assertThat(instaladas).isZero();
     }
@@ -663,8 +665,8 @@ class MigracaoV11Test extends BancoIntegracaoTest {
         void barraAtivoSemCelular() {
             UUID usuario = fixtures.usuario();
 
-            PSQLException erro = erroDoBanco(
-                    () -> jdbc.update("UPDATE usuario SET celular = NULL WHERE id = ?", usuario));
+            PSQLException erro =
+                    erroDoBanco(() -> jdbc.update("UPDATE usuario SET celular = NULL WHERE id = ?", usuario));
 
             assertConstraint(erro, CHECK_VIOLATION, "ck_usuario_credenciais");
         }
@@ -674,8 +676,8 @@ class MigracaoV11Test extends BancoIntegracaoTest {
         void barraAtivoSemEmail() {
             UUID usuario = fixtures.usuario();
 
-            PSQLException erro = erroDoBanco(
-                    () -> jdbc.update("UPDATE usuario SET email = NULL WHERE id = ?", usuario));
+            PSQLException erro =
+                    erroDoBanco(() -> jdbc.update("UPDATE usuario SET email = NULL WHERE id = ?", usuario));
 
             assertConstraint(erro, CHECK_VIOLATION, "ck_usuario_credenciais");
         }
@@ -685,8 +687,8 @@ class MigracaoV11Test extends BancoIntegracaoTest {
         void barraAtivoSemSenha() {
             UUID usuario = fixtures.usuario();
 
-            PSQLException erro = erroDoBanco(
-                    () -> jdbc.update("UPDATE usuario SET senha_hash = NULL WHERE id = ?", usuario));
+            PSQLException erro =
+                    erroDoBanco(() -> jdbc.update("UPDATE usuario SET senha_hash = NULL WHERE id = ?", usuario));
 
             assertConstraint(erro, CHECK_VIOLATION, "ck_usuario_credenciais");
         }
@@ -712,13 +714,12 @@ class MigracaoV11Test extends BancoIntegracaoTest {
                     WHERE conname IN ('fk_aceite_termos_usuario', 'fk_evidencia_diaria', 'fk_anexo_disputa')
                     ORDER BY 1""", String.class);
 
-            assertThat(acoes).containsExactly(
-                    "fk_aceite_termos_usuario=r", "fk_anexo_disputa=r", "fk_evidencia_diaria=r");
+            assertThat(acoes)
+                    .containsExactly("fk_aceite_termos_usuario=r", "fk_anexo_disputa=r", "fk_evidencia_diaria=r");
         }
     }
 
-    private record DadosReembolso(UUID diaria, UUID cobranca) {
-    }
+    private record DadosReembolso(UUID diaria, UUID cobranca) {}
 
     private DadosReembolso prepararReembolso() {
         UUID cliente = fixtures.usuario();
@@ -731,7 +732,6 @@ class MigracaoV11Test extends BancoIntegracaoTest {
         return jdbc.queryForObject("""
                 INSERT INTO reembolso (diaria_id, cobranca_id, motivo, valor_diaria, valor_comissao,
                                        valor_total, id_externo)
-                VALUES (?, ?, 'disputa', 280.00, 28.00, 308.00, ?) RETURNING id""",
-                UUID.class, dados.diaria(), dados.cobranca(), idExterno);
+                VALUES (?, ?, 'disputa', 280.00, 28.00, 308.00, ?) RETURNING id""", UUID.class, dados.diaria(), dados.cobranca(), idExterno);
     }
 }

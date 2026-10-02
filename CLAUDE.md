@@ -10,7 +10,8 @@ Público com pouca familiaridade com tecnologia: telas simples, poucos campos, b
 - `docs/regras-negocio.md`: regras RN01–RN60, requisitos RF/RNF e pontos em aberto (PA01–PA16)
 - `docs/plano-desenvolvimento.md`: etapas, tarefas (AMB-, DB-, CORE-, DOM-, FE-, LOC-, AWS-) e cronograma dia a dia
 - `docs/identidade-visual.md`: identidade "Dia carimbado", componentes, acessibilidade, tom dos textos (ler antes de qualquer tarefa de front)
-- `docs/mapa-banco.md`: domínios, tabelas, estados da diária e caminho do dinheiro
+- `docs/mapa-banco.md`: domínios, tabelas,
+- estados da diária e caminho do dinheiro
 - Itens marcados **A DEFINIR** não estão decididos. **Pergunte antes de implementar**, nunca suponha.
 
 ## Stack
@@ -21,14 +22,19 @@ Público com pouca familiaridade com tecnologia: telas simples, poucos campos, b
 | Front | **React + TypeScript + Vite**, na pasta `frontend/` |
 | Testes back | JUnit 5, AssertJ, Mockito, MockMvc, Testcontainers (Postgres real) |
 | Testes front | Vitest + Testing Library; Playwright para E2E |
-| Local | Postgres local ou Docker; MinIO (arquivos, no lugar do S3); Mailpit (e-mail/SMS falso) |
+| Local | Postgres local ou Docker (`docker compose`, porta 5433); Mailpit (e-mail/SMS falso). S3 local **A DEFINIR no CORE-09** (a imagem pública do MinIO deixou de existir) |
 | Pagamento | Gateway **A DEFINIR** (PA02). Até lá, adaptador falso atrás da interface `GatewayPagamento` |
 | Deploy | AWS depois do aceite local (ECS Fargate, RDS, S3, Secrets Manager) |
 
 ## Comandos
 ```powershell
+# serviços locais (lê o .env): Postgres 16 na porta 5433 e Mailpit
+docker compose up -d
+docker compose down -v                                        # recria o banco do Docker do zero
+
 # backend (raiz)
-./mvnw clean verify                                           # build + testes + cobertura
+./mvnw clean verify                                           # build + testes + Spotless + cobertura
+./mvnw spotless:apply                                         # corrige a formatação (o verify reprova sem isso)
 ./mvnw test                                                   # só testes
 ./mvnw spring-boot:run "-Dspring-boot.run.profiles=local"     # rodar local (aplica Flyway + dados locais)
 
@@ -45,13 +51,15 @@ npx playwright test
 <!-- Atualizar a cada dia concluído do cronograma -->
 - Feito: AMB-01 (pom), AMB-03 parcial (perfil `local`, `.env`/`.env.example`), DB-01 a DB-10 (V1–V10 com as correções CRITICAL: partidas dobradas por transação, sem TRUNCATE, papel `coe_app`), teste das migrações com Testcontainers Postgres 16 e JaCoCo com regra de 80%.
 - Feito (DB-12): **V11** com as correções HIGH (webhook só ocupa o id com assinatura válida + corpo bruto; uma liberação ou um reembolso por diária; cidades versionadas), as lacunas frente às RN (RN27, RN20/RN56, RN13, RN08, RN17) e os demais apontamentos do database-reviewer (exclusão de conta por anonimização, provas sem cascata, índices em todas as FKs, configuração validada, versão no gatilho). Custódia por contrato e saldo nunca negativo ficaram para o DOM-07.
-- Pendente da etapa 0: AMB-02 (`docker-compose`), AMB-03 (perfis `test` e `prod`), AMB-04 (pacotes), AMB-05 (classe base `IntegracaoTest`), AMB-06 (Spotless/Checkstyle), AMB-07 (README), AMB-08 (Problem Details).
+- Feito (etapa 0): AMB-02 (`docker-compose` com Postgres 16 e Mailpit; S3 local fica para o CORE-09), AMB-03 (perfis `local`, `test` e `prod`), AMB-04 (pacotes por domínio com `package-info`), AMB-05 (base `IntegracaoTest` + fumaça do health), AMB-06 (Spotless com palantir-java-format no `verify`), AMB-07 (README), AMB-08 (`TratadorDeErros`: Problem Details em pt-BR, `type` = `urn:coe:erro:<codigo>`; 401/403 ficam para o CORE-03/06).
 - Depois: CORE-01 (`Dinheiro`).
 
 ## Estrutura do backend (por domínio, não por camada)
 `usuario` (conta, login, SMS) · `catalogo` (cidades, profissões, serviços) · `profissional` (cadastro, verificação, portfólio, agenda) · `contrato` (contratos e diárias) · `pagamento` (gateway, webhooks, ledger, repasse, reembolso) · `mensagem` (chat + censura) · `avaliacao` · `disputa` · `moderacao` (denúncias) · `admin` · `config` · `compartilhado` (Dinheiro, erros, auditoria, armazenamento)
 
 - Cada domínio tem controller, service, repository, entidades e DTOs.
+- Erros: lance `RegraDeNegocioException` (422, com código da regra), `RecursoNaoEncontradoException` (404, também para recurso de outro usuário) ou `ConflitoException` (409), de `compartilhado.erro`. O `TratadorDeErros` converte em Problem Details; nunca monte resposta de erro no controller.
+- Testes de integração estendem `IntegracaoTest` (contexto, Testcontainers e MockMvc compartilhados).
 - **Nunca expor entidade JPA na API.**
 - API sob `/api/**`; admin sob `/api/admin/**`.
 
