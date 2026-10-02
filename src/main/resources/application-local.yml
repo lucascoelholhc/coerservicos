@@ -1,1 +1,3 @@
 spring.flyway.locations: classpath:db/migration,classpath:db/local
+# Trava do seed local (R__dados_local.sql): só roda com ambiente = local
+spring.flyway.placeholders.ambiente: local

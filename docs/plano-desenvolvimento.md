@@ -103,7 +103,7 @@ O schema está em 10 migrações versionadas (V1–V10) + dados locais. Detalhe 
 
 Correções CRITICAL já aplicadas em V1–V10 (antes do primeiro commit): partidas dobradas conferidas por transação no COMMIT (sem transação vazia e sem lançamento em transação fechada); tabelas só de inserção também barram TRUNCATE; papel `coe_app` sem posse do schema.
 
-Correções HIGH revisadas em 02/10, a fazer na **V11** (V1–V10 já commitadas): webhook só ocupa o id com assinatura válida e guarda o corpo bruto; uma liberação ou um reembolso por diária garantido no banco; cidades do lançamento em migração versionada. Na mesma V11, as lacunas frente às RN: serviços marcados no pedido e descrição opcional (RN27), status `pausado` (RN20, RN56), pedir correção na verificação (RN13), data de nascimento (RN08) e raio 5/10/20/40 km (RN17).
+Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os demais apontamentos do database-reviewer (exclusão de conta por anonimização, provas sem cascata, índices em todas as FKs, configuração validada, versão no gatilho, autocontratação barrada): webhook só ocupa o id com assinatura válida e guarda o corpo bruto; uma liberação ou um reembolso por diária garantido no banco; cidades do lançamento em migração versionada. Na mesma V11, as lacunas frente às RN: serviços marcados no pedido e descrição opcional (RN27), status `pausado` (RN20, RN56), pedir correção na verificação (RN13), data de nascimento (RN08) e raio 5/10/20/40 km (RN17).
 
 ### Fica na aplicação, não no banco
 - Transições da máquina de estados da diária (RN40).
@@ -114,7 +114,7 @@ Correções HIGH revisadas em 02/10, a fazer na **V11** (V1–V10 já commitadas
 | ID | Tarefa | O que constrói | Cobre |
 |---|---|---|---|
 | CORE-01 | Tipo `Dinheiro` | Value object sobre BigDecimal (escala 2, HALF_EVEN), comissão e repasse | RNF09, RN31 |
-| CORE-02 | Cadastro de cliente | `POST /api/contas/cliente`; aceite dos termos com versão | RF03, RNF18 |
+| CORE-02 | Cadastro de cliente | `POST /api/contas/cliente` com nome, celular, e-mail, CEP e senha; aceite dos termos com versão | RF03, RNF18 |
 | CORE-03 | Senha e login | Argon2 ou BCrypt; login por celular + senha; sessão (PA03) | RNF01 |
 | CORE-04 | Login por SMS | Código de 6 dígitos em hash, 5 min, 5 tentativas; `EnviadorSms` falso no local | RF01 |
 | CORE-05 | Recuperar senha | Token de uso único com validade curta | RF01 |
@@ -138,11 +138,17 @@ Correções HIGH revisadas em 02/10, a fazer na **V11** (V1–V10 já commitadas
 | DOM-04 | Busca e perfil | Filtros (profissão, cidade no raio, dia livre, valor, experiência); perfil sem contato | Nenhum campo de contato sai antes do pagamento |
 | DOM-05 | Chat e censura | Censura no servidor; conta em análise após N tentativas | Testes com padrões que bloqueiam e que passam (R$, medidas, datas, CEP) |
 | DOM-06 | Contratação | Pedido, datas, agenda, LC 150 (janela de 7 dias), comissão congelada | 3ª diária na janela é recusada; dia ocupado é recusado |
-| DOM-07 | Pagamento e custódia | `GatewayPagamento` + adaptador falso; webhook assinado e idempotente; ledger | Webhook repetido não duplica nada; saldos batem |
+| DOM-07 | Pagamento e custódia | `GatewayPagamento` + adaptador falso; webhook assinado e idempotente; ledger; custódia rastreada por contrato | Webhook repetido não duplica nada; saldos batem; custódia por contrato nunca negativa |
 | DOM-08 | Execução da diária | Cheguei, terminei com foto, aprovar; job das 12 h (ShedLock); repasse | Duas instâncias não liberam a mesma diária |
 | DOM-09 | Disputa e reembolso | Reclamação trava só o dia; decisão do admin; reembolso = o que o cliente pagou | Os dois caminhos testados no ledger |
 | DOM-10 | Avaliações | Nota dos dois lados; média no perfil | Só avalia quem pagou pelo app |
 | DOM-11 | Admin e notificações | Usuários, denúncias, financeiro, configuração; SMS e e-mail | Toda ação do admin em `log_auditoria` |
+
+**Casos de teste obrigatórios do DOM-07** (decididos no DB-12, ficaram fora da V11):
+- Custódia rastreada **por contrato**: liberar a diária de um contrato nunca usa dinheiro guardado de outro contrato.
+- Saldo de custódia de um contrato **nunca fica negativo**, nem com duas liberações concorrentes (trava por contrato).
+- Saldo do profissional nunca fica negativo no repasse.
+- Os totais batem centavo por centavo: custódia + repassado + receita = total pago.
 
 **Teste de ponta a ponta da etapa:** profissional se cadastra, admin aprova, cliente busca, conversa, contrata 2 diárias, paga, profissional marca cheguei e terminei, cliente aprova uma e a outra libera sozinha em 12 h (relógio avançado). Os saldos do ledger batem centavo por centavo.
 
@@ -153,7 +159,7 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 |---|---|---|
 | FE-01 | Base do React | `frontend/` com Vite + React + TS (strict), React Router, `tokens.css`, fontes, layout (Cabeçalho, MenuInferior) e componentes base (Botao, Carimbo, StatusDiaria, Nota, Chip, Avatar) |
 | FE-02 | Camada `src/api/` | `fetch` com cookie e CSRF, erros Problem Details em português, 401 → entrar; proxy `/api` do Vite para 8080 |
-| FE-03 | Telas públicas e conta | Início, categorias, busca, perfil, entrar, criar conta, recuperar senha |
+| FE-03 | Telas públicas e conta | Início, categorias, busca, perfil, entrar, criar conta (nome, celular, e-mail, CEP e senha; RF03), recuperar senha |
 | FE-04 | Cadastro do profissional | 11 etapas com upload de fotos e documentos |
 | FE-05 | Área do cliente | Contratar, pagar (adaptador falso), acompanhar diárias, aprovar, reclamar, avaliar, chat |
 | FE-06 | Área do profissional | Hoje, cheguei, terminei com foto, agenda, dinheiro, conversas, perfil |
@@ -240,7 +246,7 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 | Dia | Tarefas | O que fazer | Pronto quando |
 |---|---|---|---|
 | 3 | CORE-01, CORE-12, CORE-13 | `Dinheiro`, comissão, configuração, `Clock` | 100% no cálculo de comissão e repasse |
-| 4 | CORE-02 | Cadastro de cliente | Celular repetido é recusado |
+| 4 | CORE-02 | Cadastro de cliente | Celular ou e-mail repetido é recusado; e-mail obrigatório |
 | 5 | CORE-03 | Login, sessão, logout | Cookie `HttpOnly` e `Secure` |
 | 6 | CORE-06, CORE-08 | Papéis, checagem de dono, CSRF, CORS | 403 no recurso de outro |
 | 7 | CORE-04, CORE-05 | Login por SMS, recuperar senha | Código expira e trava na 5ª tentativa |

@@ -2,71 +2,35 @@ package br.com.coe.servicos.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.assertj.core.api.Assertions.catchThrowable;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
-import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
-import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationInfoService;
 import org.flywaydb.core.api.MigrationVersion;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.postgresql.util.PSQLException;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.core.NestedExceptionUtils;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import br.com.coe.servicos.TestcontainersConfiguration;
-
 /**
- * O schema sobe do zero pelo Flyway e as regras críticas são garantidas pelo próprio banco,
- * mesmo que a aplicação erre. Cada teste roda numa transação desfeita no fim, salvo indicação.
+ * O schema sobe do zero pelo Flyway e as regras críticas de V1–V10 (e as que valem para o schema
+ * inteiro) são garantidas pelo próprio banco, mesmo que a aplicação erre. As regras da V11 ficam
+ * em {@link MigracaoV11Test}.
  */
-@SpringBootTest
-@Import(TestcontainersConfiguration.class)
-@Transactional
-class MigracoesFlywayTest {
-
-    private static final String UNIQUE_VIOLATION = "23505";
-    private static final String CHECK_VIOLATION = "23514";
-    private static final String INSUFFICIENT_PRIVILEGE = "42501";
-    private static final LocalDate DIA = LocalDate.now().plusDays(7);
-
-    @Autowired
-    JdbcTemplate jdbc;
-
-    @Autowired
-    Flyway flyway;
-
-    @Autowired
-    PlatformTransactionManager transactionManager;
-
-    FixturesBanco fixtures;
-
-    @BeforeEach
-    void setUp() {
-        fixtures = new FixturesBanco(jdbc);
-    }
+class MigracoesFlywayTest extends BancoIntegracaoTest {
 
     @Test
-    @DisplayName("banco vazio sobe pelo menos até a V10, sem pendências nem falhas")
-    void bancoVazioSobeAteV10() {
+    @DisplayName("banco vazio sobe até a última migração (pelo menos V11), sem pendências nem falhas")
+    void bancoVazioSobeSemPendencias() {
         MigrationInfoService info = flyway.info();
 
         assertThat(info.pending()).isEmpty();
         assertThat(info.all()).noneMatch(migracao -> migracao.getState().isFailed());
-        assertThat(info.current().getVersion()).isGreaterThanOrEqualTo(MigrationVersion.fromVersion("10"));
+        assertThat(info.current().getVersion()).isGreaterThanOrEqualTo(MigrationVersion.fromVersion("11"));
     }
 
     @Test
@@ -74,6 +38,22 @@ class MigracoesFlywayTest {
     void naoAplicaDadosDoPerfilLocal() {
         assertThat(flyway.info().applied())
                 .noneMatch(migracao -> migracao.getVersion() == null);
+    }
+
+    @Test
+    @DisplayName("toda FK tem um índice que começa pela coluna dela")
+    void todaFkTemIndice() {
+        List<String> semIndice = jdbc.queryForList("""
+                SELECT c.conrelid::regclass || '.' || c.conname
+                FROM pg_constraint c
+                WHERE c.contype = 'f' AND c.connamespace = 'public'::regnamespace
+                  AND NOT EXISTS (
+                    SELECT 1 FROM pg_index i
+                    WHERE i.indrelid = c.conrelid AND i.indpred IS NULL
+                      AND (string_to_array(i.indkey::text, ' ')::int2[])[1] = c.conkey[1])
+                ORDER BY 1""", String.class);
+
+        assertThat(semIndice).isEmpty();
     }
 
     @Nested
@@ -91,8 +71,7 @@ class MigracoesFlywayTest {
 
             PSQLException erro = erroDoBanco(() -> fixtures.diaria(contratoB, clienteB, profissional, DIA));
 
-            assertThat(erro.getSQLState()).isEqualTo(UNIQUE_VIOLATION);
-            assertThat(erro.getServerErrorMessage().getConstraint()).isEqualTo("uq_diaria_agenda_profissional");
+            assertConstraint(erro, UNIQUE_VIOLATION, "uq_diaria_agenda_profissional");
         }
 
         @Test
@@ -123,8 +102,7 @@ class MigracoesFlywayTest {
             PSQLException erro = erroDoBanco(() -> fixtures.contrato(cliente, profissional,
                     FixturesBanco.TAXA_CLIENTE, valor("280.00"), valor("28.00"), valor("280.00")));
 
-            assertThat(erro.getSQLState()).isEqualTo(CHECK_VIOLATION);
-            assertThat(erro.getServerErrorMessage().getConstraint()).isEqualTo("ck_contrato_total");
+            assertConstraint(erro, CHECK_VIOLATION, "ck_contrato_total");
         }
 
         @Test
@@ -163,8 +141,7 @@ class MigracoesFlywayTest {
 
             PSQLException erro = erroDoBanco(fixtures::conferirPartidasAgora);
 
-            assertThat(erro.getSQLState()).isEqualTo(CHECK_VIOLATION);
-            assertThat(erro.getServerErrorMessage().getMessage()).contains("desbalanceada");
+            assertMensagem(erro, CHECK_VIOLATION, "desbalanceada");
         }
 
         @Test
@@ -178,6 +155,7 @@ class MigracoesFlywayTest {
             assertThatCode(fixtures::conferirPartidasAgora).doesNotThrowAnyException();
         }
 
+        /** Sem rollback do teste: o COMMIT falha, então nada fica gravado. */
         @Test
         @Transactional(propagation = Propagation.NOT_SUPPORTED)
         @DisplayName("barra o COMMIT de transação desbalanceada (checagem adiada de verdade)")
@@ -190,8 +168,7 @@ class MigracoesFlywayTest {
                 fixtures.lancamento(transacao, "custodia", "C", "300.00");
             }));
 
-            assertThat(erro.getSQLState()).isEqualTo(CHECK_VIOLATION);
-            assertThat(erro.getServerErrorMessage().getMessage()).contains("desbalanceada");
+            assertMensagem(erro, CHECK_VIOLATION, "desbalanceada");
         }
 
         @Test
@@ -201,10 +178,14 @@ class MigracoesFlywayTest {
 
             PSQLException erro = erroDoBanco(fixtures::conferirPartidasAgora);
 
-            assertThat(erro.getSQLState()).isEqualTo(CHECK_VIOLATION);
-            assertThat(erro.getServerErrorMessage().getMessage()).contains("sem lançamentos");
+            assertMensagem(erro, CHECK_VIOLATION, "sem lançamentos");
         }
 
+        /**
+         * Sem rollback do teste: a primeira transação financeira (R$ 10, balanceada) fica gravada no
+         * container compartilhado, porque o ledger é imutável e não dá para limpar. Testes que somam
+         * o ledger devem filtrar pelos ids que eles mesmos criaram.
+         */
         @Test
         @Transactional(propagation = Propagation.NOT_SUPPORTED)
         @DisplayName("barra lançamento anexado a uma transação financeira já fechada")
@@ -222,8 +203,7 @@ class MigracoesFlywayTest {
                 fixtures.lancamento(fechada, "receita_coe", "C", "10.00");
             }));
 
-            assertThat(erro.getSQLState()).isEqualTo(CHECK_VIOLATION);
-            assertThat(erro.getServerErrorMessage().getMessage()).contains("já fechada");
+            assertMensagem(erro, CHECK_VIOLATION, "já fechada");
         }
 
         @Test
@@ -233,8 +213,7 @@ class MigracoesFlywayTest {
 
             PSQLException erro = erroDoBanco(() -> fixtures.transacaoFinanceira("liberacao:diaria-1"));
 
-            assertThat(erro.getSQLState()).isEqualTo(UNIQUE_VIOLATION);
-            assertThat(erro.getServerErrorMessage().getConstraint()).isEqualTo("uq_transacao_idempotencia");
+            assertConstraint(erro, UNIQUE_VIOLATION, "uq_transacao_idempotencia");
         }
     }
 
@@ -250,8 +229,7 @@ class MigracoesFlywayTest {
             PSQLException erro = erroDoBanco(
                     () -> jdbc.update("UPDATE lancamento SET valor = 1.00 WHERE id = ?", lancamento));
 
-            assertThat(erro.getSQLState()).isEqualTo(INSUFFICIENT_PRIVILEGE);
-            assertThat(erro.getServerErrorMessage().getMessage()).contains("lancamento aceita apenas INSERT");
+            assertMensagem(erro, INSUFFICIENT_PRIVILEGE, "lancamento aceita apenas INSERT");
         }
 
         @Test
@@ -262,8 +240,7 @@ class MigracoesFlywayTest {
             PSQLException erro = erroDoBanco(
                     () -> jdbc.update("DELETE FROM lancamento WHERE id = ?", lancamento));
 
-            assertThat(erro.getSQLState()).isEqualTo(INSUFFICIENT_PRIVILEGE);
-            assertThat(erro.getServerErrorMessage().getMessage()).contains("lancamento aceita apenas INSERT");
+            assertMensagem(erro, INSUFFICIENT_PRIVILEGE, "lancamento aceita apenas INSERT");
         }
 
         private long lancamentoExistente() {
@@ -283,8 +260,7 @@ class MigracoesFlywayTest {
         void barraTruncateEmLancamento() {
             PSQLException erro = erroDoBanco(() -> jdbc.execute("TRUNCATE lancamento CASCADE"));
 
-            assertThat(erro.getSQLState()).isEqualTo(INSUFFICIENT_PRIVILEGE);
-            assertThat(erro.getServerErrorMessage().getMessage()).contains("aceita apenas INSERT");
+            assertMensagem(erro, INSUFFICIENT_PRIVILEGE, "aceita apenas INSERT");
         }
 
         @Test
@@ -292,8 +268,7 @@ class MigracoesFlywayTest {
         void barraTruncateEmCascata() {
             PSQLException erro = erroDoBanco(() -> jdbc.execute("TRUNCATE usuario CASCADE"));
 
-            assertThat(erro.getSQLState()).isEqualTo(INSUFFICIENT_PRIVILEGE);
-            assertThat(erro.getServerErrorMessage().getMessage()).contains("aceita apenas INSERT");
+            assertMensagem(erro, INSUFFICIENT_PRIVILEGE, "aceita apenas INSERT");
         }
     }
 
@@ -319,8 +294,27 @@ class MigracoesFlywayTest {
 
             PSQLException erro = erroDoBanco(() -> jdbc.update("UPDATE lancamento SET valor = 1.00"));
 
-            assertThat(erro.getSQLState()).isEqualTo(INSUFFICIENT_PRIVILEGE);
-            assertThat(erro.getServerErrorMessage().getMessage()).contains("permission denied");
+            assertMensagem(erro, INSUFFICIENT_PRIVILEGE, "permission denied for table lancamento");
+        }
+
+        @Test
+        @DisplayName("não tem permissão de DELETE em usuario (exclusão é por anonimização)")
+        void naoTemPermissaoDeDeleteEmUsuario() {
+            fixtures.agirComoAplicacao();
+
+            PSQLException erro = erroDoBanco(() -> jdbc.update("DELETE FROM usuario"));
+
+            assertMensagem(erro, INSUFFICIENT_PRIVILEGE, "permission denied for table usuario");
+        }
+
+        @Test
+        @DisplayName("não tem permissão de DELETE nos webhooks recebidos")
+        void naoTemPermissaoDeDeleteEmEventoGateway() {
+            fixtures.agirComoAplicacao();
+
+            PSQLException erro = erroDoBanco(() -> jdbc.update("DELETE FROM evento_gateway"));
+
+            assertMensagem(erro, INSUFFICIENT_PRIVILEGE, "permission denied for table evento_gateway");
         }
 
         @Test
@@ -330,8 +324,7 @@ class MigracoesFlywayTest {
 
             PSQLException erro = erroDoBanco(() -> jdbc.execute("ALTER TABLE lancamento DISABLE TRIGGER ALL"));
 
-            assertThat(erro.getSQLState()).isEqualTo(INSUFFICIENT_PRIVILEGE);
-            assertThat(erro.getServerErrorMessage().getMessage()).contains("must be owner");
+            assertMensagem(erro, INSUFFICIENT_PRIVILEGE, "must be owner");
         }
 
         @Test
@@ -345,39 +338,11 @@ class MigracoesFlywayTest {
         }
     }
 
-    @Nested
-    @DisplayName("webhook idempotente (uq_evento_gateway)")
-    class WebhookIdempotente {
+    @Test
+    @DisplayName("webhook: aceita o mesmo id de evento vindo de outro gateway")
+    void aceitaOMesmoIdDeEventoVindoDeOutroGateway() {
+        fixtures.eventoGateway("falso", "evt_123");
 
-        @Test
-        @DisplayName("barra o mesmo evento do mesmo gateway duas vezes")
-        void barraOMesmoEventoDoMesmoGatewayDuasVezes() {
-            fixtures.eventoGateway("falso", "evt_123");
-
-            PSQLException erro = erroDoBanco(() -> fixtures.eventoGateway("falso", "evt_123"));
-
-            assertThat(erro.getSQLState()).isEqualTo(UNIQUE_VIOLATION);
-            assertThat(erro.getServerErrorMessage().getConstraint()).isEqualTo("uq_evento_gateway");
-        }
-
-        @Test
-        @DisplayName("aceita o mesmo id de evento vindo de outro gateway")
-        void aceitaOMesmoIdDeEventoVindoDeOutroGateway() {
-            fixtures.eventoGateway("falso", "evt_123");
-
-            assertThatCode(() -> fixtures.eventoGateway("outro", "evt_123")).doesNotThrowAnyException();
-        }
-    }
-
-    private static PSQLException erroDoBanco(ThrowingCallable comando) {
-        Throwable erro = catchThrowable(comando);
-        assertThat(erro).as("o banco deveria ter recusado o comando").isNotNull();
-        Throwable causa = NestedExceptionUtils.getMostSpecificCause(erro);
-        assertThat(causa).isInstanceOf(PSQLException.class);
-        return (PSQLException) causa;
-    }
-
-    private static BigDecimal valor(String valor) {
-        return new BigDecimal(valor);
+        assertThatCode(() -> fixtures.eventoGateway("outro", "evt_123")).doesNotThrowAnyException();
     }
 }
