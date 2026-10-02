@@ -2,7 +2,7 @@
 
 > Fonte: documento "COE Serviços — Plano de desenvolvimento" (atualizado em 02/10/2026). Base: `docs/regras-negocio.md` (RN01–RN60, RF01–RF58, RNF01–RNF29).
 
-O MVP sai em 7 etapas, de 0 a 6. As etapas 0 a 5 terminam com o sistema rodando inteiro na máquina local, e a etapa 6 leva tudo para a AWS. São **53 dias de trabalho** (um dia = uma sessão de cerca de 3 horas, não um dia do calendário): sistema completo local no dia 46, homologação na AWS no dia 53.
+As tarefas estão organizadas por tipo nas seções 3 a 9 (ambiente, banco, núcleo, domínio, front, aceite local e AWS), mas são **executadas em fatias verticais** (seção 11): cada fatia entrega backend e telas juntos e termina com algo que dá para testar no navegador. A versão local completa sai no fim da fatia 4 e do aceite local; depois vem a AWS. São **53 dias de trabalho** (um dia = uma sessão de cerca de 3 horas, não um dia do calendário): sistema completo local no dia 46, homologação na AWS no dia 53.
 
 ## 1. Visão geral
 
@@ -32,9 +32,10 @@ Monólito modular: um único projeto Spring, com um pacote por domínio (`usuari
 |---|---|
 | M0 Ambiente | `./mvnw verify` verde, com Testcontainers e cobertura |
 | M1 Banco | Todas as migrações aplicadas num banco limpo, com dados locais |
-| M2 Núcleo | Criar conta, entrar e sair pela API, com papéis funcionando |
-| M3 Domínio | Fluxo completo pela API: profissional aprovado → contrato → pagamento falso → diária liberada |
-| M4 Front | O mesmo fluxo clicando no React |
+| M2 Fatia 1 (dia 10) | Criar conta, entrar e sair **pelo navegador**, com papéis funcionando |
+| Fatia 2 (dia 21) | Cadastro do profissional, aprovação pelo admin e busca com perfil público, pelo navegador |
+| M3 Fatia 3 (dia 35) | Contratar, pagar no adaptador falso, "Cheguei", "Terminei o dia" e aprovar, pelo navegador |
+| M4 Fatia 4 (dia 43) | Disputa, faltas, avaliações e painel do admin; tudo clicável, com E2E verde |
 | M5 Local pronto | Checklist de aceite da etapa 5 todo marcado |
 | M6 AWS | Ambiente de homologação no ar com HTTPS |
 
@@ -263,7 +264,7 @@ Já decididos: PA01 (PostgreSQL), PA03 (JWT de 15 min + refresh de 30 dias em co
 - **Reativação após exclusão de conta**: **A DEFINIR**. Enquanto isso, o mesmo CPF não cria novo cadastro.
 
 ## 11. Cronograma dia a dia
-Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "Status atual" do CLAUDE.md atualizado. Os dias 10, 33 e 44 são de revisão e servem de folga se o cronograma atrasar. Sem uma decisão necessária, marque o dia como travado e adiante o seguinte.
+Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "Status atual" do CLAUDE.md atualizado. Os dias 11, 22 e 44 são de revisão e servem de folga se o cronograma atrasar. Sem uma decisão necessária, marque o dia como travado e adiante o seguinte.
 
 ### Largada: Etapas 0 e 1 (dias 1–2)
 | Dia | Tarefas | O que fazer | Pronto quando |
@@ -271,61 +272,69 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 | 1 | AMB-01 a AMB-04, DB-01 a DB-10 | Conferir o pom; `application.yml`, `application-local.yml`, `.env`; pacotes; migrações V1–V10 e dados locais; subir no perfil local | `flyway_schema_history` com V1 a V10 + R; health UP (**M1**) |
 | 2 | AMB-05 a AMB-08, teste das migrações | Compose (Postgres, Mailpit); `IntegracaoTest`; teste das migrações e constraints; JaCoCo; Problem Details; README | `./mvnw verify` verde (**M0**) |
 
-### Etapa 2: Núcleo e segurança (dias 3–10)
+### Fatia 0: Núcleo (dias 3–7)
 | Dia | Tarefas | O que fazer | Pronto quando |
 |---|---|---|---|
 | 3 | CORE-01, CORE-12, CORE-13 | `Dinheiro`, comissão, configuração, `Clock` | 100% no cálculo de comissão e repasse |
-| 4 | CORE-02 | Cadastro de cliente | Celular ou e-mail repetido é recusado; e-mail obrigatório |
+| 4 | CORE-02 | Cadastro de cliente (com e-mail) | Celular ou e-mail repetido é recusado; e-mail obrigatório |
 | 5 | CORE-03, DB-13 | Login com JWT, renovação, logout, sair de todos; V12 (`refresh_token`, `mfa_sms_ativo`, sem `spring_session*`) | Token expirado ou revogado é recusado; refresh reutilizado revoga a família |
-| 6 | CORE-06, CORE-08 | Papéis, checagem de dono, CORS (e CSRF onde houver cookie) | 403 no recurso de outro |
-| 7 | CORE-04, CORE-05 | Login por SMS, recuperar senha | Código expira e trava na 5ª tentativa |
-| 8 | CORE-07, CORE-11 | Rate limit, auditoria, logs mascarados | Logs sem dado pessoal |
-| 9 | CORE-09, CORE-10 | Armazenamento, criptografia de campo | Upload falso rejeitado; CPF cifrado |
-| 10 | Revisão | `/security-scan`, correções, cobertura | **M2** |
+| 6 | CORE-06, CORE-08 | Papéis, checagem de dono, CORS, CSRF na renovação; 401/403 em Problem Details | 403 no recurso de outro |
+| 7 | CORE-04, CORE-05 | Login por SMS, MFA opcional, recuperar senha | Código expira e trava na 5ª tentativa |
 
-### Etapa 3: Módulos de negócio (dias 11–33)
+### Fatia 1: Entrar no app (dias 8–11) — primeiro clique no dia 10
 | Dia | Tarefas | O que fazer | Pronto quando |
 |---|---|---|---|
-| 11 | DOM-01, DB-11 | API do catálogo; seeder local | Filtros com dados da API |
-| 12 | DOM-02 | Cadastro, etapas 1–4 | Rascunho salvo a cada passo |
-| 13 | DOM-02 | Etapas 5–8 (cidades, valor, agenda, bio) | Bio com telefone é recusada |
-| 14 | DOM-02 | Etapas 9–11 (fotos, documento, Pix), envio | Fica "em análise" e fora da busca |
-| 15 | DOM-03 | Fila de verificação, NR-10 | Aprovado vira ativo; auditado |
-| 16 | DOM-04 | Busca com filtros e raio | Busca usa a view do raio |
-| 17 | DOM-04 | Perfil público, dias livres, portfólio | Nenhum contato na resposta |
-| 18 | DOM-05 | Conversa e censura no servidor | Bloqueia e deixa passar o certo |
-| 19 | DOM-05 | Tentativas e conta em análise | 4ª tentativa → análise |
-| 20 | DOM-06 | Contrato, endereço cifrado, total | Total confere com o banco |
-| 21 | DOM-06 | Agenda, LC 150 com trava, expiração | 3ª diária na janela recusada |
-| 22 | DOM-07 | `GatewayPagamento` e adaptador falso | Cobrança criada e consultada |
-| 23 | DOM-07 | Webhook assinado e idempotente; ledger | Webhook repetido não duplica |
-| 24 | DOM-07 | Contrato pago, contato liberado; `/security-scan` | Telefone só após pagamento |
-| 25 | DOM-08 | Cheguei, terminei com foto, histórico | Transição inválida recusada |
-| 26 | DOM-08 | Aprovar e liberar pelo ledger | Saldos conferem |
-| 27 | DOM-08 | Job das 12 h com ShedLock; repasse | Sem liberação dupla |
-| 28 | DOM-09 | Abrir disputa, resposta, prazo | Uma disputa aberta por diária |
-| 29 | DOM-09 | Decisão; liberação ou reembolso | Dois caminhos no ledger |
-| 30 | DOM-10 | Avaliações e média | Só quem pagou avalia |
-| 31 | DOM-11 | Admin: usuários, denúncias, configuração | Ações auditadas |
-| 32 | DOM-11 | Financeiro do admin; notificações | Painel bate com `saldo_conta` |
-| 33 | Revisão | Teste de ponta a ponta; folga | **M3** |
+| 8 | FE-01 | Vite + React + TS, `tokens.css`, fontes, layout e componentes base | Início estático igual ao protótipo |
+| 9 | FE-02, DOM-01 | Camada `src/api/` (JWT, renovação, erros em pt-BR); API do catálogo | Filtros com dados da API |
+| 10 | FE-03 (parte) | Início, categorias, entrar, criar conta, recuperar senha | **Criar conta e entrar pelo navegador** (**M2**) |
+| 11 | CORE-07, CORE-11, revisão | Rate limit, auditoria, logs mascarados; `/security-scan`; folga | Logs sem dado pessoal |
 
-### Etapa 4: Front em React (dias 34–44)
+### Fatia 2: O profissional entra na busca (dias 12–22)
 | Dia | Tarefas | O que fazer | Pronto quando |
 |---|---|---|---|
-| 34 | FE-01 | Projeto Vite + React + TS, tokens, layout, componentes base | Início estático igual ao protótipo |
-| 35 | FE-02, FE-03 | Camada de API; telas públicas e conta | Telas públicas com dados reais |
-| 36 | FE-04 | Cadastro do profissional, etapas 1–6 | Rascunho salvo na API |
-| 37 | FE-04 | Etapas 7–11 com upload | Cadastro chega à fila do admin |
-| 38 | FE-05 | Contratar e pagar | Contrato pago pelo navegador |
-| 39 | FE-05 | Diárias, aprovar, reclamar, avaliar, chat | Fluxo do cliente completo |
-| 40 | FE-06 | Área do profissional | Fluxo do profissional completo |
-| 41 | FE-07 | Painel admin | Admin opera tudo pela tela |
-| 42 | FE-08 | Estados de carregando, vazio, erro, sem conexão | Nenhuma tela branca em erro |
-| 43 | FE-09 | Vitest e Playwright | E2E verde |
-| 44 | FE-10, revisão | Acessibilidade; folga | **M4** |
+| 12 | CORE-09 | Armazenamento (escolher o S3 local do compose): tipo real, tamanho, sem EXIF, URL assinada | Upload falso rejeitado |
+| 13 | CORE-10 | Criptografia de CPF, Pix e endereço | CPF cifrado no banco |
+| 14 | DOM-02 | Cadastro, etapas 1–4, com idade mínima (18 anos, `Clock`) | 17 anos e 364 dias recusado; exatos 18 aceito |
+| 15 | DOM-02 | Etapas 5–8 (cidades, valor, agenda, bio) | Bio com telefone é recusada |
+| 16 | DOM-02 | Etapas 9–11 (fotos, documento, Pix), envio | Fica "em análise" e fora da busca |
+| 17 | DOM-03, DB-11 | Fila de verificação, NR-10; seeder local de profissionais | Aprovado vira ativo; auditado |
+| 18 | DOM-04 | Busca com filtros e raio; perfil público, dias livres, portfólio | Nenhum contato na resposta |
+| 19 | FE-04 | Telas do cadastro do profissional, etapas 1–6 | Rascunho salvo na API |
+| 20 | FE-04, FE-07 (parte) | Etapas 7–11 com upload; fila de verificação no admin | Cadastro chega ao admin, que aprova |
+| 21 | FE-03 (resto) | Busca e perfil público | **Cadastrar, aprovar e achar o profissional na busca, pelo navegador** |
+| 22 | Revisão | `/security-scan`, cobertura; folga | |
 
-Recriar as telas em React dá mais trabalho que ligar o HTML pronto. Se a etapa 4 apertar, adiante o FE-01 e o FE-03 para logo depois do dia 10.
+### Fatia 3: Contratar, pagar e trabalhar (dias 23–35)
+| Dia | Tarefas | O que fazer | Pronto quando |
+|---|---|---|---|
+| 23 | DOM-05 | Conversa e censura no servidor (CEP passa, PA13) | Bloqueia e deixa passar o certo |
+| 24 | DOM-05 | Tentativas e conta em análise | 4ª tentativa → análise |
+| 25 | DOM-06 | Contrato, endereço cifrado, total | Total confere com o banco |
+| 26 | DOM-06 | Agenda, LC 150 com trava, expiração | 3ª diária na janela recusada |
+| 27 | DOM-07 | `GatewayPagamento` e adaptador falso | Cobrança criada e consultada |
+| 28 | DOM-07 | Webhook assinado e idempotente; ledger | Webhook repetido não duplica |
+| 29 | DOM-07 | Contrato pago, contato liberado; `/security-scan` | Telefone só após pagamento |
+| 30 | DOM-08 | Cheguei, terminei com foto, histórico | Transição inválida recusada |
+| 31 | DOM-08 | Aprovar e liberar pelo ledger | Saldos conferem |
+| 32 | DOM-08 | Job das 12 h a partir do `terminou_em` (ShedLock); repasse | Sem liberação dupla |
+| 33 | FE-05 | Contratar, pagar (adaptador falso) e chat | Contrato pago pelo navegador |
+| 34 | FE-06 | Área do profissional: Hoje, Cheguei, Terminei, agenda, dinheiro | Fluxo do profissional completo |
+| 35 | FE-05 | Acompanhar e aprovar diárias | **Contratar, pagar, trabalhar e aprovar, pelo navegador** (**M3**) |
+
+### Fatia 4: Problemas e administração (dias 36–44)
+| Dia | Tarefas | O que fazer | Pronto quando |
+|---|---|---|---|
+| 36 | DOM-09, DB-14 | Abrir disputa, resposta, prazo; V13 (`ocorrencia_profissional`) | Uma disputa aberta por diária |
+| 37 | DOM-09 | Decisão; falta do profissional (PA07): reembolso integral, registro da falta | Casos obrigatórios do DOM-09 passam |
+| 38 | DOM-10 | Avaliações e média | Só quem pagou avalia |
+| 39 | DOM-11 | Usuários, faltas com alerta, inativar e reativar, configuração | Ações auditadas; alerta com 2 faltas em 90 dias |
+| 40 | DOM-11 | Financeiro do admin; notificações. **Prazo para abrir o sandbox do gateway (PA02)** | Painel bate com `saldo_conta` |
+| 41 | FE-07, FE-05 | Painel admin completo; reclamar e avaliar | Admin opera tudo pela tela |
+| 42 | FE-08 | Estados de carregando, vazio, erro e sem conexão | Nenhuma tela branca em erro |
+| 43 | FE-09, FE-10 | Vitest, Playwright (360 px e desktop), acessibilidade | **Tudo clicável, E2E verde** (**M4**) |
+| 44 | Revisão | Teste de ponta a ponta da etapa 3; folga | |
+
+Regra de cada fatia: primeiro a API, com testes; depois a tela. Assim uma mudança de contrato de API aparece antes de virar retrabalho no front.
 
 ### Etapa 5: Aceite local (dias 45–46)
 | Dia | Tarefas | O que fazer | Pronto quando |
