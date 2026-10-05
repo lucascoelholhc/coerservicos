@@ -55,7 +55,8 @@ npx playwright test
 - Cronograma em **fatias verticais** (`docs/plano-desenvolvimento.md`, seção 11): primeiro clique no dia 10, versão local completa no dia 46.
 - Feito (dia 3): CORE-13 (`Clock` UTC + fuso de negócio, ArchUnit proibindo `now()` sem `Clock`), CORE-01 (`Dinheiro`, `Percentual`, `CalculadoraDiaria`, conversores JPA e JSON; 100% de cobertura no pacote), CORE-12 (`ConfiguracaoNegocio` com fail fast e cache de 60 s). Pendência para o DOM-09/DOM-11: chaves `FALTAS_ALERTA` e `FALTAS_JANELA_DIAS` (V13, DB-14).
 - Feito (dia 4): CORE-02 (cadastro de cliente em `POST /api/contas/cliente`; `usuario` + papel `CLIENTE` + `aceite_termos` numa transação; 409 com código e campo, inclusive na corrida; primeira `SecurityFilterChain` stateless com 401/403 em Problem Details; senha `{bcrypt}` custo 12; campo desconhecido no JSON = 400). Pendências registradas no plano (seção do DOM-07/CORE-03): cidade pelo CEP, celular não confirmado até o CORE-04, enumeração e custo do BCrypt cobertos pelo rate limit do CORE-07.
-- Próximo: dia 5 (fatia 0), CORE-03 + DB-13 (login com JWT, V12).
+- Feito (dia 5): DB-13 (V12: `refresh_token` só com hash e conteúdo imutável, `mfa_sms_ativo`, finalidade `mfa`, comissão até 30%) e CORE-03 (login com celular ou e-mail, JWT HS256 com kid de 15 min, refresh rotativo de 30 dias em cookie, reuso revoga a família, sair e sair de todos, MFA obrigatório para ADMIN com dispensa só no perfil local). Riscos aceitos no plano: access token vale até 15 min após o logout; força bruta até o CORE-07; Origin na renovação no CORE-08.
+- Próximo: dia 6 (fatia 0), CORE-06 + CORE-08 (papéis, checagem de dono, CORS, Origin na renovação).
 
 ## Estrutura do backend (por domínio, não por camada)
 `usuario` (conta, login, SMS) · `catalogo` (cidades, profissões, serviços) · `profissional` (cadastro, verificação, portfólio, agenda) · `contrato` (contratos e diárias) · `pagamento` (gateway, webhooks, ledger, repasse, reembolso) · `mensagem` (chat + censura) · `avaliacao` · `disputa` · `moderacao` (denúncias) · `admin` · `config` · `compartilhado` (Dinheiro, erros, auditoria, armazenamento)
@@ -78,6 +79,13 @@ npx playwright test
 - **Conflito**: `new ConflitoException(codigo, mensagem, campo)` vira 409 com `type` `urn:coe:erro:<codigo>` e `campo`.
 - **JSON**: campo desconhecido = 400 em toda a API. Exceção futura: o webhook do gateway (DOM-07) lê o corpo bruto de forma tolerante.
 - **Testes**: celulares só fictícios (`479000000NN`), nunca número real.
+
+### Como autenticar
+- **Front**: `POST /api/auth/entrar` com `{"login","senha"}` (login = celular com ou sem máscara/+55, ou e-mail). Resposta 200: `{accessToken, expiraEm, usuario:{id,nome,papeis}}` + cookie `coe_refresh` (HttpOnly, só `/api/auth`). Guarde o `accessToken` **só na memória** e mande `Authorization: Bearer <token>`. Ao receber 401, chame `POST /api/auth/renovar` (o navegador manda o cookie); se a renovação der 401, vá para a tela de entrar. Sair: `POST /api/auth/sair` (este aparelho) ou `/api/auth/sair-de-todos`.
+- **Erros do login**: 401 `login-invalido` (sempre a mesma mensagem), 403 `conta-suspensa`, 403 `segundo-passo-necessario` (MFA ligado ou ADMIN; o fluxo do SMS é o CORE-04).
+- **Testes de integração**: use `bearer(usuarioId, Papel.X)` da `IntegracaoTest` no header `Authorization`, sem passar pelo login. Contas de teste com senha: `ContasDeTeste` (pacote `usuario`).
+- **Local**: o `.env` precisa de `COE_JWT_KID_ATUAL` e `COE_JWT_CHAVES` (ver `.env.example`); sem eles a aplicação não sobe. No perfil local o ADMIN do seed entra sem SMS (`coe.seguranca.dispensar-mfa-admin`, só no `application-local.yml`).
+- **Endpoint novo protegido por papel**: o token vira `ROLE_CLIENTE`/`ROLE_PROFISSIONAL`/`ROLE_ADMIN`; o id do usuário é o `sub` (`@AuthenticationPrincipal Jwt`). Checagem de dono (anti-IDOR) é sempre no serviço.
 - **Nunca expor entidade JPA na API.**
 - API sob `/api/**`; admin sob `/api/admin/**`.
 

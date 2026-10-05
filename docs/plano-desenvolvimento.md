@@ -169,6 +169,11 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 - Força bruta no login até o rate limit do **CORE-07** (dia 11); hoje o BCrypt custo 12 é a única barreira.
 - Checagem de `Origin` (CSRF) na renovação por cookie: **CORE-08** (dia 6).
 - Expurgo dos `refresh_token` vencidos ou revogados: job futuro (o `coe_app` não tem DELETE na tabela).
+- Reuso de refresh revoga **a família** (uma família = um login = um aparelho), não os outros aparelhos do usuário; quem quiser derrubar tudo usa "sair de todos". Se o PA03 deve revogar todos os aparelhos no reuso: **decisão do usuário** (hoje fica por aparelho, como especificado no dia 5).
+- `POST /api/auth/sair` exige access token válido (decisão do dia 5): o front renova antes de sair se o token tiver vencido.
+- "Sair de todos" concorrendo com uma renovação já travada pode deixar o sucessor dela válido (janela de milissegundos, aceita).
+- Refresh deslizante sem teto absoluto: uma sessão usada todo dia nunca expira. Teto por família (ex.: 90 dias): **decisão do usuário pendente**.
+- Opcionais apontados pela revisão: recusar chave JWT de baixa qualidade (bytes iguais, chaves repetidas) e falhar a subida com os perfis `local` e `prod` juntos.
 - No perfil `local`, o MFA do ADMIN é dispensado (bean `@Profile("local")` **e** `coe.seguranca.dispensar-mfa-admin=true` só no `application-local.yml`) até o CORE-04; em `test` e `prod` não existe.
 
 **Casos de teste obrigatórios do CORE-03 e CORE-04** (PA03):
@@ -295,7 +300,7 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 |---|---|---|---|
 | 3 ✅ | CORE-01, CORE-12, CORE-13 | `Dinheiro`, comissão, configuração, `Clock` | 100% no cálculo de comissão e repasse (**feito**) |
 | 4 ✅ | CORE-02 | Cadastro de cliente (com e-mail) | Celular ou e-mail repetido é recusado; e-mail obrigatório (**feito**) |
-| 5 | CORE-03, DB-13 | Login com JWT (celular ou e-mail), renovação, logout, sair de todos; V12 (`refresh_token`, `mfa_sms_ativo`, sem `spring_session*`, teto de 30% na comissão) | Token expirado ou revogado é recusado; refresh reutilizado revoga a família |
+| 5 ✅ | CORE-03, DB-13 | Login com JWT (celular ou e-mail), renovação, logout, sair de todos; V12 (`refresh_token`, `mfa_sms_ativo`, sem `spring_session*`, teto de 30% na comissão) | Token expirado ou revogado é recusado; refresh reutilizado revoga a família (**feito**) |
 | 6 | CORE-06, CORE-08 | Papéis, checagem de dono, CORS, CSRF na renovação; 401/403 em Problem Details | 403 no recurso de outro |
 | 7 | CORE-04, CORE-05 | Login por SMS, MFA (obrigatório para ADMIN), confirmação de contato (RN61), recuperar senha | Código expira e trava na 5ª tentativa |
 
