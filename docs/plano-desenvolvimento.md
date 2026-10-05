@@ -212,7 +212,7 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 | ID | Tarefa | Entrega |
 |---|---|---|
 | FE-01 | Base do React | `frontend/` com Vite + React + TS (strict), React Router, `tokens.css`, fontes, layout (Cabeçalho, MenuInferior) e componentes base (Botao, Carimbo, StatusDiaria, Nota, Chip, Avatar) |
-| FE-02 | Camada `src/api/` | `fetch` com o JWT no header `Authorization`, renovação do token ao receber 401 e, se falhar, tela de entrar; erros Problem Details em português; proxy `/api` do Vite para 8080 |
+| FE-02 | Camada `src/api/` | `fetch` com o JWT no header `Authorization`, renovação do token ao receber 401 e, se falhar, tela de entrar; erros Problem Details em português; proxy `/api` do Vite para 8081 (porta do perfil local; a 8080 da máquina é do Apache) |
 | FE-03 | Telas públicas e conta | Início, categorias, busca, perfil, entrar, criar conta (nome, celular, e-mail, CEP e senha; RF03), recuperar senha |
 | FE-04 | Cadastro do profissional | 11 etapas com upload de fotos e documentos |
 | FE-05 | Área do cliente | Contratar, pagar (adaptador falso), acompanhar diárias, aprovar, reclamar, avaliar, chat |

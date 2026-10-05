@@ -36,12 +36,12 @@ docker compose down -v                                        # recria o banco d
 ./mvnw clean verify                                           # build + testes + Spotless + cobertura
 ./mvnw spotless:apply                                         # corrige a formatação (o verify reprova sem isso)
 ./mvnw test                                                   # só testes
-./mvnw spring-boot:run "-Dspring-boot.run.profiles=local"     # rodar local (aplica Flyway + dados locais)
+./mvnw spring-boot:run "-Dspring-boot.run.profiles=local"     # rodar local na porta 8081 (aplica Flyway + dados locais)
 
 # frontend
 cd frontend
 npm install
-npm run dev        # http://localhost:5173, com proxy /api -> http://localhost:8080
+npm run dev        # http://localhost:5173, com proxy /api -> http://localhost:8081
 npm test           # Vitest
 npm run build      # gera frontend/dist
 npx playwright test
@@ -153,7 +153,7 @@ npx playwright test
 - Chamadas à API: `fetch` com o JWT no header `Authorization`; ao receber 401, renova o token e, se falhar, vai para a tela de entrar; erros Problem Details mostrados em português.
 - **Nenhuma regra de negócio só no front**: valores, comissão, limite LC 150, censura e estados vêm da API. O front pode avisar antes, o backend decide.
 - Toda tela tem estados de carregando, vazio, erro e sem conexão.
-- Local: Vite com proxy `/api` → `http://localhost:8080` (mesma origem). Produção: build servido no mesmo domínio da API.
+- Local: Vite com proxy `/api` → `http://localhost:8081` (mesma origem; a 8080 da máquina é do Apache). Produção: build servido no mesmo domínio da API.
 
 ## Testes
 - **TDD obrigatório**: teste falhando primeiro, depois a implementação.
