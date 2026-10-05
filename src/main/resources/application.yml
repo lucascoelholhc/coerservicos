@@ -1,6 +1,9 @@
 spring:
   application:
     name: coe-servicos
+  autoconfigure:
+    # sem usuário em memória com senha gerada: o login é o da COE (CORE-03)
+    exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/coeservicos}
     username: ${DB_USER}
@@ -12,6 +15,11 @@ spring:
     locations: classpath:db/migration
   mvc:
     problemdetails.enabled: true      # erros em Problem Details (RFC 9457)
+  jackson:
+    deserialization:
+      # campo desconhecido no JSON = 400 em toda a API (barra mass assignment).
+      # Exceção planejada: o webhook do gateway (DOM-07) guarda o corpo bruto e lê de forma tolerante.
+      fail-on-unknown-properties: true
   web:
     locale: pt_BR                     # mensagens de validação em português
     locale-resolver: fixed
