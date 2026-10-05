@@ -38,6 +38,17 @@ class SegurancaTest extends IntegracaoTest {
     }
 
     @Test
+    @DisplayName("login e renovação só são públicos no POST; token inválido dá 401 em Problem Details")
+    void rotasDeAutenticacao() throws Exception {
+        mockMvc.perform(get("/api/auth/entrar")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/auth/renovar")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/qualquer-coisa").header("Authorization", "Bearer invalido"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().string("WWW-Authenticate", "Bearer"))
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:nao-autenticado"));
+    }
+
+    @Test
     @DisplayName("health continua aberto")
     void healthAberto() throws Exception {
         mockMvc.perform(get("/actuator/health")).andExpect(status().isOk());

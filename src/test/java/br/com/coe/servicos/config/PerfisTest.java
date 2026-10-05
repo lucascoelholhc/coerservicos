@@ -53,6 +53,13 @@ class PerfisTest {
     }
 
     @Test
+    @DisplayName("local sobe na 8081 (a 8080 da máquina de desenvolvimento é do Apache); prod fica no padrão")
+    void portaDoLocal() {
+        assertThat(ambiente("local").getProperty("server.port")).isEqualTo("8081");
+        assertThat(ambiente("prod").getProperty("server.port")).isNull();
+    }
+
+    @Test
     @DisplayName("nenhum perfil devolve stack trace ou mensagem interna nos erros")
     void semDetalheInternoNosErros() {
         Environment prod = ambiente("prod");

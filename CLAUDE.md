@@ -7,7 +7,7 @@ O cliente paga as diárias antes, o valor fica em custódia e é liberado ao pro
 Público com pouca familiaridade com tecnologia: telas simples, poucos campos, botões grandes, linguagem simples.
 
 ## Documentação de apoio (leia antes de mexer no domínio)
-- `docs/regras-negocio.md`: regras RN01–RN60, requisitos RF/RNF e pontos em aberto (PA01–PA16)
+- `docs/regras-negocio.md`: regras RN01–RN61, requisitos RF/RNF e pontos em aberto (PA01–PA16)
 - `docs/plano-desenvolvimento.md`: etapas, tarefas (AMB-, DB-, CORE-, DOM-, FE-, LOC-, AWS-) e cronograma dia a dia
 - `docs/identidade-visual.md`: identidade "Dia carimbado", componentes, acessibilidade, tom dos textos (ler antes de qualquer tarefa de front)
 - `docs/mapa-banco.md`: domínios, tabelas,
@@ -36,12 +36,12 @@ docker compose down -v                                        # recria o banco d
 ./mvnw clean verify                                           # build + testes + Spotless + cobertura
 ./mvnw spotless:apply                                         # corrige a formatação (o verify reprova sem isso)
 ./mvnw test                                                   # só testes
-./mvnw spring-boot:run "-Dspring-boot.run.profiles=local"     # rodar local (aplica Flyway + dados locais)
+./mvnw spring-boot:run "-Dspring-boot.run.profiles=local"     # rodar local na porta 8081 (aplica Flyway + dados locais)
 
 # frontend
 cd frontend
 npm install
-npm run dev        # http://localhost:5173, com proxy /api -> http://localhost:8080
+npm run dev        # http://localhost:5173, com proxy /api -> http://localhost:8081
 npm test           # Vitest
 npm run build      # gera frontend/dist
 npx playwright test
@@ -55,7 +55,8 @@ npx playwright test
 - Cronograma em **fatias verticais** (`docs/plano-desenvolvimento.md`, seção 11): primeiro clique no dia 10, versão local completa no dia 46.
 - Feito (dia 3): CORE-13 (`Clock` UTC + fuso de negócio, ArchUnit proibindo `now()` sem `Clock`), CORE-01 (`Dinheiro`, `Percentual`, `CalculadoraDiaria`, conversores JPA e JSON; 100% de cobertura no pacote), CORE-12 (`ConfiguracaoNegocio` com fail fast e cache de 60 s). Pendência para o DOM-09/DOM-11: chaves `FALTAS_ALERTA` e `FALTAS_JANELA_DIAS` (V13, DB-14).
 - Feito (dia 4): CORE-02 (cadastro de cliente em `POST /api/contas/cliente`; `usuario` + papel `CLIENTE` + `aceite_termos` numa transação; 409 com código e campo, inclusive na corrida; primeira `SecurityFilterChain` stateless com 401/403 em Problem Details; senha `{bcrypt}` custo 12; campo desconhecido no JSON = 400). Pendências registradas no plano (seção do DOM-07/CORE-03): cidade pelo CEP, celular não confirmado até o CORE-04, enumeração e custo do BCrypt cobertos pelo rate limit do CORE-07.
-- Próximo: dia 5 (fatia 0), CORE-03 + DB-13 (login com JWT, V12).
+- Feito (dia 5): DB-13 (V12: `refresh_token` só com hash e conteúdo imutável, `mfa_sms_ativo`, finalidade `mfa`, comissão até 30%) e CORE-03 (login com celular ou e-mail, JWT HS256 com kid de 15 min, refresh rotativo de 30 dias em cookie, reuso revoga a família, sair e sair de todos, MFA obrigatório para ADMIN com dispensa só no perfil local). Riscos aceitos no plano: access token vale até 15 min após o logout; força bruta até o CORE-07; Origin na renovação no CORE-08.
+- Próximo: dia 6 (fatia 0), CORE-06 + CORE-08 (papéis, checagem de dono, CORS, Origin na renovação).
 
 ## Estrutura do backend (por domínio, não por camada)
 `usuario` (conta, login, SMS) · `catalogo` (cidades, profissões, serviços) · `profissional` (cadastro, verificação, portfólio, agenda) · `contrato` (contratos e diárias) · `pagamento` (gateway, webhooks, ledger, repasse, reembolso) · `mensagem` (chat + censura) · `avaliacao` · `disputa` · `moderacao` (denúncias) · `admin` · `config` · `compartilhado` (Dinheiro, erros, auditoria, armazenamento)
@@ -78,11 +79,18 @@ npx playwright test
 - **Conflito**: `new ConflitoException(codigo, mensagem, campo)` vira 409 com `type` `urn:coe:erro:<codigo>` e `campo`.
 - **JSON**: campo desconhecido = 400 em toda a API. Exceção futura: o webhook do gateway (DOM-07) lê o corpo bruto de forma tolerante.
 - **Testes**: celulares só fictícios (`479000000NN`), nunca número real.
+
+### Como autenticar
+- **Front**: `POST /api/auth/entrar` com `{"login","senha"}` (login = celular com ou sem máscara/+55, ou e-mail). Resposta 200: `{accessToken, expiraEm, usuario:{id,nome,papeis}}` + cookie `coe_refresh` (HttpOnly, só `/api/auth`). Guarde o `accessToken` **só na memória** e mande `Authorization: Bearer <token>`. Ao receber 401, chame `POST /api/auth/renovar` (o navegador manda o cookie); se a renovação der 401, vá para a tela de entrar. Sair: `POST /api/auth/sair` (este aparelho) ou `/api/auth/sair-de-todos`.
+- **Erros do login**: 401 `login-invalido` (sempre a mesma mensagem), 403 `conta-suspensa`, 403 `segundo-passo-necessario` (MFA ligado ou ADMIN; o fluxo do SMS é o CORE-04).
+- **Testes de integração**: use `bearer(usuarioId, Papel.X)` da `IntegracaoTest` no header `Authorization`, sem passar pelo login. Contas de teste com senha: `ContasDeTeste` (pacote `usuario`).
+- **Local**: o `.env` precisa de `COE_JWT_KID_ATUAL` e `COE_JWT_CHAVES` (ver `.env.example`); sem eles a aplicação não sobe. No perfil local o ADMIN do seed entra sem SMS (`coe.seguranca.dispensar-mfa-admin`, só no `application-local.yml`).
+- **Endpoint novo protegido por papel**: o token vira `ROLE_CLIENTE`/`ROLE_PROFISSIONAL`/`ROLE_ADMIN`; o id do usuário é o `sub` (`@AuthenticationPrincipal Jwt`). Checagem de dono (anti-IDOR) é sempre no serviço.
 - **Nunca expor entidade JPA na API.**
 - API sob `/api/**`; admin sob `/api/admin/**`.
 
 ## Regras de negócio já decididas (resumo; a fonte é `docs/regras-negocio.md`)
-- Parâmetros vêm da tabela `configuracao` (view `configuracao_vigente`). **Nunca fixar no código**: comissão 10%, liberação em 12 h, disputa decidida em 48 h, 3 tentativas de contato antes de análise, limite LC 150 = 2.
+- Parâmetros vêm da tabela `configuracao` (view `configuracao_vigente`). **Nunca fixar no código**: comissão 10% (teto de 30% no banco), liberação em 12 h, disputa decidida em 48 h, 3 tentativas de contato antes de análise, limite LC 150 = 2.
 - Comissão e "quem paga a taxa" são **copiados para o contrato** na compra. Mudar a configuração não altera contrato fechado. A comissão é **paga pelo cliente**, somada ao total (PA05).
 - **Liberação automática**: 12 h contadas a partir do "Terminei o dia" (`terminou_em`) (PA08).
 - **Idade mínima** do profissional: 18 anos, obrigatório, validado com `Clock` injetado. Mensagem: "Para trabalhar na COE é preciso ter 18 anos ou mais."
@@ -120,7 +128,7 @@ npx playwright test
 - Spring Security com papéis CLIENTE, PROFISSIONAL e ADMIN.
 - **Autorização por objeto em toda consulta** (anti-IDOR): cada usuário só acessa os próprios contratos, diárias, conversas e documentos. Recurso de outro usuário retorna 403 ou 404.
 - Senhas com BCrypt ou Argon2. Autenticação: **JWT** (PA03 decidido): token de acesso de **15 min** (HS256, chave com `kid` no Secrets Manager), guardado **só na memória** do front e enviado no header `Authorization`; dentro dele só o id do usuário, os papéis, emissão, expiração e um id único (nada de celular, CPF ou nome). Refresh token de **30 dias**, renovado a cada uso, em cookie **HttpOnly/Secure/SameSite=Strict** enviado só ao endpoint de renovação, guardado como **hash** no banco; revogado no logout, na troca de senha e quando o admin inativa a conta; refresh reutilizado (sinal de roubo) revoga todos os tokens daquele login. **Uma sessão por aparelho**, com "sair de todos os aparelhos". As tabelas `spring_session*` saem na V12 (DB-13).
-- **MFA opcional**: o login padrão é celular + senha, sem SMS. Quem quiser liga um segundo passo com código por SMS. Entrar só com código por SMS continua como alternativa à senha (RF01). A confirmação do celular no cadastro (RN08) é outra coisa e continua obrigatória, uma vez.
+- **Login** com celular **ou** e-mail + senha (RN58). **MFA obrigatório para ADMIN**, opcional para cliente e profissional; entrar só com código por SMS continua como alternativa à senha (RF01). **Confirmação do celular**: obrigatória para o profissional (sem ela não vai para análise nem aparece na busca), opcional para o cliente (RN08). Contato não confirmado não fica reservado (RN61).
 - CORS restrito ao domínio da COE. CSRF só no endpoint de renovação (único que usa cookie; o SameSite=Strict já cobre quase tudo).
 - Rate limit em login, SMS, recuperação de senha, chat e criação de conta.
 - Bean Validation em toda entrada. **Nunca confiar no front.**
@@ -145,7 +153,7 @@ npx playwright test
 - Chamadas à API: `fetch` com o JWT no header `Authorization`; ao receber 401, renova o token e, se falhar, vai para a tela de entrar; erros Problem Details mostrados em português.
 - **Nenhuma regra de negócio só no front**: valores, comissão, limite LC 150, censura e estados vêm da API. O front pode avisar antes, o backend decide.
 - Toda tela tem estados de carregando, vazio, erro e sem conexão.
-- Local: Vite com proxy `/api` → `http://localhost:8080` (mesma origem). Produção: build servido no mesmo domínio da API.
+- Local: Vite com proxy `/api` → `http://localhost:8081` (mesma origem; a 8080 da máquina é do Apache). Produção: build servido no mesmo domínio da API.
 
 ## Testes
 - **TDD obrigatório**: teste falhando primeiro, depois a implementação.

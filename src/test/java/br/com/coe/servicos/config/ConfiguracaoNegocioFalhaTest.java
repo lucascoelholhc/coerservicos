@@ -65,6 +65,7 @@ class ConfiguracaoNegocioFalhaTest {
     @CsvSource({
         "COMISSAO, abc",
         "COMISSAO, 1.5",
+        "COMISSAO, 0.31",
         "TAXA_PAGA_POR, ninguem",
         "AUTO_LIBERA_HORAS, doze",
         "PAGAMENTO_EXPIRA_MINUTOS, 1.5",

@@ -57,7 +57,7 @@ CREATE ROLE coe_app NOLOGIN;
 O Flyway aplica as migrações e o seed local (dois usuários de teste, senha `coe-local-123`). Confira:
 
 ```bash
-curl http://localhost:8080/actuator/health    # {"status":"UP"}
+curl http://localhost:8081/actuator/health    # {"status":"UP"} (perfil local na 8081)
 ```
 
 ## 4. Testar

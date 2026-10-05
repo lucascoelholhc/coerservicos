@@ -24,6 +24,8 @@ import org.hibernate.type.SqlTypes;
 public class Usuario {
 
     static final String ATIVO = "ativo";
+    static final String SUSPENSO = "suspenso";
+    static final String EXCLUIDO = "excluido";
 
     @Id
     private UUID id;
@@ -46,6 +48,9 @@ public class Usuario {
 
     @Column(nullable = false)
     private String status;
+
+    @Column(name = "mfa_sms_ativo", nullable = false)
+    private boolean mfaSmsAtivo;
 
     @Version
     private Long versao;
@@ -82,5 +87,18 @@ public class Usuario {
 
     public Set<Papel> getPapeis() {
         return Set.copyOf(papeis);
+    }
+
+    /** Hash da senha; nulo em conta excluída (anonimizada). Nunca sai do serviço de login. */
+    String getSenhaHash() {
+        return senhaHash;
+    }
+
+    String getStatus() {
+        return status;
+    }
+
+    boolean isMfaSmsAtivo() {
+        return mfaSmsAtivo;
     }
 }

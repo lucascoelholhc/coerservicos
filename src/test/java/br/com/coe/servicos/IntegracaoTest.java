@@ -9,6 +9,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import br.com.coe.servicos.config.ConfiguracaoNegocio;
+import br.com.coe.servicos.usuario.EmissorDeToken;
+import br.com.coe.servicos.usuario.Papel;
 
 /**
  * Base de todo teste de integração: aplicação inteira no perfil {@code test}, Postgres real
@@ -30,6 +32,19 @@ public abstract class IntegracaoTest {
 
     @Autowired
     private ConfiguracaoNegocio configuracaoNegocio;
+
+    @Autowired
+    private EmissorDeToken emissorDeToken;
+
+    /**
+     * Header {@code Authorization} com um token de acesso válido para o usuário e os papéis dados,
+     * emitido pelo emissor real (sem passar pelo login nem pelo MFA). Use para testar endpoints
+     * protegidos: {@code mockMvc.perform(get(...).header("Authorization", bearer(id, Papel.ADMIN)))}.
+     */
+    protected String bearer(java.util.UUID usuarioId, Papel... papeis) {
+        return "Bearer "
+                + emissorDeToken.emitir(usuarioId, java.util.Set.of(papeis)).valor();
+    }
 
     @BeforeEach
     void relogioEConfiguracaoNoEstadoPadrao() {

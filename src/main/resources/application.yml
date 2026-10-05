@@ -24,6 +24,17 @@ spring:
     locale: pt_BR                     # mensagens de validação em português
     locale-resolver: fixed
 
+coe:
+  jwt:
+    # Variáveis de ambiente obrigatórias (sem elas a aplicação não sobe):
+    # COE_JWT_KID_ATUAL=2026-10   COE_JWT_CHAVES=2026-10:<base64 de 32 bytes>[,kid-anterior:<base64>]
+    kid-atual: ${COE_JWT_KID_ATUAL:}
+    chaves: ${COE_JWT_CHAVES:}
+  auth:
+    cookie:
+      secure: true      # o local (http://localhost) desliga no application-local.yml
+      dominio:          # vazio = só o host que respondeu
+
 server:
   error:
     include-stacktrace: never

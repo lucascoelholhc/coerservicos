@@ -37,6 +37,7 @@ public class ConfiguracaoNegocio {
 
     private static final Logger LOG = LoggerFactory.getLogger(ConfiguracaoNegocio.class);
     private static final int LIMITE_LC150_MAXIMO = 2;
+    private static final Percentual TETO_COMISSAO = Percentual.de("0.30");
 
     /** Os parâmetros em vigor num instante, todos de uma mesma leitura. */
     public record Parametros(
@@ -148,7 +149,7 @@ public class ConfiguracaoNegocio {
     private Parametros carregar() {
         Map<String, String> brutos = fonte.lerVigentes();
         return new Parametros(
-                ler(brutos, ChaveConfiguracao.COMISSAO, Percentual::de),
+                ler(brutos, ChaveConfiguracao.COMISSAO, ConfiguracaoNegocio::comissao),
                 ler(brutos, ChaveConfiguracao.TAXA_PAGA_POR, TaxaPagaPor::deCodigo),
                 ler(brutos, ChaveConfiguracao.AUTO_LIBERA_HORAS, texto -> Duration.ofHours(positivo(texto))),
                 ler(brutos, ChaveConfiguracao.PRAZO_DISPUTA_HORAS, texto -> Duration.ofHours(positivo(texto))),
@@ -157,6 +158,15 @@ public class ConfiguracaoNegocio {
                 ler(brutos, ChaveConfiguracao.MEIA_DIARIA_HORAS, texto -> Duration.ofHours(positivo(texto))),
                 ler(brutos, ChaveConfiguracao.PAGAMENTO_EXPIRA_MINUTOS, texto -> Duration.ofMinutes(positivo(texto))),
                 ler(brutos, ChaveConfiguracao.VERSAO_TERMOS, ConfiguracaoNegocio::naoVazio));
+    }
+
+    /** Comissão até o teto de 30% (RN31); o banco tem o mesmo CHECK (V12). */
+    private static Percentual comissao(String texto) {
+        Percentual comissao = Percentual.de(texto);
+        if (comissao.valor().compareTo(TETO_COMISSAO.valor()) > 0) {
+            throw new IllegalArgumentException("não pode passar de 30% (RN31)");
+        }
+        return comissao;
     }
 
     private static int positivo(String texto) {
