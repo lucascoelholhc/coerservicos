@@ -18,8 +18,8 @@ interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
 
     Optional<Usuario> findByEmail(String email);
 
-    @Modifying
     /** Só regrava se o hash ainda for o lido no login (uma troca de senha no meio não é desfeita). */
+    @Modifying
     @Query(
             value = "UPDATE usuario SET senha_hash = :hashNovo WHERE id = :id AND senha_hash = :hashAntigo",
             nativeQuery = true)
