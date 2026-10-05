@@ -54,7 +54,8 @@ npx playwright test
 - Feito (etapa 0): AMB-02 (`docker-compose` com Postgres 16 e Mailpit; S3 local fica para o CORE-09), AMB-03 (perfis `local`, `test` e `prod`), AMB-04 (pacotes por domínio com `package-info`), AMB-05 (base `IntegracaoTest` + fumaça do health), AMB-06 (Spotless com palantir-java-format no `verify`), AMB-07 (README), AMB-08 (`TratadorDeErros`: Problem Details em pt-BR, `type` = `urn:coe:erro:<codigo>`; 401/403 ficam para o CORE-03/06).
 - Cronograma em **fatias verticais** (`docs/plano-desenvolvimento.md`, seção 11): primeiro clique no dia 10, versão local completa no dia 46.
 - Feito (dia 3): CORE-13 (`Clock` UTC + fuso de negócio, ArchUnit proibindo `now()` sem `Clock`), CORE-01 (`Dinheiro`, `Percentual`, `CalculadoraDiaria`, conversores JPA e JSON; 100% de cobertura no pacote), CORE-12 (`ConfiguracaoNegocio` com fail fast e cache de 60 s). Pendência para o DOM-09/DOM-11: chaves `FALTAS_ALERTA` e `FALTAS_JANELA_DIAS` (V13, DB-14).
-- Próximo: dia 4 (fatia 0), CORE-02 (cadastro de cliente).
+- Feito (dia 4): CORE-02 (cadastro de cliente em `POST /api/contas/cliente`; `usuario` + papel `CLIENTE` + `aceite_termos` numa transação; 409 com código e campo, inclusive na corrida; primeira `SecurityFilterChain` stateless com 401/403 em Problem Details; senha `{bcrypt}` custo 12; campo desconhecido no JSON = 400). Pendências registradas no plano (seção do DOM-07/CORE-03): cidade pelo CEP, celular não confirmado até o CORE-04, enumeração e custo do BCrypt cobertos pelo rate limit do CORE-07.
+- Próximo: dia 5 (fatia 0), CORE-03 + DB-13 (login com JWT, V12).
 
 ## Estrutura do backend (por domínio, não por camada)
 `usuario` (conta, login, SMS) · `catalogo` (cidades, profissões, serviços) · `profissional` (cadastro, verificação, portfólio, agenda) · `contrato` (contratos e diárias) · `pagamento` (gateway, webhooks, ledger, repasse, reembolso) · `mensagem` (chat + censura) · `avaliacao` · `disputa` · `moderacao` (denúncias) · `admin` · `config` · `compartilhado` (Dinheiro, erros, auditoria, armazenamento)
@@ -68,6 +69,15 @@ npx playwright test
 - **Valores de uma diária**: sempre `CalculadoraDiaria.calcular(valor, comissao, taxaPagaPor)`, que devolve comissão, total do cliente, repasse e reembolso (= o que o cliente pagou). Totais do contrato = `TotaisContrato.somar(diarias)`; nunca calcule a comissão sobre o total.
 - **ConfiguracaoNegocio** (`config`): injete e leia os getters tipados (`comissao()`, `autoLiberacao()`, `limiteDiaristaJanela7Dias()`...). Num cálculo que usa mais de um parâmetro (ex.: comissão e quem paga), pegue `parametros()` uma vez e use o mesmo snapshot. Se a releitura falhar depois da subida, ela mantém os últimos valores válidos. Nunca fixe esses valores no código. Chave nova = enum `ChaveConfiguracao` + getter + migração com o valor. Depois de o admin mudar um parâmetro, chame `invalidarCache()`.
 - **Clock**: injete `java.time.Clock` em todo serviço com data ou prazo; `Instant.now()`, `LocalDate.now()` e afins sem `Clock` quebram o build (ArchUnit). Datas de negócio (diária, LC 150, idade, "hoje") usam `FusoDeNegocio.hoje(clock)` / `FusoDeNegocio.ZONA` (São Paulo). Nos testes de integração, use `relogio.avancar(...)` ou `relogio.fixarEm(...)`.
+
+### Como usar o cadastro e a segurança
+- **Cadastro de cliente**: `POST /api/contas/cliente` (público) com `{"nome","celular","email","cep","senha","versaoTermosAceita"}`. Responde 201 com `{id, nome}` e **não faz login**. Erros: 400 com `campos` (validação ou campo desconhecido), 409 com `type` `urn:coe:erro:celular-ja-cadastrado`/`email-ja-cadastrado` e `campo`, 422 `termos-desatualizados` quando a versão difere de `ConfiguracaoNegocio.versaoTermos()`.
+- **Normalização** (`usuario.Contato`): celular só com dígitos (o `55` do país só sai com 13 dígitos; 55 também é DDD), 11 dígitos com o 3º = 9; e-mail com trim e minúsculas; CEP só dígitos; nome com trim. Use os mesmos métodos em qualquer outro cadastro (profissional no DOM-02).
+- **Senha**: injete `PasswordEncoder` (bean `codificadorDeSenha` em `SegurancaConfig`), nunca crie um `BCryptPasswordEncoder` solto. Gera `{bcrypt}` custo 12 e confere também hash sem prefixo (seed local). Regras: 8 a 72 bytes, diferente do celular e do e-mail, fora da lista de óbvias (`@SenhaPermitida`).
+- **Segurança**: tudo em `/api/**` exige login, exceto o que estiver liberado em `SegurancaConfig` (hoje só o cadastro e o health). Endpoint público novo = liberar ali **e** testar o 401 do resto. Sem sessão (stateless) e CSRF desligado até o CORE-08.
+- **Conflito**: `new ConflitoException(codigo, mensagem, campo)` vira 409 com `type` `urn:coe:erro:<codigo>` e `campo`.
+- **JSON**: campo desconhecido = 400 em toda a API. Exceção futura: o webhook do gateway (DOM-07) lê o corpo bruto de forma tolerante.
+- **Testes**: celulares só fictícios (`479000000NN`), nunca número real.
 - **Nunca expor entidade JPA na API.**
 - API sob `/api/**`; admin sob `/api/admin/**`.
 
