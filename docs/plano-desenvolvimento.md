@@ -153,6 +153,17 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 - Saldo do profissional nunca fica negativo no repasse.
 - Os totais batem centavo por centavo: custódia + repassado + receita = total pago.
 
+**Pendências deixadas pelo CORE-02** (dia 4):
+- `usuario.cidade_id` fica nulo no cadastro: preencher a cidade a partir do CEP (DOM-01 ou depois; a regra de busca do CEP ainda não está decidida).
+- O celular nasce **não confirmado** (`celular_verificado_em` nulo); a confirmação por SMS entra no CORE-04 (dia 7), e o login deve tratar a conta ainda não confirmada conforme a RN08.
+- O 409 de "celular/e-mail já cadastrado" permite descobrir se alguém tem conta: aceito, coberto pelo rate limit do CORE-07 (dia 11) no `POST /api/contas/cliente`.
+- O BCrypt de custo 12 num endpoint público custa CPU: o mesmo rate limit do CORE-07 protege contra abuso.
+- Campo desconhecido no JSON é recusado (400) em toda a API (`fail-on-unknown-properties`). **Exceção do DOM-07**: o webhook do gateway guarda o corpo bruto e lê de forma tolerante (ignora campo novo); nunca usar DTO rígido ali.
+- O IP do aceite vem de `getRemoteAddr()`. Em produção, `forward-headers-strategy: native` (RemoteIpValve) faz dele o IP real, confiando no `X-Forwarded-For` só de IP interno; na etapa AWS, conferir que o ALB está em sub-rede privada e testar o IP gravado em homologação.
+- **CORE-03:** o BCrypt recusa senha acima de 72 bytes no `matches`; o login e a troca de senha validam o tamanho antes e respondem 401 genérico (com teste). Hash sem prefixo (`$2b$` do seed) é regravado como `{bcrypt}` após o login (`upgradeEncoding`). Papéis com `JOIN FETCH` no login se o `EAGER` virar N+1 nas listagens do admin.
+- **CORE-04 (decisão do usuário pendente):** alguém pode cadastrar o celular ou e-mail de outra pessoa e travá-los (a conta nasce com o celular não confirmado). Decidir se cadastro não confirmado expira ou pode ser substituído pelo dono do número.
+- **CORE-07:** limite de tamanho do corpo da requisição (filtro ou ALB/WAF), além do rate limit.
+
 **Casos de teste obrigatórios do CORE-03 e CORE-04** (PA03):
 - Token de acesso expirado (Clock adiantado 15 min) é recusado com 401; renovação devolve um novo par
 - Refresh usado duas vezes: a segunda é recusada e **todos** os tokens daquele login são revogados
@@ -276,7 +287,7 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 | Dia | Tarefas | O que fazer | Pronto quando |
 |---|---|---|---|
 | 3 ✅ | CORE-01, CORE-12, CORE-13 | `Dinheiro`, comissão, configuração, `Clock` | 100% no cálculo de comissão e repasse (**feito**) |
-| 4 | CORE-02 | Cadastro de cliente (com e-mail) | Celular ou e-mail repetido é recusado; e-mail obrigatório |
+| 4 ✅ | CORE-02 | Cadastro de cliente (com e-mail) | Celular ou e-mail repetido é recusado; e-mail obrigatório (**feito**) |
 | 5 | CORE-03, DB-13 | Login com JWT, renovação, logout, sair de todos; V12 (`refresh_token`, `mfa_sms_ativo`, sem `spring_session*`) | Token expirado ou revogado é recusado; refresh reutilizado revoga a família |
 | 6 | CORE-06, CORE-08 | Papéis, checagem de dono, CORS, CSRF na renovação; 401/403 em Problem Details | 403 no recurso de outro |
 | 7 | CORE-04, CORE-05 | Login por SMS, MFA opcional, recuperar senha | Código expira e trava na 5ª tentativa |

@@ -1,6 +1,7 @@
 package br.com.coe.servicos.compartilhado.erro;
 
 import java.net.URI;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Objects;
 import jakarta.validation.ConstraintViolation;
@@ -10,6 +11,7 @@ import jakarta.validation.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSourceResolvable;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -59,8 +61,12 @@ public class TratadorDeErros extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(ConflitoException.class)
     ProblemDetail conflito(ConflitoException erro) {
-        LOG.info("Conflito ao atender a requisição");
-        return problema(HttpStatus.CONFLICT, "conflito", "Conflito", erro.getMessage());
+        LOG.info("Conflito ao atender a requisição: {}", erro.getCodigo());
+        ProblemDetail problema = problema(HttpStatus.CONFLICT, erro.getCodigo(), "Conflito", erro.getMessage());
+        if (erro.getCampo() != null) {
+            problema.setProperty("campo", erro.getCampo());
+        }
+        return problema;
     }
 
     /** Validação feita fora do controller (ex.: {@code @Validated} num serviço). */
@@ -79,6 +85,20 @@ public class TratadorDeErros extends ResponseEntityExceptionHandler {
     @ExceptionHandler({AccessDeniedException.class, AuthenticationException.class})
     void seguranca(RuntimeException erro) {
         throw erro;
+    }
+
+    /**
+     * Violação de constraint não tratada pelo serviço: 500 genérico. A mensagem do driver traz os
+     * valores da linha ("Key (celular)=(...)"), então o log leva só o tipo, a constraint e o SQLState.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    ProblemDetail violacaoNoBanco(DataIntegrityViolationException erro) {
+        LOG.error(
+                "Erro inesperado ao gravar no banco: {} (constraint {}, SQLState {})",
+                erro.getClass().getSimpleName(),
+                nomeDaConstraint(erro),
+                sqlState(erro));
+        return problema(HttpStatus.INTERNAL_SERVER_ERROR, "interno", "Erro interno", DETALHE_INTERNO);
     }
 
     /** Qualquer erro não previsto vira 500 genérico; o detalhe fica só no log. */
@@ -162,6 +182,24 @@ public class TratadorDeErros extends ResponseEntityExceptionHandler {
                         "Requisição inválida",
                         "Não foi possível atender a esta requisição.");
         };
+    }
+
+    private static String nomeDaConstraint(Throwable erro) {
+        for (Throwable causa = erro; causa != null; causa = causa.getCause()) {
+            if (causa instanceof org.hibernate.exception.ConstraintViolationException violacao) {
+                return violacao.getConstraintName();
+            }
+        }
+        return "desconhecida";
+    }
+
+    private static String sqlState(Throwable erro) {
+        for (Throwable causa = erro; causa != null; causa = causa.getCause()) {
+            if (causa instanceof SQLException sql) {
+                return sql.getSQLState();
+            }
+        }
+        return "desconhecido";
     }
 
     private static ProblemDetail validacao(List<CampoInvalido> campos) {

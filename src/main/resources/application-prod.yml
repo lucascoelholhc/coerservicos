@@ -18,4 +18,8 @@ management:
       show-details: never
 
 server:
-  forward-headers-strategy: framework   # atrás do load balancer (HTTPS terminado no ALB)
+  # Atrás do ALB (HTTPS terminado nele). "native" = RemoteIpValve do Tomcat: getRemoteAddr() passa a
+  # ser o IP real do cliente (prova do aceite dos termos, rate limit), mas só confia no
+  # X-Forwarded-For vindo de IP interno (padrão do Tomcat: 10/8, 172.16/12, 192.168/16, 127/8).
+  # Na etapa AWS, conferir que o ALB está em sub-rede privada e restringir os proxies se preciso.
+  forward-headers-strategy: native

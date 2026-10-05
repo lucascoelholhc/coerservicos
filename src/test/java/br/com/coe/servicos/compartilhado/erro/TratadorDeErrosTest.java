@@ -1,5 +1,6 @@
 package br.com.coe.servicos.compartilhado.erro;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -18,7 +19,11 @@ import jakarta.validation.constraints.Size;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
@@ -39,6 +44,7 @@ import br.com.coe.servicos.IntegracaoTest;
  * igual ao HTTP e sem detalhe interno (stack trace, nome de classe, SQL).
  */
 @WithMockUser
+@ExtendWith(OutputCaptureExtension.class)
 @Import(TratadorDeErrosTest.ControladorDeErros.class)
 class TratadorDeErrosTest extends IntegracaoTest {
 
@@ -109,6 +115,13 @@ class TratadorDeErrosTest extends IntegracaoTest {
         @GetMapping("/proibido")
         void proibido() {
             throw new AccessDeniedException("sem permissão");
+        }
+
+        @GetMapping("/integridade")
+        void integridade() {
+            throw new DataIntegrityViolationException(
+                    "ERROR: duplicate key value violates unique constraint \"uq_aceite_termos\""
+                            + " Detail: Key (celular)=(47900000999) already exists.");
         }
 
         @GetMapping("/inesperado")
@@ -307,5 +320,15 @@ class TratadorDeErrosTest extends IntegracaoTest {
                 .andExpect(jsonPath("$.exception").doesNotExist())
                 .andExpect(jsonPath("$.message").doesNotExist())
                 .andExpect(jsonPath("$.trace").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("500 por violação no banco: o log não leva os valores da linha (celular, e-mail)")
+    void violacaoNoBancoSemDadoPessoalNoLog(CapturedOutput saida) throws Exception {
+        mockMvc.perform(get("/teste/erros/integridade"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:interno"));
+
+        assertThat(saida.getAll()).doesNotContain("47900000999").contains("DataIntegrityViolationException");
     }
 }
