@@ -69,6 +69,19 @@ public class TratadorDeErros extends ResponseEntityExceptionHandler {
         return problema;
     }
 
+    @ExceptionHandler(NaoAutenticadoException.class)
+    ResponseEntity<ProblemDetail> naoAutenticado(NaoAutenticadoException erro) {
+        ResponseEntity.BodyBuilder resposta =
+                ResponseEntity.status(HttpStatus.UNAUTHORIZED).header(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
+        erro.getCabecalhos().forEach((nome, valor) -> resposta.header(nome, valor));
+        return resposta.body(problema(HttpStatus.UNAUTHORIZED, erro.getCodigo(), "Não autenticado", erro.getMessage()));
+    }
+
+    @ExceptionHandler(AcaoProibidaException.class)
+    ProblemDetail acaoProibida(AcaoProibidaException erro) {
+        return problema(HttpStatus.FORBIDDEN, erro.getCodigo(), "Acesso negado", erro.getMessage());
+    }
+
     /** Validação feita fora do controller (ex.: {@code @Validated} num serviço). */
     @ExceptionHandler(ConstraintViolationException.class)
     ProblemDetail validacaoNoServico(ConstraintViolationException erro) {

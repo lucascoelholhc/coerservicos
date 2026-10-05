@@ -17,14 +17,19 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
 
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Segurança da API (CORE-02, primeira versão): sem sessão, tudo exige login menos o cadastro de
- * cliente e o health. Sem login → 401; sem permissão → 403, ambos em Problem Details. O login com
- * JWT entra no CORE-03; o CSRF da renovação por cookie, no CORE-08.
+ * Segurança da API: sem sessão, JWT de acesso no header Authorization (resource server). Públicos só
+ * o cadastro de cliente, o login, a renovação e o health. Sem login ou com token inválido → 401;
+ * sem permissão → 403, ambos em Problem Details.
  */
 @Configuration(proxyBeanMethods = false)
 public class SegurancaConfig {
@@ -33,42 +38,60 @@ public class SegurancaConfig {
     private static final String PROBLEM_JSON = "application/problem+json";
 
     @Bean
-    SecurityFilterChain cadeiaDaApi(HttpSecurity http, JsonMapper json) throws Exception {
+    SecurityFilterChain cadeiaDaApi(HttpSecurity http, JsonMapper json, JwtDecoder decodificador) throws Exception {
+        AuthenticationEntryPoint naoAutenticado = (requisicao, resposta, erro) -> {
+            resposta.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
+            escrever(
+                    resposta,
+                    json,
+                    HttpServletResponse.SC_UNAUTHORIZED,
+                    "nao-autenticado",
+                    "Não autenticado",
+                    "Entre na sua conta para continuar.");
+        };
+        AccessDeniedHandler semPermissao = (requisicao, resposta, erro) -> escrever(
+                resposta,
+                json,
+                HttpServletResponse.SC_FORBIDDEN,
+                "proibido",
+                "Acesso negado",
+                "Você não tem permissão para fazer isso.");
         // API stateless com token no header Authorization: sem cookie de sessão, não há CSRF a
-        // proteger. O CSRF volta só no endpoint de renovação por cookie (CORE-08).
+        // proteger. O cookie do refresh (SameSite=Strict, só /api/auth) ganha a checagem de Origin
+        // no CORE-08.
         http.csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sessao -> sessao.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(regras -> regras.dispatcherTypeMatchers(DispatcherType.ERROR)
                         .permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/contas/cliente")
+                        .requestMatchers(
+                                HttpMethod.POST, "/api/contas/cliente", "/api/auth/entrar", "/api/auth/renovar")
                         .permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**")
                         .permitAll()
                         .anyRequest()
                         .authenticated())
-                .exceptionHandling(erros -> erros.authenticationEntryPoint((requisicao, resposta, erro) -> {
-                            resposta.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
-                            escrever(
-                                    resposta,
-                                    json,
-                                    HttpServletResponse.SC_UNAUTHORIZED,
-                                    "nao-autenticado",
-                                    "Não autenticado",
-                                    "Entre na sua conta para continuar.");
-                        })
-                        .accessDeniedHandler((requisicao, resposta, erro) -> escrever(
-                                resposta,
-                                json,
-                                HttpServletResponse.SC_FORBIDDEN,
-                                "proibido",
-                                "Acesso negado",
-                                "Você não tem permissão para fazer isso.")));
+                .oauth2ResourceServer(recurso -> recurso.jwt(
+                                jwt -> jwt.decoder(decodificador).jwtAuthenticationConverter(papeisDoToken()))
+                        .authenticationEntryPoint(naoAutenticado)
+                        .accessDeniedHandler(semPermissao))
+                .exceptionHandling(
+                        erros -> erros.authenticationEntryPoint(naoAutenticado).accessDeniedHandler(semPermissao));
         return http.build();
+    }
+
+    /** Claim "papeis" vira ROLE_CLIENTE, ROLE_PROFISSIONAL, ROLE_ADMIN; o nome é o id (sub). */
+    private static JwtAuthenticationConverter papeisDoToken() {
+        JwtGrantedAuthoritiesConverter papeis = new JwtGrantedAuthoritiesConverter();
+        papeis.setAuthoritiesClaimName(ConfiguracaoJwt.CLAIM_PAPEIS);
+        papeis.setAuthorityPrefix("ROLE_");
+        JwtAuthenticationConverter conversor = new JwtAuthenticationConverter();
+        conversor.setJwtGrantedAuthoritiesConverter(papeis);
+        return conversor;
     }
 
     /**
      * Senhas com {bcrypt} e custo 12. Hash sem prefixo (o "$2b$..." do seed local) é conferido como
-     * bcrypt, para os usuários de teste conseguirem entrar.
+     * bcrypt e regravado como {bcrypt} no próximo login certo.
      */
     @Bean
     public PasswordEncoder codificadorDeSenha() {

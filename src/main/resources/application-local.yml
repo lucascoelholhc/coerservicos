@@ -4,3 +4,7 @@ spring.config.import: optional:file:.env[.properties]
 spring.flyway.locations: classpath:db/migration,classpath:db/local
 # Trava do seed local (R__dados_local.sql): só roda com ambiente = local
 spring.flyway.placeholders.ambiente: local
+# Local roda em http://localhost: cookie do refresh sem Secure
+coe.auth.cookie.secure: false
+# Até o CORE-04 (SMS), o ADMIN do seed entra sem o segundo passo. SÓ AQUI, nunca em outro perfil.
+coe.seguranca.dispensar-mfa-admin: true
