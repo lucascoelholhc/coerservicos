@@ -31,6 +31,8 @@ coe:
     kid-atual: ${COE_JWT_KID_ATUAL:}
     chaves: ${COE_JWT_CHAVES:}
   auth:
+    sessao:
+      duracao-maxima: 90d   # teto absoluto desde o login (PA03); depois disso, senha de novo
     cookie:
       secure: true      # o local (http://localhost) desliga no application-local.yml
       dominio:          # vazio = só o host que respondeu

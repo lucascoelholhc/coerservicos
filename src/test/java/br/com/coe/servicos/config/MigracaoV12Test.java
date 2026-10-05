@@ -21,9 +21,10 @@ class MigracaoV12Test extends BancoIntegracaoTest {
 
     private UUID refreshToken(UUID usuario, UUID familia) {
         return jdbc.queryForObject("""
-                INSERT INTO refresh_token (usuario_id, familia_id, token_hash, aparelho, ip, criado_em, expira_em)
+                INSERT INTO refresh_token
+                    (usuario_id, familia_id, token_hash, aparelho, ip, criado_em, expira_em, sessao_iniciada_em)
                 VALUES (?, ?, sha256(gen_random_uuid()::text::bytea), 'Chrome no Windows', '127.0.0.1',
-                        now(), now() + interval '30 days')
+                        now(), now() + interval '30 days', now())
                 RETURNING id""", UUID.class, usuario, familia);
     }
 
@@ -55,8 +56,9 @@ class MigracaoV12Test extends BancoIntegracaoTest {
             UUID token = refreshToken(usuario, UUID.randomUUID());
 
             PSQLException erro = erroDoBanco(() -> jdbc.update("""
-                    INSERT INTO refresh_token (usuario_id, familia_id, token_hash, criado_em, expira_em)
-                    SELECT usuario_id, gen_random_uuid(), token_hash, criado_em, expira_em FROM refresh_token WHERE id = ?""", token));
+                    INSERT INTO refresh_token (usuario_id, familia_id, token_hash, criado_em, expira_em, sessao_iniciada_em)
+                    SELECT usuario_id, gen_random_uuid(), token_hash, criado_em, expira_em, sessao_iniciada_em
+                    FROM refresh_token WHERE id = ?""", token));
 
             assertConstraint(erro, UNIQUE_VIOLATION, "uq_refresh_token_hash");
         }
@@ -71,8 +73,9 @@ class MigracaoV12Test extends BancoIntegracaoTest {
             UUID usuario = fixtures.usuario();
 
             PSQLException erro = erroDoBanco(() -> jdbc.update(
-                    "INSERT INTO refresh_token (usuario_id, familia_id, token_hash, aparelho, criado_em, expira_em)"
-                            + " VALUES (?, ?, " + hash + ", " + aparelho + ", now(), " + expira + ")",
+                    "INSERT INTO refresh_token (usuario_id, familia_id, token_hash, aparelho, criado_em, expira_em,"
+                            + " sessao_iniciada_em) VALUES (?, ?, " + hash + ", " + aparelho + ", now(), " + expira
+                            + ", now())",
                     usuario,
                     UUID.randomUUID()));
 

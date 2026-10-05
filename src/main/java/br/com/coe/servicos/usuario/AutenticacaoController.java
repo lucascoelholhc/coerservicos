@@ -77,7 +77,7 @@ class AutenticacaoController {
                 .build();
     }
 
-    private ResponseEntity<SessaoResponse> responder(UsuarioResumo usuario, String refresh) {
+    private ResponseEntity<SessaoResponse> responder(UsuarioResumo usuario, RefreshEmitido refresh) {
         TokenDeAcesso acesso = emissor.emitir(usuario.id(), Set.copyOf(usuario.papeis()));
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookie.criar(refresh))

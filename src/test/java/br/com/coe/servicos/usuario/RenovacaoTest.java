@@ -176,6 +176,69 @@ class RenovacaoTest extends IntegracaoTest {
     }
 
     @Test
+    @DisplayName("teto: com 89 dias de sessão ainda renova (renovando a cada 29 dias)")
+    void teto89Dias() throws Exception {
+        Conta conta = contas.criar(Papel.CLIENTE);
+        String refresh = entrar(conta);
+        for (int i = 0; i < 3; i++) {
+            relogio.avancar(Duration.ofDays(29));
+            refresh = renovarComSucesso(refresh);
+        }
+        relogio.avancar(Duration.ofDays(2));
+
+        renovarComSucesso(refresh);
+
+        assertThat(jdbc.queryForObject(
+                        "SELECT count(DISTINCT sessao_iniciada_em) FROM refresh_token WHERE usuario_id = ?",
+                        Integer.class,
+                        conta.id()))
+                .as("todos os sucessores herdam o início da sessão")
+                .isOne();
+    }
+
+    @Test
+    @DisplayName("teto: com 90 dias e 1 s de sessão recusa, revoga a família e apaga o cookie")
+    void teto90DiasRecusa() throws Exception {
+        Conta conta = contas.criar(Papel.CLIENTE);
+        String refresh = entrar(conta);
+        for (int i = 0; i < 3; i++) {
+            relogio.avancar(Duration.ofDays(29));
+            refresh = renovarComSucesso(refresh);
+        }
+        relogio.avancar(Duration.ofDays(3).plusSeconds(1));
+
+        recusada(refresh);
+
+        assertThat(revogadosDaFamilia(conta, "teto"))
+                .as("a família inteira: 3 usados e o atual")
+                .isEqualTo(4);
+    }
+
+    @Test
+    @DisplayName("teto: renovação no dia 75 gera refresh e cookie de 15 dias (nunca além dos 90)")
+    void renovacaoNoDia75() throws Exception {
+        Conta conta = contas.criar(Papel.CLIENTE);
+        String refresh = entrar(conta);
+        relogio.avancar(Duration.ofDays(29));
+        refresh = renovarComSucesso(refresh);
+        relogio.avancar(Duration.ofDays(29));
+        refresh = renovarComSucesso(refresh);
+        relogio.avancar(Duration.ofDays(17));
+
+        MockHttpServletResponse resposta =
+                renovar(refresh).andExpect(status().isOk()).andReturn().getResponse();
+
+        assertThat(resposta.getHeader("Set-Cookie"))
+                .contains("Max-Age=" + Duration.ofDays(15).toSeconds());
+        assertThat(jdbc.queryForObject(
+                        "SELECT max(expira_em) = timestamptz '2027-01-03T12:00:00Z' FROM refresh_token WHERE usuario_id = ?",
+                        Boolean.class,
+                        conta.id()))
+                .as("o último refresh vence junto com a sessão (início + 90 dias)")
+                .isTrue();
+    }
+
+    @Test
     @DisplayName("refresh vencido (30 dias): 401")
     void vencido() throws Exception {
         Conta conta = contas.criar(Papel.CLIENTE);

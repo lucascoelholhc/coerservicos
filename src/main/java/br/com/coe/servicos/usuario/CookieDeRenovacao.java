@@ -26,8 +26,9 @@ class CookieDeRenovacao {
         this.dominio = dominio.isBlank() ? null : dominio;
     }
 
-    String criar(String refresh) {
-        return montar(refresh, ServicoDeSessao.VALIDADE);
+    /** Max-Age = o tempo que o refresh ainda vale (nunca além do teto da sessão). */
+    String criar(RefreshEmitido refresh) {
+        return montar(refresh.valor(), refresh.validade());
     }
 
     String apagar() {
