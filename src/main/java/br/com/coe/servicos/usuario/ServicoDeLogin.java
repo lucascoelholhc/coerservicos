@@ -47,11 +47,13 @@ class ServicoDeLogin {
     LoginAceito entrar(LoginRequest pedido, String ip, String userAgent) {
         Optional<Usuario> encontrado = buscar(pedido.login());
         boolean senhaConfere = conferir(encontrado, pedido.senha());
-        if (!senhaConfere || Usuario.EXCLUIDO.equals(encontrado.get().getStatus())) {
-            LOG.info("Login recusado");
-            throw new NaoAutenticadoException("login-invalido", "Login ou senha incorretos.");
-        }
-        Usuario usuario = encontrado.get();
+        Usuario usuario = encontrado
+                .filter(conta -> senhaConfere)
+                .filter(conta -> !Usuario.EXCLUIDO.equals(conta.getStatus()))
+                .orElseThrow(() -> {
+                    LOG.info("Login recusado");
+                    return new NaoAutenticadoException("login-invalido", "Login ou senha incorretos.");
+                });
         if (Usuario.SUSPENSO.equals(usuario.getStatus())) {
             LOG.info("Login recusado (conta suspensa): {}", usuario.getId());
             throw new AcaoProibidaException("conta-suspensa", "Sua conta está suspensa. Fale com a equipe da COE.");
@@ -61,9 +63,9 @@ class ServicoDeLogin {
             throw new AcaoProibidaException(
                     "segundo-passo-necessario", "Confirme o código enviado por SMS para entrar.");
         }
-        String novoHash =
-                codificador.upgradeEncoding(usuario.getSenhaHash()) ? codificador.encode(pedido.senha()) : null;
-        String refresh = sessoes.abrir(usuario.getId(), novoHash, ip, userAgent);
+        String hashAtual = usuario.getSenhaHash();
+        String hashNovo = codificador.upgradeEncoding(hashAtual) ? codificador.encode(pedido.senha()) : null;
+        String refresh = sessoes.abrir(usuario.getId(), hashAtual, hashNovo, ip, userAgent);
         LOG.info("Login ok: {}", usuario.getId());
         return new LoginAceito(UsuarioResumo.de(usuario), refresh);
     }

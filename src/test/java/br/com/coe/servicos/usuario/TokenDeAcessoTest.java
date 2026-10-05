@@ -174,6 +174,35 @@ class TokenDeAcessoTest extends IntegracaoTest {
     }
 
     @Test
+    @DisplayName("sem sub, ou sub que não é UUID: 401 (nunca 500)")
+    void subInvalido() throws Exception {
+        comToken(
+                assinar(
+                        "teste-2",
+                        chave("teste-2"),
+                        claimsValidas().subject(null).build()),
+                401);
+        comToken(
+                assinar(
+                        "teste-2",
+                        chave("teste-2"),
+                        claimsValidas().subject("47900000001").build()),
+                401);
+    }
+
+    @Test
+    @DisplayName("/api/admin/** só para ADMIN: 403 para os outros papéis, passa para o ADMIN")
+    void rotasDoAdmin() throws Exception {
+        mockMvc.perform(get("/api/admin/qualquer-coisa")
+                        .header("Authorization", bearer(UUID.randomUUID(), Papel.CLIENTE)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:proibido"));
+        mockMvc.perform(get("/api/admin/qualquer-coisa")
+                        .header("Authorization", bearer(UUID.randomUUID(), Papel.ADMIN)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     @DisplayName("sem exp: 401")
     void semVencimento() throws Exception {
         comToken(

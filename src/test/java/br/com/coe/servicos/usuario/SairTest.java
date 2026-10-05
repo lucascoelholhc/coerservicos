@@ -109,6 +109,37 @@ class SairTest extends IntegracaoTest {
     }
 
     @Test
+    @DisplayName("sair concorrendo com a renovação do mesmo aparelho: nenhum token da família sobra válido")
+    void sairConcorrendoComRenovar() throws Exception {
+        Conta conta = contas.criar(Papel.CLIENTE);
+        Sessao sessao = entrar(conta);
+        java.util.concurrent.CountDownLatch largada = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(2);
+        java.util.concurrent.Future<?> saida = executor.submit(() -> {
+            largada.await();
+            return mockMvc.perform(post("/api/auth/sair")
+                            .header("Authorization", "Bearer " + sessao.access())
+                            .cookie(new Cookie("coe_refresh", sessao.refresh())))
+                    .andReturn();
+        });
+        java.util.concurrent.Future<?> renovacao = executor.submit(() -> {
+            largada.await();
+            return mockMvc.perform(post("/api/auth/renovar").cookie(new Cookie("coe_refresh", sessao.refresh())))
+                    .andReturn();
+        });
+        largada.countDown();
+        saida.get();
+        renovacao.get();
+        executor.shutdown();
+
+        assertThat(jdbc.queryForObject(
+                        "SELECT count(*) FROM refresh_token WHERE usuario_id = ? AND revogado_em IS NULL",
+                        Integer.class,
+                        conta.id()))
+                .isZero();
+    }
+
+    @Test
     @DisplayName("sem token: 401")
     void semToken() throws Exception {
         mockMvc.perform(post("/api/auth/sair")).andExpect(status().isUnauthorized());

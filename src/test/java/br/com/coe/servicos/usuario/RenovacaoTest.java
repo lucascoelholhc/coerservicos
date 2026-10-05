@@ -133,8 +133,14 @@ class RenovacaoTest extends IntegracaoTest {
         String sucessor = renovarComSucesso(refresh);
         relogio.avancar(Duration.ofSeconds(10));
 
-        recusada(refresh);
+        MockHttpServletResponse resposta = renovar(refresh)
+                .andExpect(status().isUnauthorized())
+                .andReturn()
+                .getResponse();
 
+        assertThat(resposta.getHeader("Set-Cookie"))
+                .as("não pode apagar o cookie novo que a outra aba acabou de receber")
+                .isNull();
         assertThat(revogadosDaFamilia(conta, "reuso")).isZero();
         renovarComSucesso(sucessor);
     }
@@ -192,27 +198,55 @@ class RenovacaoTest extends IntegracaoTest {
     }
 
     @Test
+    @DisplayName("conta excluída depois do login: a renovação falha e a família é revogada")
+    void contaExcluida() throws Exception {
+        Conta conta = contas.criar(Papel.CLIENTE);
+        String refresh = entrar(conta);
+        jdbc.update("UPDATE usuario SET status = 'excluido', excluido_em = now() WHERE id = ?", conta.id());
+
+        recusada(refresh);
+
+        assertThat(revogadosDaFamilia(conta, "admin")).isOne();
+    }
+
+    @Test
+    @DisplayName("renovar com um access token vencido no header ainda funciona (o front pode mandá-lo)")
+    void renovarComBearerVencido() throws Exception {
+        Conta conta = contas.criar(Papel.CLIENTE);
+        String refresh = entrar(conta);
+
+        mockMvc.perform(post("/api/auth/renovar")
+                        .header("Authorization", "Bearer token.vencido.ou.invalido")
+                        .cookie(new Cookie("coe_refresh", refresh)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("duas renovações ao mesmo tempo: uma passa, a outra recebe 401 e a família continua")
     void concorrencia() throws Exception {
         Conta conta = contas.criar(Papel.CLIENTE);
         String refresh = entrar(conta);
         CountDownLatch largada = new CountDownLatch(1);
         ExecutorService executor = Executors.newFixedThreadPool(2);
-        List<Future<Integer>> resultados = new ArrayList<>();
+        List<Future<MockHttpServletResponse>> resultados = new ArrayList<>();
         for (int i = 0; i < 2; i++) {
             resultados.add(executor.submit(() -> {
                 largada.await();
-                return renovar(refresh).andReturn().getResponse().getStatus();
+                return renovar(refresh).andReturn().getResponse();
             }));
         }
         largada.countDown();
-        List<Integer> status = new ArrayList<>();
-        for (Future<Integer> resultado : resultados) {
-            status.add(resultado.get());
+        List<MockHttpServletResponse> respostas = new ArrayList<>();
+        for (Future<MockHttpServletResponse> resultado : resultados) {
+            respostas.add(resultado.get());
         }
         executor.shutdown();
 
-        assertThat(status).containsExactlyInAnyOrder(200, 401);
+        assertThat(respostas).extracting(MockHttpServletResponse::getStatus).containsExactlyInAnyOrder(200, 401);
+        assertThat(respostas)
+                .filteredOn(resposta -> resposta.getStatus() == 401)
+                .allSatisfy(
+                        perdedor -> assertThat(perdedor.getHeader("Set-Cookie")).isNull());
         assertThat(revogadosDaFamilia(conta, "reuso")).isZero();
     }
 }

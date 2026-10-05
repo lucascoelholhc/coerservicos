@@ -19,8 +19,11 @@ interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
     Optional<Usuario> findByEmail(String email);
 
     @Modifying
-    @Query(value = "UPDATE usuario SET senha_hash = :hash WHERE id = :id", nativeQuery = true)
-    int atualizarSenhaHash(UUID id, String hash);
+    /** Só regrava se o hash ainda for o lido no login (uma troca de senha no meio não é desfeita). */
+    @Query(
+            value = "UPDATE usuario SET senha_hash = :hashNovo WHERE id = :id AND senha_hash = :hashAntigo",
+            nativeQuery = true)
+    int atualizarSenhaHash(UUID id, String hashAntigo, String hashNovo);
 
     @Modifying
     @Query(value = "UPDATE usuario SET ultimo_login_em = :agora WHERE id = :id", nativeQuery = true)

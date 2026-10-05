@@ -5,6 +5,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import javax.crypto.SecretKey;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -77,8 +78,20 @@ public class ConfiguracaoJwt {
                 tempo,
                 new JwtIssuerValidator(EMISSOR),
                 new JwtClaimValidator<List<String>>(JwtClaimNames.AUD, aud -> aud != null && aud.contains(AUDIENCIA)),
-                new JwtClaimValidator<Instant>(JwtClaimNames.EXP, Objects::nonNull)));
+                new JwtClaimValidator<Instant>(JwtClaimNames.EXP, Objects::nonNull),
+                new JwtClaimValidator<String>(JwtClaimNames.SUB, ConfiguracaoJwt::ehUuid)));
         return decodificador;
+    }
+
+    private static boolean ehUuid(String sub) {
+        if (sub == null) {
+            return false;
+        }
+        try {
+            return UUID.fromString(sub).toString().equals(sub);
+        } catch (IllegalArgumentException erro) {
+            return false;
+        }
     }
 
     private static JWK jwk(String kid, SecretKey chave) {

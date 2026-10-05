@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -20,6 +21,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -36,6 +39,7 @@ public class SegurancaConfig {
 
     private static final int CUSTO_BCRYPT = 12;
     private static final String PROBLEM_JSON = "application/problem+json";
+    private static final Set<String> ROTAS_SEM_BEARER = Set.of("/api/auth/entrar", "/api/auth/renovar");
 
     @Bean
     SecurityFilterChain cadeiaDaApi(HttpSecurity http, JsonMapper json, JwtDecoder decodificador) throws Exception {
@@ -68,15 +72,30 @@ public class SegurancaConfig {
                         .permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**")
                         .permitAll()
+                        .requestMatchers("/api/admin/**")
+                        .hasRole("ADMIN")
                         .anyRequest()
                         .authenticated())
-                .oauth2ResourceServer(recurso -> recurso.jwt(
-                                jwt -> jwt.decoder(decodificador).jwtAuthenticationConverter(papeisDoToken()))
+                .oauth2ResourceServer(recurso -> recurso.bearerTokenResolver(tokenForaDoLogin())
+                        .jwt(jwt -> jwt.decoder(decodificador).jwtAuthenticationConverter(papeisDoToken()))
                         .authenticationEntryPoint(naoAutenticado)
                         .accessDeniedHandler(semPermissao))
                 .exceptionHandling(
                         erros -> erros.authenticationEntryPoint(naoAutenticado).accessDeniedHandler(semPermissao));
         return http.build();
+    }
+
+    /**
+     * Login e renovação não leem o header Authorization: o front pode mandar o token vencido junto
+     * (é justamente quando renova) e isso não pode barrar a requisição antes do controller.
+     */
+    private static BearerTokenResolver tokenForaDoLogin() {
+        DefaultBearerTokenResolver padrao = new DefaultBearerTokenResolver();
+        return requisicao -> ROTAS_SEM_BEARER.contains(requisicao
+                        .getRequestURI()
+                        .substring(requisicao.getContextPath().length()))
+                ? null
+                : padrao.resolve(requisicao);
     }
 
     /** Claim "papeis" vira ROLE_CLIENTE, ROLE_PROFISSIONAL, ROLE_ADMIN; o nome é o id (sub). */

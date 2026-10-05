@@ -15,8 +15,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Sessões por aparelho (PA03): refresh de 30 dias, renovado a cada uso; reuso depois de 30 s
- * revoga a família (sinal de roubo). As recusas DEVOLVEM um resultado em vez de lançar exceção
- * dentro da transação, para a revogação ser gravada (exceção desfaria tudo no rollback).
+ * revoga a família (uma família = um login = um aparelho). As recusas DEVOLVEM um resultado em vez
+ * de lançar exceção dentro da transação, para a revogação ser gravada (exceção faria rollback).
  */
 @Service
 class ServicoDeSessao {
@@ -26,7 +26,18 @@ class ServicoDeSessao {
 
     private static final Logger LOG = LoggerFactory.getLogger(ServicoDeSessao.class);
 
-    record Renovada(UsuarioResumo usuario, String refresh) {}
+    sealed interface Resultado permits Renovada, Recusada {}
+
+    record Renovada(UsuarioResumo usuario, String refresh) implements Resultado {}
+
+    /**
+     * Renovação recusada. {@code apagarCookie} é falso só na corrida benigna (outra aba renovou há
+     * menos de 30 s): apagar o cookie ali derrubaria o cookie novo que a outra aba acabou de receber.
+     */
+    record Recusada(boolean apagarCookie) implements Resultado {}
+
+    private static final Recusada RECUSADA = new Recusada(true);
+    private static final Recusada CORRIDA_BENIGNA = new Recusada(false);
 
     private final RefreshTokenRepository tokens;
     private final UsuarioRepository usuarios;
@@ -44,13 +55,16 @@ class ServicoDeSessao {
         this.clock = clock;
     }
 
-    /** Login aceito: regrava o hash (se veio um novo), marca o login e abre a sessão do aparelho. */
-    String abrir(UUID usuarioId, String novoHashDaSenha, String ip, String userAgent) {
+    /**
+     * Login aceito: regrava o hash da senha (se veio um novo, e só se ninguém trocou a senha no meio
+     * do caminho), marca o login e abre a sessão do aparelho.
+     */
+    String abrir(UUID usuarioId, String hashAntigo, String hashNovo, String ip, String userAgent) {
         String refresh = TokenDeRenovacao.gerar();
         Instant agora = agora();
         transacao.executeWithoutResult(status -> {
-            if (novoHashDaSenha != null) {
-                usuarios.atualizarSenhaHash(usuarioId, novoHashDaSenha);
+            if (hashNovo != null) {
+                usuarios.atualizarSenhaHash(usuarioId, hashAntigo, hashNovo);
             }
             usuarios.registrarLogin(usuarioId, agora);
             tokens.save(RefreshToken.novo(
@@ -65,37 +79,39 @@ class ServicoDeSessao {
         return refresh;
     }
 
-    Optional<Renovada> renovar(String refresh, String ip, String userAgent) {
+    Resultado renovar(String refresh, String ip, String userAgent) {
         Optional<byte[]> hash = TokenDeRenovacao.hash(refresh);
         if (hash.isEmpty()) {
-            return Optional.empty();
+            return RECUSADA;
         }
         return transacao.execute(status -> renovarNaTransacao(hash.get(), ip, userAgent));
     }
 
-    private Optional<Renovada> renovarNaTransacao(byte[] hash, String ip, String userAgent) {
+    private Resultado renovarNaTransacao(byte[] hash, String ip, String userAgent) {
         Optional<RefreshToken> encontrado = tokens.buscarParaRenovar(hash);
         if (encontrado.isEmpty() || encontrado.get().revogado()) {
-            return Optional.empty();
+            return RECUSADA;
         }
         RefreshToken atual = encontrado.get();
         Instant agora = agora();
         if (atual.getUsadoEm() != null) {
-            if (Duration.between(atual.getUsadoEm(), agora).compareTo(TOLERANCIA_REUSO) > 0) {
-                tokens.revogarFamilia(atual.getFamiliaId(), agora, "reuso");
-                LOG.warn("Refresh reutilizado, sessão do aparelho revogada: {}", atual.getUsuarioId());
+            if (Duration.between(atual.getUsadoEm(), agora).compareTo(TOLERANCIA_REUSO) <= 0) {
+                return CORRIDA_BENIGNA;
             }
-            return Optional.empty();
+            tokens.revogarFamilia(atual.getFamiliaId(), agora, "reuso");
+            LOG.warn("Refresh reutilizado, sessão do aparelho revogada: {}", atual.getUsuarioId());
+            return RECUSADA;
         }
         if (atual.vencidoEm(agora)) {
-            return Optional.empty();
+            return RECUSADA;
         }
-        Usuario usuario = usuarios.findById(atual.getUsuarioId()).orElseThrow();
-        if (Usuario.SUSPENSO.equals(usuario.getStatus()) || Usuario.EXCLUIDO.equals(usuario.getStatus())) {
+        Optional<Usuario> dono = usuarios.findById(atual.getUsuarioId());
+        if (dono.isEmpty() || !podeRenovar(dono.get())) {
             tokens.revogarFamilia(atual.getFamiliaId(), agora, "admin");
-            LOG.info("Renovação recusada (conta {}): {}", usuario.getStatus(), usuario.getId());
-            return Optional.empty();
+            LOG.info("Renovação recusada (conta sem acesso): {}", atual.getUsuarioId());
+            return RECUSADA;
         }
+        Usuario usuario = dono.get();
         String novo = TokenDeRenovacao.gerar();
         RefreshToken sucessor = RefreshToken.novo(
                 usuario.getId(),
@@ -107,17 +123,29 @@ class ServicoDeSessao {
                 userAgent);
         tokens.save(sucessor);
         atual.usar(agora, sucessor.getId());
-        return Optional.of(new Renovada(UsuarioResumo.de(usuario), novo));
+        return new Renovada(UsuarioResumo.de(usuario), novo);
     }
 
-    /** Sai deste aparelho; cookie de outra pessoa (ou inválido) não revoga nada. */
+    private static boolean podeRenovar(Usuario usuario) {
+        return !Usuario.SUSPENSO.equals(usuario.getStatus()) && !Usuario.EXCLUIDO.equals(usuario.getStatus());
+    }
+
+    /**
+     * Sai deste aparelho. Trava a linha como a renovação: se as duas chegarem juntas, a saída espera
+     * a renovação terminar e revoga também o sucessor. Cookie de outra pessoa não revoga nada.
+     */
     void sair(UUID usuarioId, String refresh) {
         TokenDeRenovacao.hash(refresh)
-                .ifPresent(hash -> transacao.executeWithoutResult(status -> tokens.findByTokenHash(hash)
+                .ifPresent(hash -> transacao.executeWithoutResult(status -> tokens.buscarParaRenovar(hash)
                         .filter(token -> token.getUsuarioId().equals(usuarioId))
                         .ifPresent(token -> tokens.revogarFamilia(token.getFamiliaId(), agora(), "logout"))));
     }
 
+    /**
+     * Revoga todas as sessões do usuário. Uma renovação que já tinha travado o token antes pode
+     * concluir em seguida; o sucessor dela cai no próximo "sair de todos" ou vence em 30 dias (janela
+     * aceita, anotada no plano).
+     */
     void sairDeTodos(UUID usuarioId) {
         transacao.executeWithoutResult(status -> tokens.revogarDoUsuario(usuarioId, agora(), "sair_todos"));
     }

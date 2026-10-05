@@ -205,6 +205,18 @@ class LoginTest extends IntegracaoTest {
     }
 
     @Test
+    @DisplayName("entrar com um access token inválido no header ainda funciona")
+    void entrarComBearerInvalido() throws Exception {
+        Conta conta = contas.criar(Papel.CLIENTE);
+
+        mockMvc.perform(post("/api/auth/entrar")
+                        .header("Authorization", "Bearer token.vencido.ou.invalido")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"login\":\"" + conta.celular() + "\",\"senha\":\"" + ContasDeTeste.SENHA + "\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("login ou senha em branco: 400")
     void emBranco() throws Exception {
         entrar(" ", ContasDeTeste.SENHA).andExpect(status().isBadRequest());

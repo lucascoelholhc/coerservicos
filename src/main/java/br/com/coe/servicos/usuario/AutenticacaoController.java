@@ -47,13 +47,16 @@ class AutenticacaoController {
     ResponseEntity<SessaoResponse> renovar(
             @CookieValue(name = CookieDeRenovacao.NOME, required = false) String refresh,
             HttpServletRequest requisicao) {
-        ServicoDeSessao.Renovada renovada = sessoes.renovar(
-                        refresh, requisicao.getRemoteAddr(), requisicao.getHeader(HttpHeaders.USER_AGENT))
-                .orElseThrow(() -> new NaoAutenticadoException(
-                        "sessao-expirada",
-                        "Sua sessão terminou. Entre de novo.",
-                        Map.of(HttpHeaders.SET_COOKIE, cookie.apagar())));
-        return responder(renovada.usuario(), renovada.refresh());
+        ServicoDeSessao.Resultado resultado =
+                sessoes.renovar(refresh, requisicao.getRemoteAddr(), requisicao.getHeader(HttpHeaders.USER_AGENT));
+        if (resultado instanceof ServicoDeSessao.Renovada renovada) {
+            return responder(renovada.usuario(), renovada.refresh());
+        }
+        boolean apagarCookie = ((ServicoDeSessao.Recusada) resultado).apagarCookie();
+        throw new NaoAutenticadoException(
+                "sessao-expirada",
+                "Sua sessão terminou. Entre de novo.",
+                apagarCookie ? Map.of(HttpHeaders.SET_COOKIE, cookie.apagar()) : Map.of());
     }
 
     @PostMapping("/sair")
