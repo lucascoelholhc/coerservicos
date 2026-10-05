@@ -102,7 +102,8 @@ O schema está em 10 migrações versionadas (V1–V10) + dados locais. Detalhe 
 | DB-10 | `V10__indices_busca` | Índices e view de busca por cidade e raio |
 | DB-11 | `R__dados_local` + seeder Java | Só no perfil local; profissionais de exemplo pelo seeder (campos cifrados) |
 | DB-13 | `V12__autenticacao_jwt` | Remove `spring_session*` (PA03 = JWT); cria `refresh_token` (hash único, usuário, aparelho, validade, revogado em, substituído por, família para revogar tudo em caso de reuso); `usuario.mfa_sms_ativo` (padrão falso); finalidade `mfa` no `codigo_sms`; comissão com teto de 30% (CHECK) |
-| DB-14 | `V13__ocorrencia_profissional` | Junto do DOM-09. `ocorrencia_profissional` só de inserção (gatilhos `fn_somente_insercao` de linha e TRUNCATE, sem UPDATE/DELETE/TRUNCATE para o `coe_app`); `profissional.motivo_suspensao` obrigatório com status `suspenso`; parâmetros `FALTAS_ALERTA` = 2 e `FALTAS_JANELA_DIAS` = 90 com faixa validada (PA07) |
+| DB-15 | `V13__teto_da_sessao` | `refresh_token.sessao_iniciada_em` (gravado no login, herdado pelo sucessor, imutável; FK do sucessor inclui a coluna, então o banco recusa início diferente); linhas existentes preenchidas com o `min(criado_em)` da família; motivo de revogação `teto` |
+| DB-14 | `V14__ocorrencia_profissional` | Junto do DOM-09. `ocorrencia_profissional` só de inserção (gatilhos `fn_somente_insercao` de linha e TRUNCATE, sem UPDATE/DELETE/TRUNCATE para o `coe_app`); `profissional.motivo_suspensao` obrigatório com status `suspenso`; parâmetros `FALTAS_ALERTA` = 2 e `FALTAS_JANELA_DIAS` = 90 com faixa validada (PA07) |
 
 Correções CRITICAL já aplicadas em V1–V10 (antes do primeiro commit): partidas dobradas conferidas por transação no COMMIT (sem transação vazia e sem lançamento em transação fechada); tabelas só de inserção também barram TRUNCATE; papel `coe_app` sem posse do schema.
 
@@ -169,10 +170,10 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 - Força bruta no login até o rate limit do **CORE-07** (dia 11); hoje o BCrypt custo 12 é a única barreira.
 - Checagem de `Origin` (CSRF) na renovação por cookie: **CORE-08** (dia 6).
 - Expurgo dos `refresh_token` vencidos ou revogados: job futuro (o `coe_app` não tem DELETE na tabela).
-- Reuso de refresh revoga **a família** (uma família = um login = um aparelho), não os outros aparelhos do usuário; quem quiser derrubar tudo usa "sair de todos". Se o PA03 deve revogar todos os aparelhos no reuso: **decisão do usuário** (hoje fica por aparelho, como especificado no dia 5).
+- Reuso de refresh revoga **só a família** daquele aparelho, com registro no log (decidido em 05/10); quem quiser derrubar tudo usa "sair de todos". **Aviso por e-mail** ao usuário no reuso: entra no DOM-11, quando houver envio de e-mail.
 - `POST /api/auth/sair` exige access token válido (decisão do dia 5): o front renova antes de sair se o token tiver vencido.
 - "Sair de todos" concorrendo com uma renovação já travada pode deixar o sucessor dela válido (janela de milissegundos, aceita).
-- Refresh deslizante sem teto absoluto: uma sessão usada todo dia nunca expira. Teto por família (ex.: 90 dias): **decisão do usuário pendente**.
+- **Teto absoluto da sessão: 90 dias desde o login** (decidido em 05/10): implementado no dia 6 (V13, `sessao_iniciada_em`); o sucessor vale `min(agora + 30 dias, início + 90 dias)` e o cookie usa o mesmo prazo.
 - Opcionais apontados pela revisão: recusar chave JWT de baixa qualidade (bytes iguais, chaves repetidas) e falhar a subida com os perfis `local` e `prod` juntos.
 - No perfil `local`, o MFA do ADMIN é dispensado (bean `@Profile("local")` **e** `coe.seguranca.dispensar-mfa-admin=true` só no `application-local.yml`) até o CORE-04; em `test` e `prod` não existe.
 
@@ -301,7 +302,7 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 | 3 ✅ | CORE-01, CORE-12, CORE-13 | `Dinheiro`, comissão, configuração, `Clock` | 100% no cálculo de comissão e repasse (**feito**) |
 | 4 ✅ | CORE-02 | Cadastro de cliente (com e-mail) | Celular ou e-mail repetido é recusado; e-mail obrigatório (**feito**) |
 | 5 ✅ | CORE-03, DB-13 | Login com JWT (celular ou e-mail), renovação, logout, sair de todos; V12 (`refresh_token`, `mfa_sms_ativo`, sem `spring_session*`, teto de 30% na comissão) | Token expirado ou revogado é recusado; refresh reutilizado revoga a família (**feito**) |
-| 6 | CORE-06, CORE-08 | Papéis, checagem de dono, CORS, CSRF na renovação; 401/403 em Problem Details | 403 no recurso de outro |
+| 6 | CORE-06, CORE-08, DB-15 | Papéis (`@PreAuthorize` ou `@Publico` em todo endpoint), checagem de dono (404 no recurso de outro), `GET /api/contas/eu`, CORS por perfil, Origin no renovar e no sair, headers de segurança; V13 (teto de 90 dias da sessão); 401/403 em Problem Details | 403 no recurso de outro |
 | 7 | CORE-04, CORE-05 | Login por SMS, MFA (obrigatório para ADMIN), confirmação de contato (RN61), recuperar senha | Código expira e trava na 5ª tentativa |
 
 ### Fatia 1: Entrar no app (dias 8–11) — primeiro clique no dia 10
@@ -347,7 +348,7 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 ### Fatia 4: Problemas e administração (dias 36–44)
 | Dia | Tarefas | O que fazer | Pronto quando |
 |---|---|---|---|
-| 36 | DOM-09, DB-14 | Abrir disputa, resposta, prazo; V13 (`ocorrencia_profissional`) | Uma disputa aberta por diária |
+| 36 | DOM-09, DB-14 | Abrir disputa, resposta, prazo; V14 (`ocorrencia_profissional`) | Uma disputa aberta por diária |
 | 37 | DOM-09 | Decisão; falta do profissional (PA07): reembolso integral, registro da falta | Casos obrigatórios do DOM-09 passam |
 | 38 | DOM-10 | Avaliações e média | Só quem pagou avalia |
 | 39 | DOM-11 | Usuários, faltas com alerta, inativar e reativar, configuração | Ações auditadas; alerta com 2 faltas em 90 dias |
