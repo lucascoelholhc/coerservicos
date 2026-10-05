@@ -7,7 +7,7 @@ O cliente paga as diárias antes, o valor fica em custódia e é liberado ao pro
 Público com pouca familiaridade com tecnologia: telas simples, poucos campos, botões grandes, linguagem simples.
 
 ## Documentação de apoio (leia antes de mexer no domínio)
-- `docs/regras-negocio.md`: regras RN01–RN60, requisitos RF/RNF e pontos em aberto (PA01–PA16)
+- `docs/regras-negocio.md`: regras RN01–RN61, requisitos RF/RNF e pontos em aberto (PA01–PA16)
 - `docs/plano-desenvolvimento.md`: etapas, tarefas (AMB-, DB-, CORE-, DOM-, FE-, LOC-, AWS-) e cronograma dia a dia
 - `docs/identidade-visual.md`: identidade "Dia carimbado", componentes, acessibilidade, tom dos textos (ler antes de qualquer tarefa de front)
 - `docs/mapa-banco.md`: domínios, tabelas,
@@ -82,7 +82,7 @@ npx playwright test
 - API sob `/api/**`; admin sob `/api/admin/**`.
 
 ## Regras de negócio já decididas (resumo; a fonte é `docs/regras-negocio.md`)
-- Parâmetros vêm da tabela `configuracao` (view `configuracao_vigente`). **Nunca fixar no código**: comissão 10%, liberação em 12 h, disputa decidida em 48 h, 3 tentativas de contato antes de análise, limite LC 150 = 2.
+- Parâmetros vêm da tabela `configuracao` (view `configuracao_vigente`). **Nunca fixar no código**: comissão 10% (teto de 30% no banco), liberação em 12 h, disputa decidida em 48 h, 3 tentativas de contato antes de análise, limite LC 150 = 2.
 - Comissão e "quem paga a taxa" são **copiados para o contrato** na compra. Mudar a configuração não altera contrato fechado. A comissão é **paga pelo cliente**, somada ao total (PA05).
 - **Liberação automática**: 12 h contadas a partir do "Terminei o dia" (`terminou_em`) (PA08).
 - **Idade mínima** do profissional: 18 anos, obrigatório, validado com `Clock` injetado. Mensagem: "Para trabalhar na COE é preciso ter 18 anos ou mais."
@@ -120,7 +120,7 @@ npx playwright test
 - Spring Security com papéis CLIENTE, PROFISSIONAL e ADMIN.
 - **Autorização por objeto em toda consulta** (anti-IDOR): cada usuário só acessa os próprios contratos, diárias, conversas e documentos. Recurso de outro usuário retorna 403 ou 404.
 - Senhas com BCrypt ou Argon2. Autenticação: **JWT** (PA03 decidido): token de acesso de **15 min** (HS256, chave com `kid` no Secrets Manager), guardado **só na memória** do front e enviado no header `Authorization`; dentro dele só o id do usuário, os papéis, emissão, expiração e um id único (nada de celular, CPF ou nome). Refresh token de **30 dias**, renovado a cada uso, em cookie **HttpOnly/Secure/SameSite=Strict** enviado só ao endpoint de renovação, guardado como **hash** no banco; revogado no logout, na troca de senha e quando o admin inativa a conta; refresh reutilizado (sinal de roubo) revoga todos os tokens daquele login. **Uma sessão por aparelho**, com "sair de todos os aparelhos". As tabelas `spring_session*` saem na V12 (DB-13).
-- **MFA opcional**: o login padrão é celular + senha, sem SMS. Quem quiser liga um segundo passo com código por SMS. Entrar só com código por SMS continua como alternativa à senha (RF01). A confirmação do celular no cadastro (RN08) é outra coisa e continua obrigatória, uma vez.
+- **Login** com celular **ou** e-mail + senha (RN58). **MFA obrigatório para ADMIN**, opcional para cliente e profissional; entrar só com código por SMS continua como alternativa à senha (RF01). **Confirmação do celular**: obrigatória para o profissional (sem ela não vai para análise nem aparece na busca), opcional para o cliente (RN08). Contato não confirmado não fica reservado (RN61).
 - CORS restrito ao domínio da COE. CSRF só no endpoint de renovação (único que usa cookie; o SameSite=Strict já cobre quase tudo).
 - Rate limit em login, SMS, recuperação de senha, chat e criação de conta.
 - Bean Validation em toda entrada. **Nunca confiar no front.**

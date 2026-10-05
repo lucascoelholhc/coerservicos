@@ -1,6 +1,6 @@
 # Plano de desenvolvimento: COE Serviços
 
-> Fonte: documento "COE Serviços — Plano de desenvolvimento" (atualizado em 02/10/2026). Base: `docs/regras-negocio.md` (RN01–RN60, RF01–RF58, RNF01–RNF29).
+> Fonte: documento "COE Serviços — Plano de desenvolvimento" (atualizado em 02/10/2026). Base: `docs/regras-negocio.md` (RN01–RN61, RF01–RF58, RNF01–RNF29).
 
 As tarefas estão organizadas por tipo nas seções 3 a 9 (ambiente, banco, núcleo, domínio, front, aceite local e AWS), mas são **executadas em fatias verticais** (seção 11): cada fatia entrega backend e telas juntos e termina com algo que dá para testar no navegador. A versão local completa sai no fim da fatia 4 e do aceite local; depois vem a AWS. São **53 dias de trabalho** (um dia = uma sessão de cerca de 3 horas, não um dia do calendário): sistema completo local no dia 46, homologação na AWS no dia 53.
 
@@ -101,7 +101,7 @@ O schema está em 10 migrações versionadas (V1–V10) + dados locais. Detalhe 
 | DB-09 | `V9__admin_auditoria` | `log_auditoria`, `notificacao`, `denuncia` |
 | DB-10 | `V10__indices_busca` | Índices e view de busca por cidade e raio |
 | DB-11 | `R__dados_local` + seeder Java | Só no perfil local; profissionais de exemplo pelo seeder (campos cifrados) |
-| DB-13 | `V12__autenticacao_jwt` | Remove `spring_session*` (PA03 = JWT); cria `refresh_token` (hash único, usuário, aparelho, validade, revogado em, substituído por, família para revogar tudo em caso de reuso); `usuario.mfa_sms_ativo` (padrão falso); finalidade `mfa` no `codigo_sms` |
+| DB-13 | `V12__autenticacao_jwt` | Remove `spring_session*` (PA03 = JWT); cria `refresh_token` (hash único, usuário, aparelho, validade, revogado em, substituído por, família para revogar tudo em caso de reuso); `usuario.mfa_sms_ativo` (padrão falso); finalidade `mfa` no `codigo_sms`; comissão com teto de 30% (CHECK) |
 | DB-14 | `V13__ocorrencia_profissional` | Junto do DOM-09. `ocorrencia_profissional` só de inserção (gatilhos `fn_somente_insercao` de linha e TRUNCATE, sem UPDATE/DELETE/TRUNCATE para o `coe_app`); `profissional.motivo_suspensao` obrigatório com status `suspenso`; parâmetros `FALTAS_ALERTA` = 2 e `FALTAS_JANELA_DIAS` = 90 com faixa validada (PA07) |
 
 Correções CRITICAL já aplicadas em V1–V10 (antes do primeiro commit): partidas dobradas conferidas por transação no COMMIT (sem transação vazia e sem lançamento em transação fechada); tabelas só de inserção também barram TRUNCATE; papel `coe_app` sem posse do schema.
@@ -118,8 +118,8 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 |---|---|---|---|
 | CORE-01 | Tipo `Dinheiro` | Value object sobre BigDecimal (escala 2, HALF_EVEN), comissão e repasse | RNF09, RN31 |
 | CORE-02 | Cadastro de cliente | `POST /api/contas/cliente` com nome, celular, e-mail, CEP e senha; aceite dos termos com versão | RF03, RNF18 |
-| CORE-03 | Senha e login | Argon2 ou BCrypt; login por celular + senha; JWT de 15 min (HS256, `kid`) + refresh de 30 dias rotativo em cookie HttpOnly; revogação no logout, na troca de senha e na inativação; reuso de refresh revoga a família; uma sessão por aparelho e "sair de todos" (PA03) | RNF01 |
-| CORE-04 | Login por SMS e MFA opcional | Código de 6 dígitos em hash, 5 min, 5 tentativas; `EnviadorSms` falso no local; entrar só com código (alternativa à senha); segundo passo por SMS **só para quem ligar** (MFA opcional) | RF01 |
+| CORE-03 | Senha e login | Argon2 ou BCrypt; login por celular **ou** e-mail + senha; JWT de 15 min (HS256, `kid`) + refresh de 30 dias rotativo em cookie HttpOnly; revogação no logout, na troca de senha e na inativação; reuso de refresh revoga a família; uma sessão por aparelho e "sair de todos" (PA03) | RNF01 |
+| CORE-04 | Login por SMS, MFA e confirmação de contato | Código de 6 dígitos em hash, 5 min, 5 tentativas; `EnviadorSms` falso no local; entrar só com código (alternativa à senha); segundo passo por SMS **obrigatório para ADMIN** e opcional para os demais; o login responde 403 `segundo-passo-necessario` com um id de desafio **de uso único, curto (minutos), preso ao usuário e que não autentica nada sozinho**; confirmação do celular (obrigatória para profissional, opcional para cliente, RN08) e do e-mail por link; **RN61**: contato confirmado pelo dono passa para a conta dele e a outra conta fica bloqueada até cadastrar e confirmar outro (exige migration: hoje `ck_usuario_credenciais` obriga celular e e-mail) | RF01, RN08, RN61 |
 | CORE-05 | Recuperar senha | Token de uso único com validade curta | RF01 |
 | CORE-06 | Papéis e autorização | CLIENTE, PROFISSIONAL, ADMIN; checagem de dono em todo recurso | RNF02 |
 | CORE-07 | Rate limit | Bucket4j em login, SMS, recuperação de senha e chat | RNF03 |
@@ -139,7 +139,7 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 | DOM-02 | Cadastro do profissional | 11 etapas com rascunho, bio com censura, fotos, documento + selfie, Pix; idade mínima de 18 anos com `Clock` injetado (RN08) | Cadastro completo fica "em análise" e fora da busca; menor de 18 é recusado com "Para trabalhar na COE é preciso ter 18 anos ou mais." |
 | DOM-03 | Verificação | Fila do admin; aprovar ou recusar com motivo; selo NR-10 | Aprovado vira ativo; tudo auditado |
 | DOM-04 | Busca e perfil | Filtros (profissão, cidade no raio, dia livre, valor, experiência); perfil sem contato | Nenhum campo de contato sai antes do pagamento |
-| DOM-05 | Chat e censura | Censura no servidor; conta em análise após N tentativas; CEP passa (PA13) | Testes com padrões que bloqueiam e que passam (R$, medidas, datas, `CEP 89010-000`, `CEP 89010000`) |
+| DOM-05 | Chat e censura | Censura no servidor; conta em análise após N tentativas; CEP passa (PA13); conta com `usuario.status = em_analise` entra normalmente (precisa cumprir diárias já pagas), mas fica **sem chat e sem contrato novo** até o admin decidir | Testes com padrões que bloqueiam e que passam (R$, medidas, datas, `CEP 89010-000`, `CEP 89010000`) |
 | DOM-06 | Contratação | Pedido, datas, agenda, LC 150 (janela de 7 dias), comissão congelada | 3ª diária na janela é recusada; dia ocupado é recusado |
 | DOM-07 | Pagamento e custódia | `GatewayPagamento` + adaptador falso; webhook assinado e idempotente; ledger; custódia rastreada por contrato | Webhook repetido não duplica nada; saldos batem; custódia por contrato nunca negativa |
 | DOM-08 | Execução da diária | Cheguei, terminei com foto, aprovar; job das 12 h a partir do `terminou_em` (PA08, ShedLock); repasse | Duas instâncias não liberam a mesma diária |
@@ -161,8 +161,15 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 - Campo desconhecido no JSON é recusado (400) em toda a API (`fail-on-unknown-properties`). **Exceção do DOM-07**: o webhook do gateway guarda o corpo bruto e lê de forma tolerante (ignora campo novo); nunca usar DTO rígido ali.
 - O IP do aceite vem de `getRemoteAddr()`. Em produção, `forward-headers-strategy: native` (RemoteIpValve) faz dele o IP real, confiando no `X-Forwarded-For` só de IP interno; na etapa AWS, conferir que o ALB está em sub-rede privada e testar o IP gravado em homologação.
 - **CORE-03:** o BCrypt recusa senha acima de 72 bytes no `matches`; o login e a troca de senha validam o tamanho antes e respondem 401 genérico (com teste). Hash sem prefixo (`$2b$` do seed) é regravado como `{bcrypt}` após o login (`upgradeEncoding`). Papéis com `JOIN FETCH` no login se o `EAGER` virar N+1 nas listagens do admin.
-- **CORE-04 (decisão do usuário pendente):** alguém pode cadastrar o celular ou e-mail de outra pessoa e travá-los (a conta nasce com o celular não confirmado). Decidir se cadastro não confirmado expira ou pode ser substituído pelo dono do número.
+- **CORE-04 (decidido, RN61):** contato não confirmado não fica reservado; quando o dono confirma, o dado passa para a conta dele. O login por celular ou e-mail (CORE-03) garante que quem perdeu um dos dois continua entrando.
 - **CORE-07:** limite de tamanho do corpo da requisição (filtro ou ALB/WAF), além do rate limit.
+
+**Riscos aceitos e pendências do CORE-03** (dia 5):
+- Um access token continua válido por até **15 min** depois do logout, da troca de senha ou da suspensão (PA03); a renovação já é recusada na hora.
+- Força bruta no login até o rate limit do **CORE-07** (dia 11); hoje o BCrypt custo 12 é a única barreira.
+- Checagem de `Origin` (CSRF) na renovação por cookie: **CORE-08** (dia 6).
+- Expurgo dos `refresh_token` vencidos ou revogados: job futuro (o `coe_app` não tem DELETE na tabela).
+- No perfil `local`, o MFA do ADMIN é dispensado (bean `@Profile("local")` **e** `coe.seguranca.dispensar-mfa-admin=true` só no `application-local.yml`) até o CORE-04; em `test` e `prod` não existe.
 
 **Casos de teste obrigatórios do CORE-03 e CORE-04** (PA03):
 - Token de acesso expirado (Clock adiantado 15 min) é recusado com 401; renovação devolve um novo par
@@ -288,9 +295,9 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 |---|---|---|---|
 | 3 ✅ | CORE-01, CORE-12, CORE-13 | `Dinheiro`, comissão, configuração, `Clock` | 100% no cálculo de comissão e repasse (**feito**) |
 | 4 ✅ | CORE-02 | Cadastro de cliente (com e-mail) | Celular ou e-mail repetido é recusado; e-mail obrigatório (**feito**) |
-| 5 | CORE-03, DB-13 | Login com JWT, renovação, logout, sair de todos; V12 (`refresh_token`, `mfa_sms_ativo`, sem `spring_session*`) | Token expirado ou revogado é recusado; refresh reutilizado revoga a família |
+| 5 | CORE-03, DB-13 | Login com JWT (celular ou e-mail), renovação, logout, sair de todos; V12 (`refresh_token`, `mfa_sms_ativo`, sem `spring_session*`, teto de 30% na comissão) | Token expirado ou revogado é recusado; refresh reutilizado revoga a família |
 | 6 | CORE-06, CORE-08 | Papéis, checagem de dono, CORS, CSRF na renovação; 401/403 em Problem Details | 403 no recurso de outro |
-| 7 | CORE-04, CORE-05 | Login por SMS, MFA opcional, recuperar senha | Código expira e trava na 5ª tentativa |
+| 7 | CORE-04, CORE-05 | Login por SMS, MFA (obrigatório para ADMIN), confirmação de contato (RN61), recuperar senha | Código expira e trava na 5ª tentativa |
 
 ### Fatia 1: Entrar no app (dias 8–11) — primeiro clique no dia 10
 | Dia | Tarefas | O que fazer | Pronto quando |

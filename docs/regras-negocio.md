@@ -11,11 +11,13 @@ A COE é um marketplace de serviços por diária: o cliente paga antes, o dinhei
 | --- | --- | --- |
 | Banco | PostgreSQL 16 + Flyway | PA01 |
 | Front | React + TypeScript + Vite | PA04 |
-| Autenticação | JWT: acesso de 15 min na memória, refresh de 30 dias em cookie HttpOnly, uma sessão por aparelho; MFA opcional | PA03 |
+| Autenticação | JWT: acesso de 15 min na memória, refresh de 30 dias em cookie HttpOnly, uma sessão por aparelho; login com celular ou e-mail + senha; MFA obrigatório para ADMIN e opcional para os demais | PA03 |
+| Confirmação do celular | Obrigatória para o profissional (sem ela não vai para análise nem aparece na busca); opcional para o cliente | RN08 |
+| Contato não confirmado | Não fica reservado: quem confirmar primeiro (o dono) fica com o dado | RN61 |
 | Reembolso | Devolve exatamente o que o cliente pagou pela diária (diária + comissão se a taxa é do cliente; só a diária se é do profissional) | RN34, PA06 |
 | LC 150 | Máx. 2 diárias da mesma diarista para o mesmo cliente em **qualquer janela de 7 dias seguidos**; meia diária conta como dia (confirmado com o advogado) | RN51 |
 | Agenda | Uma diária por profissional por dia, inteira ou meia (duas meias no mesmo dia só na fase 2) | RN26 |
-| Comissão | 10%, configurável; **paga pelo cliente** (somada ao total); copiada para o contrato na compra | RN31, PA05 |
+| Comissão | 10%, configurável até o **teto de 30%** (CHECK no banco); **paga pelo cliente** (somada ao total); copiada para o contrato na compra | RN31, PA05 |
 | Idade mínima | 18 anos, obrigatório para o profissional | RN08 |
 | Liberação automática | 12 h a partir do "Terminei o dia" | RN38, PA08 |
 | Falta do profissional | Reembolso integral da diária; cliente decide sobre as outras; falta registrada; inativação manual e reversível | RN44a–RN44e, PA07 |
@@ -59,7 +61,7 @@ Um mesmo celular pode ter os perfis de cliente e de profissional (login único, 
 
 ## Regras de negócio
 
-São 60 regras em 11 grupos. Toda regra que mexe com dinheiro, status ou contato é aplicada no backend; o front só antecipa o aviso. Valores marcados como configuráveis ficam na tela de Configurações do admin.
+São 61 regras em 11 grupos. Toda regra que mexe com dinheiro, status ou contato é aplicada no backend; o front só antecipa o aviso. Valores marcados como configuráveis ficam na tela de Configurações do admin.
 
 ### 1. Catálogo e categorias
 
@@ -73,7 +75,7 @@ São 60 regras em 11 grupos. Toda regra que mexe com dinheiro, status ou contato
 ### 2. Cadastro e verificação do profissional
 
 - **RN07** O cadastro é gratuito e sem mensalidade.
-- **RN08** Dados obrigatórios: nome, celular com SMS confirmado, CPF, data de nascimento, foto do RG ou CNH, selfie segurando o documento, ao menos 1 serviço, experiência, ferramentas, valor da diária, cidade, ao menos 1 dia de trabalho, ao menos 1 foto de trabalho, texto "Sobre você" e chave Pix. **Idade mínima de 18 anos, obrigatória**: a data de nascimento é conferida no cadastro e, abaixo disso, o cadastro é recusado com a mensagem "Para trabalhar na COE é preciso ter 18 anos ou mais."
+- **RN08** Dados obrigatórios: nome, celular com SMS confirmado, CPF, data de nascimento, foto do RG ou CNH, selfie segurando o documento, ao menos 1 serviço, experiência, ferramentas, valor da diária, cidade, ao menos 1 dia de trabalho, ao menos 1 foto de trabalho, texto "Sobre você" e chave Pix. **Celular confirmado por SMS é sempre obrigatório para o profissional**: sem ele o cadastro não vai para análise e o perfil não aparece na busca (o cliente pode contratar sem confirmar, RF03). **Idade mínima de 18 anos, obrigatória**: a data de nascimento é conferida no cadastro e, abaixo disso, o cadastro é recusado com a mensagem "Para trabalhar na COE é preciso ter 18 anos ou mais."
 - **RN09** Valor mínimo da diária: R$ 80. Meia diária: mínimo R$ 50 e menor que a diária.
 - **RN10** O "Sobre você" pode ser montado com frases prontas e precisa de pelo menos 25 caracteres.
 - **RN11** O perfil só aparece na busca depois que o admin aprova a verificação. Meta: resposta em até 24 horas.
@@ -108,7 +110,7 @@ São 60 regras em 11 grupos. Toda regra que mexe com dinheiro, status ou contato
 ### 6. Pagamento e comissão
 
 - **RN30** O pagamento é antecipado, por Pix ou cartão, e fica em custódia.
-- **RN31** Comissão de 10% por diária (o percentual é configurável). A comissão é **paga pelo cliente**, somada ao total (PA05).
+- **RN31** Comissão de 10% por diária (o percentual é configurável, com **teto de 30%** garantido no banco). A comissão é **paga pelo cliente**, somada ao total (PA05).
 - **RN32** O contrato nasce aguardando pagamento e só vira **pago** (diárias pagas, contato liberado) quando o gateway confirma o pagamento por webhook, nunca pelo clique do cliente. Sem confirmação no prazo, o contrato expira e as diárias são canceladas.
 - **RN33** Toda movimentação vira uma linha no livro-caixa (recebido, retido, liberado, reembolsado, comissão). O saldo é calculado, nunca editado.
 - **RN34** A comissão só vira receita da COE quando a diária é liberada. Em reembolso, o cliente recebe exatamente o que pagou por aquela diária: diária + comissão quando a taxa é do cliente; só a diária quando a taxa é do profissional.
@@ -171,9 +173,10 @@ A reclamação pode ser aberta com a diária paga, em andamento ou aguardando ap
 - **RN55** Só avalia quem teve diária paga e aprovada pelo app. Nota de 1 a 5 e comentário opcional.
 - **RN56** O profissional pode pausar o perfil; quem já contratou continua vendo.
 - **RN57** Fotos novas do portfólio passam por conferência antes de aparecer.
-- **RN58** Um login (celular) serve para cliente e profissional.
+- **RN58** Um login serve para cliente e profissional. Entra-se com celular **ou** e-mail + senha.
 - **RN59** Toda ação do admin gera registro de auditoria (quem, quando, o quê, antes e depois).
 - **RN60** O cliente pode baixar seus dados e pedir exclusão da conta; contratos em andamento precisam terminar antes. A exclusão é por **anonimização** (a conta nunca é apagada): nome, celular, e-mail e senha são removidos. Do profissional, CPF, chave Pix e data de nascimento ficam retidos por **5 anos** (dados financeiros e fiscais; prazo confirmado com o contador). Depois disso, um job de expurgo apaga CPF, chave Pix e data de nascimento; o `cpf_hash` só é mantido para quem estiver inativado (`suspenso`), para que a mesma pessoa não crie outro cadastro. Voltar a trabalhar depois de excluir a conta: **A DEFINIR** (reativação); enquanto isso, o mesmo CPF não cria novo cadastro.
+- **RN61** Celular ou e-mail **não confirmado não fica reservado**. Se o dono verdadeiro confirmar o dado (código por SMS ou link por e-mail) em outra conta, o dado passa para a conta dele; a conta que o tinha perde esse dado e precisa cadastrar e confirmar outro antes de voltar a usar o app. Como o login aceita celular ou e-mail (RN58), quem perdeu um deles continua entrando pelo outro.
 
 
 ## Requisitos funcionais
@@ -184,9 +187,9 @@ São 58 requisitos em 7 módulos, cada um ligado às regras que implementa. Prio
 
 | ID | Requisito | Regras | Prioridade |
 | --- | --- | --- | --- |
-| RF01 | Entrar com celular e senha ou com código por SMS; recuperar senha; ligar ou desligar o segundo passo por SMS (MFA opcional); sair de todos os aparelhos | RN58 | MVP |
+| RF01 | Entrar com celular ou e-mail + senha, ou com código por SMS; recuperar senha; segundo passo por SMS obrigatório para ADMIN e opcional (ligar/desligar) para cliente e profissional; sair de todos os aparelhos | RN58, RN61 | MVP |
 | RF02 | Criar conta perguntando primeiro "contratar" ou "trabalhar" | RN58 | MVP |
-| RF03 | Criar conta de cliente com nome, celular, e-mail, CEP e senha, com aceite dos termos | RN45 | MVP |
+| RF03 | Criar conta de cliente com nome, celular, e-mail, CEP e senha, com aceite dos termos; confirmar o celular é opcional para o cliente (pode contratar sem confirmar) | RN45, RN61 | MVP |
 | RF04 | Voltar à tela de origem depois de entrar ou criar conta | RN24 | MVP |
 | RF05 | Manter endereços salvos, cartão e preferências de aviso do cliente | RN29 | MVP |
 | RF06 | Baixar meus dados e pedir exclusão da conta | RN60 | MVP |
@@ -276,7 +279,7 @@ São 58 requisitos em 7 módulos, cada um ligado às regras que implementa. Prio
 ## Requisitos não funcionais
 
 ### Segurança
-- **RNF01** Autenticação com Spring Security e JWT (PA03); senhas com BCrypt ou Argon2; papéis CLIENTE, PROFISSIONAL e ADMIN. **MFA opcional**: o login padrão é celular + senha, sem SMS. Quem quiser liga um segundo passo com código por SMS. Entrar só com código por SMS continua como alternativa à senha (RF01). A confirmação do celular no cadastro (RN08) é outra coisa e continua obrigatória, uma vez.
+- **RNF01** Autenticação com Spring Security e JWT (PA03); senhas com BCrypt ou Argon2; papéis CLIENTE, PROFISSIONAL e ADMIN. **MFA**: obrigatório para o **ADMIN**; opcional para cliente e profissional (quem quiser liga o segundo passo com código por SMS). O login padrão é celular **ou** e-mail + senha. Entrar só com código por SMS continua como alternativa à senha (RF01). A confirmação do celular (RN08) é outra coisa: obrigatória para o profissional, opcional para o cliente.
 - **RNF02** Autorização por objeto: toda consulta de contrato, diária, conversa ou documento confere se o usuário é dono ou parte (proteção contra IDOR).
 - **RNF03** Limite de tentativas (rate limit) em login, envio de SMS, recuperação de senha e mensagens do chat.
 - **RNF04** Toda validação e a censura de contato rodam no servidor; o front só antecipa o aviso.
@@ -322,7 +325,7 @@ São 58 requisitos em 7 módulos, cada um ligado às regras que implementa. Prio
 | --- | --- | --- | --- |
 | PA01 | Banco de dados | MySQL ou PostgreSQL | **Decidido: PostgreSQL 16 + Flyway** |
 | PA02 | Gateway de pagamento com custódia e split | Asaas, Pagar.me, Iugu ou Mercado Pago | **A DEFINIR** até o dia 52 do cronograma. Até lá, adaptador falso. Ação: escolher e abrir o sandbox **até o dia 40** |
-| PA03 | Autenticação | JWT ou sessão com cookie | **Decidido: JWT.** token de acesso de **15 min** (HS256, chave com `kid` no Secrets Manager), guardado **só na memória** do front e enviado no header `Authorization`; dentro dele só o id do usuário, os papéis, emissão, expiração e um id único (nada de celular, CPF ou nome). Refresh token de **30 dias**, renovado a cada uso, em cookie **HttpOnly/Secure/SameSite=Strict** enviado só ao endpoint de renovação, guardado como **hash** no banco; revogado no logout, na troca de senha e quando o admin inativa a conta; refresh reutilizado (sinal de roubo) revoga todos os tokens daquele login. **Uma sessão por aparelho**, com "sair de todos os aparelhos". **MFA opcional**: o login padrão é celular + senha, sem SMS. Quem quiser liga um segundo passo com código por SMS. Entrar só com código por SMS continua como alternativa à senha (RF01). A confirmação do celular no cadastro (RN08) é outra coisa e continua obrigatória, uma vez. As tabelas `spring_session*` da V2 saem na V12 |
+| PA03 | Autenticação | JWT ou sessão com cookie | **Decidido: JWT.** token de acesso de **15 min** (HS256, chave com `kid` no Secrets Manager), guardado **só na memória** do front e enviado no header `Authorization`; dentro dele só o id do usuário, os papéis, emissão, expiração e um id único (nada de celular, CPF ou nome). Refresh token de **30 dias**, renovado a cada uso, em cookie **HttpOnly/Secure/SameSite=Strict** enviado só ao endpoint de renovação, guardado como **hash** no banco; revogado no logout, na troca de senha e quando o admin inativa a conta; refresh reutilizado (sinal de roubo) revoga todos os tokens daquele login. **Uma sessão por aparelho**, com "sair de todos os aparelhos". **MFA**: obrigatório para o **ADMIN**; opcional para cliente e profissional (quem quiser liga o segundo passo com código por SMS). O login padrão é celular **ou** e-mail + senha. Entrar só com código por SMS continua como alternativa à senha (RF01). A confirmação do celular (RN08) é outra coisa: obrigatória para o profissional, opcional para o cliente. Comissão com teto de 30% (CHECK na V12). As tabelas `spring_session*` da V2 saem na V12 |
 | PA04 | Front final | HTML puro ou React | **Decidido: React + TypeScript + Vite**, seguindo as telas do protótipo HTML aprovado |
 | PA05 | Quem paga a comissão de 10% | Cliente (somada) ou profissional (descontada) | **Decidido: cliente** (somada ao total). Valor padrão da `configuracao` confirmado |
 | PA06 | Reembolso de diária | Devolve só a diária ou também a comissão | **Decidido:** devolve o que o cliente pagou pela diária (RN34) |
