@@ -88,6 +88,8 @@ O schema está em 10 migrações versionadas (V1–V10) + dados locais. Detalhe 
 - CPF, chave Pix e endereço cifrados pela aplicação (`bytea`); hash separado para unicidade.
 
 ### Migrações
+Numeradas na ordem em que são criadas, sem reservar número: tarefa futura aparece só pelo ID (ex.: "migração do DB-14"); o `V<n>` entra quando o arquivo existir.
+
 | ID | Migração | Conteúdo |
 |---|---|---|
 | DB-01 | `V1__base` | Extensões (`pgcrypto`, `citext`, `unaccent`, `pg_trgm`), funções utilitárias, `configuracao` |
@@ -103,7 +105,7 @@ O schema está em 10 migrações versionadas (V1–V10) + dados locais. Detalhe 
 | DB-11 | `R__dados_local` + seeder Java | Só no perfil local; profissionais de exemplo pelo seeder (campos cifrados) |
 | DB-13 | `V12__autenticacao_jwt` | Remove `spring_session*` (PA03 = JWT); cria `refresh_token` (hash único, usuário, aparelho, validade, revogado em, substituído por, família para revogar tudo em caso de reuso); `usuario.mfa_sms_ativo` (padrão falso); finalidade `mfa` no `codigo_sms`; comissão com teto de 30% (CHECK) |
 | DB-15 | `V13__teto_da_sessao` | `refresh_token.sessao_iniciada_em` (gravado no login, herdado pelo sucessor, imutável; FK do sucessor inclui a coluna, então o banco recusa início diferente); linhas existentes preenchidas com o `min(criado_em)` da família; motivo de revogação `teto` |
-| DB-14 | `V14__ocorrencia_profissional` | Junto do DOM-09. `ocorrencia_profissional` só de inserção (gatilhos `fn_somente_insercao` de linha e TRUNCATE, sem UPDATE/DELETE/TRUNCATE para o `coe_app`); `profissional.motivo_suspensao` obrigatório com status `suspenso`; parâmetros `FALTAS_ALERTA` = 2 e `FALTAS_JANELA_DIAS` = 90 com faixa validada (PA07) |
+| DB-14 | Migração das faltas do profissional (`ocorrencia_profissional`; número quando o arquivo for criado) | Junto do DOM-09. `ocorrencia_profissional` só de inserção (gatilhos `fn_somente_insercao` de linha e TRUNCATE, sem UPDATE/DELETE/TRUNCATE para o `coe_app`); `profissional.motivo_suspensao` obrigatório com status `suspenso`; parâmetros `FALTAS_ALERTA` = 2 e `FALTAS_JANELA_DIAS` = 90 com faixa validada (PA07) |
 
 Correções CRITICAL já aplicadas em V1–V10 (antes do primeiro commit): partidas dobradas conferidas por transação no COMMIT (sem transação vazia e sem lançamento em transação fechada); tabelas só de inserção também barram TRUNCATE; papel `coe_app` sem posse do schema.
 
@@ -357,7 +359,7 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 ### Fatia 4: Problemas e administração (dias 36–44)
 | Dia | Tarefas | O que fazer | Pronto quando |
 |---|---|---|---|
-| 36 | DOM-09, DB-14 | Abrir disputa, resposta, prazo; V14 (`ocorrencia_profissional`) | Uma disputa aberta por diária |
+| 36 | DOM-09, DB-14 | Abrir disputa, resposta, prazo; migração do DB-14 (`ocorrencia_profissional`) | Uma disputa aberta por diária |
 | 37 | DOM-09 | Decisão; falta do profissional (PA07): reembolso integral, registro da falta | Casos obrigatórios do DOM-09 passam |
 | 38 | DOM-10 | Avaliações e média | Só quem pagou avalia |
 | 39 | DOM-11 | Usuários, faltas com alerta, inativar e reativar, configuração | Ações auditadas; alerta com 2 faltas em 90 dias |
