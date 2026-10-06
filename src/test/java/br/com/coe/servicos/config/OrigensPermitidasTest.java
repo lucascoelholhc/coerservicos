@@ -43,7 +43,10 @@ class OrigensPermitidasTest {
                 "http://localhost:5173/",
                 "http://localhost:5173/app",
                 "localhost:5173",
-                "http://*.coe.com.br"
+                "http://*.coe.com.br",
+                "http://LOCALHOST:5173",
+                "http://localhost:99999",
+                "http://localhost:0"
             })
     void recusaSempre(String origens) {
         assertThatThrownBy(() -> OrigensPermitidas.de(origens, false))

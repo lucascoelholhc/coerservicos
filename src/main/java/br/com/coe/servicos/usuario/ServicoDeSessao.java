@@ -24,6 +24,8 @@ class ServicoDeSessao {
 
     static final Duration VALIDADE = Duration.ofDays(30);
     static final Duration TOLERANCIA_REUSO = Duration.ofSeconds(30);
+    private static final Duration TETO_MINIMO = Duration.ofDays(1);
+    private static final Duration TETO_MAXIMO = Duration.ofDays(365);
 
     private static final Logger LOG = LoggerFactory.getLogger(ServicoDeSessao.class);
 
@@ -56,6 +58,10 @@ class ServicoDeSessao {
         this.usuarios = usuarios;
         this.transacao = new TransactionTemplate(transacoes);
         this.clock = clock;
+        if (duracaoMaxima.compareTo(TETO_MINIMO) < 0 || duracaoMaxima.compareTo(TETO_MAXIMO) > 0) {
+            throw new IllegalStateException(
+                    "coe.auth.sessao.duracao-maxima precisa ficar entre 1 e 365 dias: " + duracaoMaxima);
+        }
         this.duracaoMaxima = duracaoMaxima;
     }
 

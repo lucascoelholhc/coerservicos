@@ -18,7 +18,11 @@ public class UsuarioAutenticado {
     public UUID id() {
         Authentication autenticacao = SecurityContextHolder.getContext().getAuthentication();
         if (autenticacao instanceof JwtAuthenticationToken token) {
-            return UUID.fromString(token.getToken().getSubject());
+            try {
+                return UUID.fromString(token.getToken().getSubject());
+            } catch (IllegalArgumentException | NullPointerException subInvalido) {
+                throw new AuthenticationCredentialsNotFoundException("Token sem id de usuário válido");
+            }
         }
         throw new AuthenticationCredentialsNotFoundException("Sem usuário autenticado");
     }

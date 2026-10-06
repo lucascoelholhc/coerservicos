@@ -108,8 +108,44 @@ class CorsEOrigemTest extends IntegracaoTest {
         mockMvc.perform(options("/api/auth/renovar")
                         .header("Origin", ORIGEM_ESTRANHA)
                         .header("Access-Control-Request-Method", "POST"))
+                .andExpect(status().isForbidden())
                 .andExpect(header().doesNotExist("Access-Control-Allow-Origin"))
                 .andExpect(header().doesNotExist("Access-Control-Allow-Credentials"));
+    }
+
+    /** Status da resposta, ou -1 se o firewall do Spring Security recusou antes (exceção). */
+    private int statusSemOrigem(String caminho, Cookie cookie) {
+        try {
+            return mockMvc.perform(post(caminho).cookie(cookie))
+                    .andReturn()
+                    .getResponse()
+                    .getStatus();
+        } catch (Exception recusadaPeloFirewall) {
+            return -1;
+        }
+    }
+
+    @Test
+    @DisplayName("variações do caminho (barra no fim, ;parametro) não escapam da checagem de Origin")
+    void variacoesDoCaminho() throws Exception {
+        Sessao sessao = entrar();
+        Cookie cookie = new Cookie("coe_refresh", sessao.refresh());
+
+        assertThat(statusSemOrigem("/api/auth/renovar/", cookie)).isNotEqualTo(200);
+        assertThat(statusSemOrigem("/api/auth/renovar;a=b", cookie)).isNotEqualTo(200);
+        assertThat(statusSemOrigem("/api/auth/RENOVAR", cookie)).isNotEqualTo(200);
+        assertThat(tokensUsados(sessao.usuarioId()))
+                .as("o refresh continua intacto")
+                .isZero();
+    }
+
+    @Test
+    @DisplayName("todo POST em /api/auth/ menos o entrar exige Origin (falha fechada)")
+    void sairDeTodosExigeOrigem() throws Exception {
+        Sessao sessao = entrar();
+
+        origemRecusada(post("/api/auth/sair-de-todos").header("Authorization", "Bearer " + sessao.access()));
+        assertThat(tokensUsados(sessao.usuarioId())).isZero();
     }
 
     @Test

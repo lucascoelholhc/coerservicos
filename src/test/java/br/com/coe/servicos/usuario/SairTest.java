@@ -85,7 +85,9 @@ class SairTest extends IntegracaoTest {
         Sessao celular = entrar(conta);
         Sessao notebook = entrar(conta);
 
-        mockMvc.perform(post("/api/auth/sair-de-todos").header("Authorization", "Bearer " + celular.access()))
+        mockMvc.perform(post("/api/auth/sair-de-todos")
+                        .header("Origin", ORIGEM_DO_FRONT)
+                        .header("Authorization", "Bearer " + celular.access()))
                 .andExpect(status().isNoContent());
 
         assertThat(renovar(celular.refresh())).isEqualTo(401);
@@ -151,6 +153,7 @@ class SairTest extends IntegracaoTest {
     void semToken() throws Exception {
         mockMvc.perform(post("/api/auth/sair").header("Origin", ORIGEM_DO_FRONT))
                 .andExpect(status().isUnauthorized());
-        mockMvc.perform(post("/api/auth/sair-de-todos")).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/auth/sair-de-todos").header("Origin", ORIGEM_DO_FRONT))
+                .andExpect(status().isUnauthorized());
     }
 }

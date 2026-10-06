@@ -1,5 +1,6 @@
 package br.com.coe.servicos.usuario;
 
+import java.time.Instant;
 import java.util.EnumSet;
 import java.util.Set;
 import java.util.UUID;
@@ -50,7 +51,7 @@ public class Usuario {
     private String status;
 
     @Column(name = "celular_verificado_em")
-    private java.time.Instant celularVerificadoEm;
+    private Instant celularVerificadoEm;
 
     @Column(name = "mfa_sms_ativo", nullable = false)
     private boolean mfaSmsAtivo;

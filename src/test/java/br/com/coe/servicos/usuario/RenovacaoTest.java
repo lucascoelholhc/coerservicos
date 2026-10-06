@@ -217,6 +217,22 @@ class RenovacaoTest extends IntegracaoTest {
     }
 
     @Test
+    @DisplayName("teto: exatamente 90 dias recusa; 90 dias menos 1 s ainda renova")
+    void tetoLimiteExato() throws Exception {
+        Conta conta = contas.criar(Papel.CLIENTE);
+        String refresh = entrar(conta);
+        for (int i = 0; i < 3; i++) {
+            relogio.avancar(Duration.ofDays(29));
+            refresh = renovarComSucesso(refresh);
+        }
+        relogio.avancar(Duration.ofDays(3).minusSeconds(1));
+        refresh = renovarComSucesso(refresh);
+        relogio.avancar(Duration.ofSeconds(1));
+
+        recusada(refresh);
+    }
+
+    @Test
     @DisplayName("teto: renovação no dia 75 gera refresh e cookie de 15 dias (nunca além dos 90)")
     void renovacaoNoDia75() throws Exception {
         Conta conta = contas.criar(Papel.CLIENTE);

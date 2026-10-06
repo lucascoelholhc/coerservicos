@@ -2,6 +2,7 @@ package br.com.coe.servicos.config;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 /**
@@ -29,6 +30,9 @@ public final class OrigensPermitidas {
             if (!ORIGEM.matcher(origem).matches()) {
                 throw invalida("cada origem é esquema://host[:porta], sem curinga, caminho nem barra no fim");
             }
+            if (!origem.equals(origem.toLowerCase(Locale.ROOT)) || !portaValida(origem)) {
+                throw invalida("origem em minúsculas e porta entre 1 e 65535 (o navegador manda assim)");
+            }
             if (somenteHttps && !origem.startsWith("https://")) {
                 throw invalida("em produção só https");
             }
@@ -38,6 +42,15 @@ public final class OrigensPermitidas {
             throw invalida("lista vazia (COE_ORIGENS_PERMITIDAS)");
         }
         return new OrigensPermitidas(origens);
+    }
+
+    private static boolean portaValida(String origem) {
+        int doisPontos = origem.lastIndexOf(':');
+        if (doisPontos <= origem.indexOf("://")) {
+            return true;
+        }
+        int porta = Integer.parseInt(origem.substring(doisPontos + 1));
+        return porta >= 1 && porta <= 65_535;
     }
 
     private static IllegalStateException invalida(String motivo) {

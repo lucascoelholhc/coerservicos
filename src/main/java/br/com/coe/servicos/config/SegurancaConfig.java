@@ -3,6 +3,7 @@ package br.com.coe.servicos.config;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -53,7 +54,9 @@ public class SegurancaConfig {
     private static final int CUSTO_BCRYPT = 12;
     private static final long HSTS_UM_ANO = 31_536_000L;
     private static final long CORS_CACHE_SEGUNDOS = 3_600L;
-    private static final Set<String> ROTAS_SEM_BEARER = Set.of("/api/auth/entrar", "/api/auth/renovar");
+    /** Rotas públicas não leem o header Authorization (um token vencido não pode barrá-las). */
+    private static final Set<String> ROTAS_SEM_BEARER =
+            ROTAS_PUBLICAS.stream().map(RotaPublica::caminho).collect(Collectors.toUnmodifiableSet());
 
     @Bean
     SecurityFilterChain cadeiaDaApi(
