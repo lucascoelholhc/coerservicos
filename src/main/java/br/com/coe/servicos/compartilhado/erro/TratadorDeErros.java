@@ -79,7 +79,15 @@ public class TratadorDeErros extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(AcaoProibidaException.class)
     ProblemDetail acaoProibida(AcaoProibidaException erro) {
-        return problema(HttpStatus.FORBIDDEN, erro.getCodigo(), "Acesso negado", erro.getMessage());
+        ProblemDetail problema = problema(HttpStatus.FORBIDDEN, erro.getCodigo(), "Acesso negado", erro.getMessage());
+        erro.getPropriedades().forEach(problema::setProperty);
+        return problema;
+    }
+
+    @ExceptionHandler(MuitasTentativasException.class)
+    ProblemDetail muitasTentativas(MuitasTentativasException erro) {
+        LOG.info("Limite de pedidos atingido");
+        return problema(HttpStatus.TOO_MANY_REQUESTS, "muitas-tentativas", "Muitas tentativas", erro.getMessage());
     }
 
     /** Validação feita fora do controller (ex.: {@code @Validated} num serviço). */

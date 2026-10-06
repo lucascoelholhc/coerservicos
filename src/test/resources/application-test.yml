@@ -10,6 +10,8 @@ spring:
 coe:
   seguranca:
     origens-permitidas: http://localhost:5173
+    # Chave do HMAC dos códigos SMS SÓ para testes (não é segredo).
+    chave-codigos: Wm9QbFdGd0x6ZlZ3d2xjR2Y2bVNqN0F1a0Y2cTZhS2k=
   jwt:
     kid-atual: teste-2
     chaves: teste-2:64cxK3KGrXaWz4l8l3eTpGwHnDHY9ust4wiQ1nC8+OM=,teste-1:wW+XYKypOvCgAc5BG5mlGksqdNbUDiXtlPMh4p43hxE=

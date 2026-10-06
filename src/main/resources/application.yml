@@ -34,6 +34,9 @@ coe:
     # Origens do front (CORS e Origin no renovar/sair), separadas por vírgula; sem curinga, caminho nem
     # barra no fim. Obrigatório: sem isso a aplicação não sobe. Prod: COE_ORIGENS_PERMITIDAS (só https).
     origens-permitidas: ${COE_ORIGENS_PERMITIDAS:}
+    # Chave do HMAC dos códigos SMS (base64 de pelo menos 32 bytes), separada da do JWT.
+    # Obrigatória: sem ela a aplicação não sobe. Variável de ambiente COE_CHAVE_CODIGOS.
+    chave-codigos: ${COE_CHAVE_CODIGOS:}
     origens-somente-https: false
     hsts: false            # só o application-prod.yml liga
   auth:

@@ -21,7 +21,11 @@ import br.com.coe.servicos.usuario.Papel;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import({TestcontainersConfiguration.class, RelogioDeTesteConfiguration.class})
+@Import({
+    TestcontainersConfiguration.class,
+    RelogioDeTesteConfiguration.class,
+    br.com.coe.servicos.compartilhado.mensageria.MensageriaDeTesteConfiguration.class
+})
 public abstract class IntegracaoTest {
 
     /** Origem do front no perfil test (a mesma do local): obrigatória no renovar e no sair. */
@@ -32,6 +36,10 @@ public abstract class IntegracaoTest {
 
     @Autowired
     protected RelogioAjustavel relogio;
+
+    /** SMS falso: o teste lê o código enviado com {@code sms.ultimoCodigo(celular)}. */
+    @Autowired
+    protected br.com.coe.servicos.compartilhado.mensageria.EnviadorSmsEmMemoria sms;
 
     @Autowired
     private ConfiguracaoNegocio configuracaoNegocio;
