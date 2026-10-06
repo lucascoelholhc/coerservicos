@@ -1,5 +1,6 @@
 package br.com.coe.servicos;
 
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 import java.time.Clock;
@@ -8,12 +9,18 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.AccessTarget;
 import com.tngtech.archunit.core.domain.AccessTarget.CodeUnitAccessTarget;
 import com.tngtech.archunit.core.domain.JavaAccess;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.lang.ArchRule;
+
+import br.com.coe.servicos.compartilhado.seguranca.Publico;
 
 /** Regras do ArchUnit, separadas do teste para poderem ser provadas contra exemplos. */
 final class RegrasDeArquitetura {
@@ -32,6 +39,19 @@ final class RegrasDeArquitetura {
             .should()
             .accessTargetWhere(LE_O_RELOGIO_DO_SISTEMA)
             .because("data e hora vêm sempre do Clock injetado (CORE-13)");
+
+    /** Negar por padrão (CORE-06): todo endpoint declara quem pode chamá-lo. */
+    static final ArchRule ENDPOINT_COM_AUTORIZACAO = methods()
+            .that()
+            .areDeclaredInClassesThat()
+            .areAnnotatedWith(RestController.class)
+            .and()
+            .areMetaAnnotatedWith(RequestMapping.class)
+            .should()
+            .beAnnotatedWith(PreAuthorize.class)
+            .orShould()
+            .beAnnotatedWith(Publico.class)
+            .because("negar por padrão: todo endpoint tem @PreAuthorize ou @Publico (CORE-06)");
 
     private RegrasDeArquitetura() {}
 

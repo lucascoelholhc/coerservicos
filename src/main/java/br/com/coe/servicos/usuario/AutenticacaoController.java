@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.CookieValue;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.com.coe.servicos.compartilhado.erro.NaoAutenticadoException;
+import br.com.coe.servicos.compartilhado.seguranca.Publico;
 
 /** Login, renovação e saída (CORE-03, PA03). O refresh só trafega no cookie HttpOnly. */
 @RestController
@@ -37,6 +39,7 @@ class AutenticacaoController {
     }
 
     @PostMapping("/entrar")
+    @Publico
     ResponseEntity<SessaoResponse> entrar(@Valid @RequestBody LoginRequest pedido, HttpServletRequest requisicao) {
         ServicoDeLogin.LoginAceito aceito =
                 login.entrar(pedido, requisicao.getRemoteAddr(), requisicao.getHeader(HttpHeaders.USER_AGENT));
@@ -44,6 +47,7 @@ class AutenticacaoController {
     }
 
     @PostMapping("/renovar")
+    @Publico
     ResponseEntity<SessaoResponse> renovar(
             @CookieValue(name = CookieDeRenovacao.NOME, required = false) String refresh,
             HttpServletRequest requisicao) {
@@ -60,6 +64,7 @@ class AutenticacaoController {
     }
 
     @PostMapping("/sair")
+    @PreAuthorize("isAuthenticated()")
     ResponseEntity<Void> sair(
             @AuthenticationPrincipal Jwt token,
             @CookieValue(name = CookieDeRenovacao.NOME, required = false) String refresh) {
@@ -70,6 +75,7 @@ class AutenticacaoController {
     }
 
     @PostMapping("/sair-de-todos")
+    @PreAuthorize("isAuthenticated()")
     ResponseEntity<Void> sairDeTodos(@AuthenticationPrincipal Jwt token) {
         sessoes.sairDeTodos(UUID.fromString(token.getSubject()));
         return ResponseEntity.noContent()

@@ -102,10 +102,25 @@ class MigracaoV13Test extends BancoIntegracaoTest {
     }
 
     @Test
-    @DisplayName("o índice da FK do sucessor continua começando pela coluna da FK")
+    @DisplayName("a FK nova do sucessor tem índice não parcial começando por substituido_por")
     void indiceDaFk() {
-        assertThat(jdbc.queryForList(
-                        "SELECT indexname FROM pg_indexes WHERE tablename = 'refresh_token'", String.class))
-                .contains("uq_refresh_token_sucessor", "uq_refresh_token_identidade");
+        assertThat(jdbc.queryForObject("""
+                        SELECT count(*) FROM pg_index i
+                         WHERE i.indrelid = 'public.refresh_token'::regclass AND i.indpred IS NULL
+                           AND i.indkey[0] = (SELECT attnum FROM pg_attribute
+                                               WHERE attrelid = i.indrelid AND attname = 'substituido_por')""", Integer.class)).isPositive();
+    }
+
+    @Test
+    @DisplayName("a aplicação também não altera o início da sessão")
+    void aplicacaoNaoAlteraInicio() {
+        UUID token = refreshToken(fixtures.usuario(), UUID.randomUUID(), "now()");
+        fixtures.agirComoAplicacao();
+
+        PSQLException erro = erroDoBanco(() -> jdbc.update(
+                "UPDATE refresh_token SET sessao_iniciada_em = sessao_iniciada_em - interval '1 day' WHERE id = ?",
+                token));
+
+        assertThat(erro.getSQLState()).isEqualTo(INSUFFICIENT_PRIVILEGE);
     }
 }

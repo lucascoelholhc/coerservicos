@@ -1,17 +1,17 @@
 package br.com.coe.servicos.config;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -26,26 +26,46 @@ import org.springframework.security.oauth2.server.resource.web.DefaultBearerToke
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.filter.CorsFilter;
 
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Segurança da API: sem sessão, JWT de acesso no header Authorization (resource server). Públicos só
- * o cadastro de cliente, o login, a renovação e o health. Sem login ou com token inválido → 401;
- * sem permissão → 403, ambos em Problem Details.
+ * Segurança da API: sem sessão, JWT de acesso no header Authorization (resource server), negar por
+ * padrão (todo endpoint tem @PreAuthorize ou @Publico, e as rotas @Publico são exatamente as de
+ * {@link #ROTAS_PUBLICAS}). CORS e Origin pelas origens do perfil; headers de segurança em toda
+ * resposta, HSTS só no prod. Sem login ou com token inválido → 401; sem permissão → 403, ambos em
+ * Problem Details.
  */
 @Configuration(proxyBeanMethods = false)
+@EnableMethodSecurity
 public class SegurancaConfig {
 
+    /** Única lista de rotas abertas sem login (fora o health do actuator). */
+    public static final List<RotaPublica> ROTAS_PUBLICAS = List.of(
+            new RotaPublica(HttpMethod.POST, "/api/contas/cliente"),
+            new RotaPublica(HttpMethod.POST, "/api/auth/entrar"),
+            new RotaPublica(HttpMethod.POST, "/api/auth/renovar"));
+
     private static final int CUSTO_BCRYPT = 12;
-    private static final String PROBLEM_JSON = "application/problem+json";
+    private static final long HSTS_UM_ANO = 31_536_000L;
+    private static final long CORS_CACHE_SEGUNDOS = 3_600L;
     private static final Set<String> ROTAS_SEM_BEARER = Set.of("/api/auth/entrar", "/api/auth/renovar");
 
     @Bean
-    SecurityFilterChain cadeiaDaApi(HttpSecurity http, JsonMapper json, JwtDecoder decodificador) throws Exception {
+    SecurityFilterChain cadeiaDaApi(
+            HttpSecurity http,
+            JsonMapper json,
+            JwtDecoder decodificador,
+            OrigensPermitidas origens,
+            @Value("${coe.seguranca.hsts:false}") boolean hsts)
+            throws Exception {
         AuthenticationEntryPoint naoAutenticado = (requisicao, resposta, erro) -> {
             resposta.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
-            escrever(
+            RespostaDeProblema.escrever(
                     resposta,
                     json,
                     HttpServletResponse.SC_UNAUTHORIZED,
@@ -53,29 +73,40 @@ public class SegurancaConfig {
                     "Não autenticado",
                     "Entre na sua conta para continuar.");
         };
-        AccessDeniedHandler semPermissao = (requisicao, resposta, erro) -> escrever(
+        AccessDeniedHandler semPermissao = (requisicao, resposta, erro) -> RespostaDeProblema.escrever(
                 resposta,
                 json,
                 HttpServletResponse.SC_FORBIDDEN,
                 "proibido",
                 "Acesso negado",
                 "Você não tem permissão para fazer isso.");
-        // API stateless com token no header Authorization: sem cookie de sessão, não há CSRF a
-        // proteger. O cookie do refresh (SameSite=Strict, só /api/auth) ganha a checagem de Origin
-        // no CORE-08.
+        // API stateless com token no header Authorization: sem cookie de sessão. As duas rotas que
+        // usam o cookie do refresh (SameSite=Strict, só /api/auth) exigem Origin da lista (FiltroDeOrigem).
         http.csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sessao -> sessao.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(regras -> regras.dispatcherTypeMatchers(DispatcherType.ERROR)
-                        .permitAll()
-                        .requestMatchers(
-                                HttpMethod.POST, "/api/contas/cliente", "/api/auth/entrar", "/api/auth/renovar")
-                        .permitAll()
-                        .requestMatchers("/actuator/health", "/actuator/health/**")
-                        .permitAll()
-                        .requestMatchers("/api/admin/**")
-                        .hasRole("ADMIN")
-                        .anyRequest()
-                        .authenticated())
+                .cors(cors -> cors.configurationSource(fonteCors(origens)))
+                .addFilterBefore(new FiltroDeOrigem(origens, json), CorsFilter.class)
+                .headers(cabecalhos -> {
+                    cabecalhos.referrerPolicy(politica -> politica.policy(ReferrerPolicy.NO_REFERRER));
+                    cabecalhos.frameOptions(quadros -> quadros.deny());
+                    if (hsts) {
+                        cabecalhos.httpStrictTransportSecurity(
+                                transporte -> transporte.includeSubDomains(true).maxAgeInSeconds(HSTS_UM_ANO));
+                    } else {
+                        cabecalhos.httpStrictTransportSecurity(transporte -> transporte.disable());
+                    }
+                })
+                .authorizeHttpRequests(regras -> {
+                    regras.dispatcherTypeMatchers(DispatcherType.ERROR).permitAll();
+                    ROTAS_PUBLICAS.forEach(rota -> regras.requestMatchers(rota.metodo(), rota.caminho())
+                            .permitAll());
+                    regras.requestMatchers("/actuator/health", "/actuator/health/**")
+                            .permitAll()
+                            .requestMatchers("/api/admin/**")
+                            .hasRole("ADMIN")
+                            .anyRequest()
+                            .authenticated();
+                })
                 .oauth2ResourceServer(recurso -> recurso.bearerTokenResolver(tokenForaDoLogin())
                         .jwt(jwt -> jwt.decoder(decodificador).jwtAuthenticationConverter(papeisDoToken()))
                         .authenticationEntryPoint(naoAutenticado)
@@ -83,6 +114,28 @@ public class SegurancaConfig {
                 .exceptionHandling(
                         erros -> erros.authenticationEntryPoint(naoAutenticado).accessDeniedHandler(semPermissao));
         return http.build();
+    }
+
+    /** CORS só para as origens do perfil; credenciais (cookie) só no /api/auth/**. */
+    private static UrlBasedCorsConfigurationSource fonteCors(OrigensPermitidas origens) {
+        CorsConfiguration autenticacao = new CorsConfiguration();
+        autenticacao.setAllowedOrigins(origens.lista());
+        autenticacao.setAllowedMethods(List.of("POST", "OPTIONS"));
+        autenticacao.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        autenticacao.setAllowCredentials(true);
+        autenticacao.setMaxAge(CORS_CACHE_SEGUNDOS);
+
+        CorsConfiguration api = new CorsConfiguration();
+        api.setAllowedOrigins(origens.lista());
+        api.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        api.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        api.setAllowCredentials(false);
+        api.setMaxAge(CORS_CACHE_SEGUNDOS);
+
+        UrlBasedCorsConfigurationSource fonte = new UrlBasedCorsConfigurationSource();
+        fonte.registerCorsConfiguration("/api/auth/**", autenticacao);
+        fonte.registerCorsConfiguration("/api/**", api);
+        return fonte;
     }
 
     /**
@@ -118,18 +171,5 @@ public class SegurancaConfig {
         DelegatingPasswordEncoder delegante = new DelegatingPasswordEncoder("bcrypt", Map.of("bcrypt", bcrypt));
         delegante.setDefaultPasswordEncoderForMatches(bcrypt);
         return delegante;
-    }
-
-    private static void escrever(
-            HttpServletResponse resposta, JsonMapper json, int status, String codigo, String titulo, String detalhe)
-            throws IOException {
-        Map<String, Object> problema = new LinkedHashMap<>();
-        problema.put("type", "urn:coe:erro:" + codigo);
-        problema.put("title", titulo);
-        problema.put("status", status);
-        problema.put("detail", detalhe);
-        resposta.setStatus(status);
-        resposta.setContentType(PROBLEM_JSON);
-        resposta.getOutputStream().write(json.writeValueAsString(problema).getBytes(StandardCharsets.UTF_8));
     }
 }

@@ -54,7 +54,8 @@ class RenovacaoTest extends IntegracaoTest {
     }
 
     private ResultActions renovar(String refresh) throws Exception {
-        return mockMvc.perform(post("/api/auth/renovar").cookie(new Cookie("coe_refresh", refresh)));
+        return mockMvc.perform(
+                post("/api/auth/renovar").header("Origin", ORIGEM_DO_FRONT).cookie(new Cookie("coe_refresh", refresh)));
     }
 
     private String renovarComSucesso(String refresh) throws Exception {
@@ -120,7 +121,8 @@ class RenovacaoTest extends IntegracaoTest {
     @Test
     @DisplayName("sem cookie ou com cookie inválido: 401")
     void semCookie() throws Exception {
-        mockMvc.perform(post("/api/auth/renovar")).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/auth/renovar").header("Origin", ORIGEM_DO_FRONT))
+                .andExpect(status().isUnauthorized());
         recusada("isso-nao-e-um-token");
         recusada("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
     }
@@ -279,6 +281,7 @@ class RenovacaoTest extends IntegracaoTest {
         String refresh = entrar(conta);
 
         mockMvc.perform(post("/api/auth/renovar")
+                        .header("Origin", ORIGEM_DO_FRONT)
                         .header("Authorization", "Bearer token.vencido.ou.invalido")
                         .cookie(new Cookie("coe_refresh", refresh)))
                 .andExpect(status().isOk());

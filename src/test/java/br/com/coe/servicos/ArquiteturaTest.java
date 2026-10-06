@@ -37,6 +37,62 @@ class ArquiteturaTest {
         RegrasDeArquitetura.SEM_RELOGIO_DO_SISTEMA.check(producao);
     }
 
+    @Test
+    @DisplayName("todo endpoint de produção tem @PreAuthorize ou @Publico (negar por padrão)")
+    void endpointsDeclaramAutorizacao() {
+        JavaClasses producao = new ClassFileImporter()
+                .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+                .importPackages("br.com.coe.servicos");
+
+        RegrasDeArquitetura.ENDPOINT_COM_AUTORIZACAO.check(producao);
+    }
+
+    @Test
+    @DisplayName("a regra pega endpoint sem @PreAuthorize nem @Publico")
+    void regraPegaEndpointSemAutorizacao() {
+        JavaClasses classes = new ClassFileImporter().importClasses(ControllerSemAutorizacao.class);
+
+        assertThatThrownBy(() -> RegrasDeArquitetura.ENDPOINT_COM_AUTORIZACAO.check(classes))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("semNada");
+    }
+
+    @Test
+    @DisplayName("endpoint com @PreAuthorize ou @Publico passa na regra")
+    void regraAceitaEndpointDeclarado() {
+        JavaClasses classes = new ClassFileImporter().importClasses(ControllerDeclarado.class);
+
+        assertThatCode(() -> RegrasDeArquitetura.ENDPOINT_COM_AUTORIZACAO.check(classes))
+                .doesNotThrowAnyException();
+    }
+
+    @org.springframework.web.bind.annotation.RestController
+    static class ControllerSemAutorizacao {
+        @org.springframework.web.bind.annotation.GetMapping("/exemplo/sem-nada")
+        String semNada() {
+            return "";
+        }
+    }
+
+    @org.springframework.web.bind.annotation.RestController
+    static class ControllerDeclarado {
+        @org.springframework.web.bind.annotation.GetMapping("/exemplo/publico")
+        @br.com.coe.servicos.compartilhado.seguranca.Publico
+        String publico() {
+            return "";
+        }
+
+        @org.springframework.web.bind.annotation.PostMapping("/exemplo/cliente")
+        @org.springframework.security.access.prepost.PreAuthorize("hasRole('CLIENTE')")
+        String cliente() {
+            return "";
+        }
+
+        String auxiliarSemMapeamento() {
+            return "";
+        }
+    }
+
     @ParameterizedTest(name = "pega {0}")
     @ValueSource(
             classes = {

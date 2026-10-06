@@ -23,3 +23,8 @@ server:
   # X-Forwarded-For vindo de IP interno (padrão do Tomcat: 10/8, 172.16/12, 192.168/16, 127/8).
   # Na etapa AWS, conferir que o ALB está em sub-rede privada e restringir os proxies se preciso.
   forward-headers-strategy: native
+
+coe:
+  seguranca:
+    origens-somente-https: true   # COE_ORIGENS_PERMITIDAS com o domínio da COE (A DEFINIR), só https
+    hsts: true                    # HTTPS terminado no ALB; forward-headers native marca a requisição como segura

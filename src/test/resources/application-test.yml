@@ -8,6 +8,8 @@ spring:
 # Chaves do JWT SÓ para testes (não são segredo; nunca usar fora do perfil test).
 # teste-2 é a atual; teste-1 é a anterior, ainda aceita na validação (rotação).
 coe:
+  seguranca:
+    origens-permitidas: http://localhost:5173
   jwt:
     kid-atual: teste-2
     chaves: teste-2:64cxK3KGrXaWz4l8l3eTpGwHnDHY9ust4wiQ1nC8+OM=,teste-1:wW+XYKypOvCgAc5BG5mlGksqdNbUDiXtlPMh4p43hxE=
