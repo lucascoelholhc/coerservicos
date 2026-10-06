@@ -165,6 +165,15 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 - **CORE-04 (decidido, RN61):** contato não confirmado não fica reservado; quando o dono confirma, o dado passa para a conta dele. O login por celular ou e-mail (CORE-03) garante que quem perdeu um dos dois continua entrando.
 - **CORE-07:** limite de tamanho do corpo da requisição (filtro ou ALB/WAF), além do rate limit.
 
+**Pendências do dia 6** (CORE-06/08, revisões sem HIGH):
+- **CSP e Permissions-Policy**: entram no dia 8, junto do front (o build é servido no mesmo domínio; `default-src 'self'; frame-ancestors 'none'`). Decidir se quem emite é o Spring ou o ALB/CDN na etapa AWS.
+- `POST /api/auth/entrar` fica sem checagem de Origin (login CSRF): o `SameSite=Strict` e o corpo JSON obrigatório mitigam; decisão registrada.
+- Origem fora da lista numa requisição CORS recebe o 403 em texto do Spring (não Problem Details); o front legítimo nunca recebe isso.
+- A regra ArchUnit aceita `@PreAuthorize("isAuthenticated()")` e não olha anotação de classe; quando surgirem endpoints de PROFISSIONAL e ADMIN, acrescentar teste cruzando papel x rota (403 do papel errado em cada endpoint).
+- O `AntiIdorTest` prova o padrão com um mapa em memória; refazer com repositório JPA (`findByIdAndClienteId`) no primeiro domínio real com dono (contrato).
+- HSTS com `includeSubDomains`: confirmar na etapa AWS que nenhum subdomínio é só HTTP antes de ligar o prod.
+- Preenchimento da V13 conferido no banco local (5 tokens, 2 famílias com cadeia, 0 divergências, FK validada); sem teste automatizado (não há produção).
+
 **Riscos aceitos e pendências do CORE-03** (dia 5):
 - Um access token continua válido por até **15 min** depois do logout, da troca de senha ou da suspensão (PA03); a renovação já é recusada na hora.
 - Força bruta no login até o rate limit do **CORE-07** (dia 11); hoje o BCrypt custo 12 é a única barreira.
@@ -302,7 +311,7 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 | 3 ✅ | CORE-01, CORE-12, CORE-13 | `Dinheiro`, comissão, configuração, `Clock` | 100% no cálculo de comissão e repasse (**feito**) |
 | 4 ✅ | CORE-02 | Cadastro de cliente (com e-mail) | Celular ou e-mail repetido é recusado; e-mail obrigatório (**feito**) |
 | 5 ✅ | CORE-03, DB-13 | Login com JWT (celular ou e-mail), renovação, logout, sair de todos; V12 (`refresh_token`, `mfa_sms_ativo`, sem `spring_session*`, teto de 30% na comissão) | Token expirado ou revogado é recusado; refresh reutilizado revoga a família (**feito**) |
-| 6 | CORE-06, CORE-08, DB-15 | Papéis (`@PreAuthorize` ou `@Publico` em todo endpoint), checagem de dono (404 no recurso de outro), `GET /api/contas/eu`, CORS por perfil, Origin no renovar e no sair, headers de segurança; V13 (teto de 90 dias da sessão); 401/403 em Problem Details | 403 no recurso de outro |
+| 6 ✅ | CORE-06, CORE-08, DB-15 | Papéis (`@PreAuthorize` ou `@Publico` em todo endpoint), checagem de dono (404 no recurso de outro), `GET /api/contas/eu`, CORS por perfil, Origin no renovar e no sair, headers de segurança; V13 (teto de 90 dias da sessão); 401/403 em Problem Details | 404 no recurso de outro, 403 no papel errado (**feito**) |
 | 7 | CORE-04, CORE-05 | Login por SMS, MFA (obrigatório para ADMIN), confirmação de contato (RN61), recuperar senha | Código expira e trava na 5ª tentativa |
 
 ### Fatia 1: Entrar no app (dias 8–11) — primeiro clique no dia 10

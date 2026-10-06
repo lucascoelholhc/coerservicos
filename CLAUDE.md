@@ -56,7 +56,8 @@ npx playwright test
 - Feito (dia 3): CORE-13 (`Clock` UTC + fuso de negócio, ArchUnit proibindo `now()` sem `Clock`), CORE-01 (`Dinheiro`, `Percentual`, `CalculadoraDiaria`, conversores JPA e JSON; 100% de cobertura no pacote), CORE-12 (`ConfiguracaoNegocio` com fail fast e cache de 60 s). Pendência para o DOM-09/DOM-11: chaves `FALTAS_ALERTA` e `FALTAS_JANELA_DIAS` (V14, DB-14).
 - Feito (dia 4): CORE-02 (cadastro de cliente em `POST /api/contas/cliente`; `usuario` + papel `CLIENTE` + `aceite_termos` numa transação; 409 com código e campo, inclusive na corrida; primeira `SecurityFilterChain` stateless com 401/403 em Problem Details; senha `{bcrypt}` custo 12; campo desconhecido no JSON = 400). Pendências registradas no plano (seção do DOM-07/CORE-03): cidade pelo CEP, celular não confirmado até o CORE-04, enumeração e custo do BCrypt cobertos pelo rate limit do CORE-07.
 - Feito (dia 5): DB-13 (V12: `refresh_token` só com hash e conteúdo imutável, `mfa_sms_ativo`, finalidade `mfa`, comissão até 30%) e CORE-03 (login com celular ou e-mail, JWT HS256 com kid de 15 min, refresh rotativo de 30 dias em cookie, reuso revoga a família, sair e sair de todos, MFA obrigatório para ADMIN com dispensa só no perfil local). Riscos aceitos no plano: access token vale até 15 min após o logout; força bruta até o CORE-07; Origin na renovação no CORE-08.
-- Próximo: dia 6 (fatia 0), CORE-06 + CORE-08 (papéis, checagem de dono, CORS, Origin na renovação).
+- Feito (dia 6): DB-15 (V13: `sessao_iniciada_em`, teto absoluto de 90 dias da sessão, motivo `teto`), CORE-06 (negar por padrão com `@PreAuthorize` ou `@Publico` em todo endpoint, ArchUnit e teste cruzando com `ROTAS_PUBLICAS`; `UsuarioAutenticado`; recurso de outro usuário = 404; `GET /api/contas/eu`) e CORE-08 (origens por perfil com fail fast, CORS com credenciais só em `/api/auth/**`, Origin obrigatório em todo POST de `/api/auth/` menos o entrar, Referrer-Policy/X-Frame-Options/nosniff/no-store, HSTS só no prod). Pendências no plano (seção do CORE-03/06/08).
+- Próximo: dia 7 (fatia 0), CORE-04 + CORE-05 (SMS, MFA, confirmação de contato RN61, recuperar senha).
 
 ## Estrutura do backend (por domínio, não por camada)
 `usuario` (conta, login, SMS) · `catalogo` (cidades, profissões, serviços) · `profissional` (cadastro, verificação, portfólio, agenda) · `contrato` (contratos e diárias) · `pagamento` (gateway, webhooks, ledger, repasse, reembolso) · `mensagem` (chat + censura) · `avaliacao` · `disputa` · `moderacao` (denúncias) · `admin` · `config` · `compartilhado` (Dinheiro, erros, auditoria, armazenamento)
@@ -85,7 +86,23 @@ npx playwright test
 - **Erros do login**: 401 `login-invalido` (sempre a mesma mensagem), 403 `conta-suspensa`, 403 `segundo-passo-necessario` (MFA ligado ou ADMIN; o fluxo do SMS é o CORE-04).
 - **Testes de integração**: use `bearer(usuarioId, Papel.X)` da `IntegracaoTest` no header `Authorization`, sem passar pelo login. Contas de teste com senha: `ContasDeTeste` (pacote `usuario`).
 - **Local**: o `.env` precisa de `COE_JWT_KID_ATUAL` e `COE_JWT_CHAVES` (ver `.env.example`); sem eles a aplicação não sobe. No perfil local o ADMIN do seed entra sem SMS (`coe.seguranca.dispensar-mfa-admin`, só no `application-local.yml`).
-- **Endpoint novo protegido por papel**: o token vira `ROLE_CLIENTE`/`ROLE_PROFISSIONAL`/`ROLE_ADMIN`; o id do usuário é o `sub` (`@AuthenticationPrincipal Jwt`). Checagem de dono (anti-IDOR) é sempre no serviço.
+- **Origin**: todo POST em `/api/auth/` (menos o `entrar`) exige o header `Origin` de uma origem permitida (`coe.seguranca.origens-permitidas`; local e test: `http://localhost:5173`). O navegador manda sozinho; no curl, mande `-H "Origin: http://localhost:5173"`.
+
+### Como proteger um endpoint (negar por padrão e anti-IDOR)
+- **Todo método de `@RestController` tem `@PreAuthorize(...)` ou `@Publico`** (o build quebra sem um dos dois, ArchUnit). Endpoint público novo = `@Publico` **e** a rota em `SegurancaConfig.ROTAS_PUBLICAS` (o `EndpointsPublicosTest` confere que as duas listas são iguais). Papéis: `hasRole('CLIENTE')`, `hasRole('PROFISSIONAL')`, `hasRole('ADMIN')`; qualquer logado: `isAuthenticated()`. `/api/admin/**` também é ADMIN na URL.
+- **O dono vem só do token**: injete `UsuarioAutenticado` e use `usuario.id()`. Nunca use id do corpo ou da URL para decidir de quem é o recurso.
+- **A consulta já filtra pelo dono** e recurso de outro usuário é **404** (`RecursoNaoEncontradoException`), igual a inexistente, para não revelar que existe:
+  ```java
+  // repositório
+  Optional<Contrato> findByIdAndClienteId(UUID id, UUID clienteId);
+  // serviço
+  Contrato contrato = contratos.findByIdAndClienteId(id, usuarioAutenticado.id())
+          .orElseThrow(() -> new RecursoNaoEncontradoException("Contrato não encontrado."));
+  // controller
+  @GetMapping("/{id}") @PreAuthorize("hasRole('CLIENTE')")
+  ContratoResponse buscar(@PathVariable UUID id) { ... }
+  ```
+- **Teste obrigatório** de todo recurso com dono: o dono recebe 200; outro usuário recebe 404 com o mesmo corpo de um id inexistente; papel errado recebe 403; sem token, 401 (modelo: `AntiIdorTest`).
 - **Nunca expor entidade JPA na API.**
 - API sob `/api/**`; admin sob `/api/admin/**`.
 
