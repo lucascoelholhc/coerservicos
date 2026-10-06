@@ -30,7 +30,15 @@ coe:
     # COE_JWT_KID_ATUAL=2026-10   COE_JWT_CHAVES=2026-10:<base64 de 32 bytes>[,kid-anterior:<base64>]
     kid-atual: ${COE_JWT_KID_ATUAL:}
     chaves: ${COE_JWT_CHAVES:}
+  seguranca:
+    # Origens do front (CORS e Origin no renovar/sair), separadas por vírgula; sem curinga, caminho nem
+    # barra no fim. Obrigatório: sem isso a aplicação não sobe. Prod: COE_ORIGENS_PERMITIDAS (só https).
+    origens-permitidas: ${COE_ORIGENS_PERMITIDAS:}
+    origens-somente-https: false
+    hsts: false            # só o application-prod.yml liga
   auth:
+    sessao:
+      duracao-maxima: 90d   # teto absoluto desde o login (PA03); depois disso, senha de novo
     cookie:
       secure: true      # o local (http://localhost) desliga no application-local.yml
       dominio:          # vazio = só o host que respondeu

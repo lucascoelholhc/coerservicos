@@ -24,6 +24,9 @@ import br.com.coe.servicos.usuario.Papel;
 @Import({TestcontainersConfiguration.class, RelogioDeTesteConfiguration.class})
 public abstract class IntegracaoTest {
 
+    /** Origem do front no perfil test (a mesma do local): obrigatória no renovar e no sair. */
+    protected static final String ORIGEM_DO_FRONT = "http://localhost:5173";
+
     @Autowired
     protected MockMvc mockMvc;
 

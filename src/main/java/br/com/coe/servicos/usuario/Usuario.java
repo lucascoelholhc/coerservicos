@@ -1,5 +1,6 @@
 package br.com.coe.servicos.usuario;
 
+import java.time.Instant;
 import java.util.EnumSet;
 import java.util.Set;
 import java.util.UUID;
@@ -49,6 +50,9 @@ public class Usuario {
     @Column(nullable = false)
     private String status;
 
+    @Column(name = "celular_verificado_em")
+    private Instant celularVerificadoEm;
+
     @Column(name = "mfa_sms_ativo", nullable = false)
     private boolean mfaSmsAtivo;
 
@@ -92,6 +96,18 @@ public class Usuario {
     /** Hash da senha; nulo em conta excluída (anonimizada). Nunca sai do serviço de login. */
     String getSenhaHash() {
         return senhaHash;
+    }
+
+    String getEmail() {
+        return email;
+    }
+
+    String getCelular() {
+        return celular;
+    }
+
+    boolean isCelularConfirmado() {
+        return celularVerificadoEm != null;
     }
 
     String getStatus() {

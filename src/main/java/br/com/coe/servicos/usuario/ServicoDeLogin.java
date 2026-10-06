@@ -24,7 +24,7 @@ class ServicoDeLogin {
     private static final Logger LOG = LoggerFactory.getLogger(ServicoDeLogin.class);
     private static final int MAXIMO_BYTES_SENHA = 72; // o BCrypt recusa mais que isso
 
-    record LoginAceito(UsuarioResumo usuario, String refresh) {}
+    record LoginAceito(UsuarioResumo usuario, RefreshEmitido refresh) {}
 
     private final UsuarioRepository usuarios;
     private final PasswordEncoder codificador;
@@ -65,7 +65,7 @@ class ServicoDeLogin {
         }
         String hashAtual = usuario.getSenhaHash();
         String hashNovo = codificador.upgradeEncoding(hashAtual) ? codificador.encode(pedido.senha()) : null;
-        String refresh = sessoes.abrir(usuario.getId(), hashAtual, hashNovo, ip, userAgent);
+        RefreshEmitido refresh = sessoes.abrir(usuario.getId(), hashAtual, hashNovo, ip, userAgent);
         LOG.info("Login ok: {}", usuario.getId());
         return new LoginAceito(UsuarioResumo.de(usuario), refresh);
     }

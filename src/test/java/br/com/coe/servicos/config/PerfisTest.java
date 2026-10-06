@@ -53,6 +53,21 @@ class PerfisTest {
     }
 
     @Test
+    @DisplayName("origens e HSTS por perfil: local e test com o front local, prod só https e com HSTS")
+    void origensEHstsPorPerfil() {
+        Environment local = ambiente("local");
+        Environment prod = ambiente("prod");
+
+        assertThat(local.getProperty("coe.seguranca.origens-permitidas")).isEqualTo("http://localhost:5173");
+        assertThat(local.getProperty("coe.seguranca.hsts", Boolean.class)).isFalse();
+        assertThat(ambiente("test").getProperty("coe.seguranca.hsts", Boolean.class))
+                .isFalse();
+        assertThat(prod.getProperty("coe.seguranca.hsts", Boolean.class)).isTrue();
+        assertThat(prod.getProperty("coe.seguranca.origens-somente-https", Boolean.class))
+                .isTrue();
+    }
+
+    @Test
     @DisplayName("local sobe na 8081 (a 8080 da máquina de desenvolvimento é do Apache); prod fica no padrão")
     void portaDoLocal() {
         assertThat(ambiente("local").getProperty("server.port")).isEqualTo("8081");

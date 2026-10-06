@@ -50,7 +50,9 @@ class SairTest extends IntegracaoTest {
     }
 
     private int renovar(String refresh) throws Exception {
-        return mockMvc.perform(post("/api/auth/renovar").cookie(new Cookie("coe_refresh", refresh)))
+        return mockMvc.perform(post("/api/auth/renovar")
+                        .header("Origin", ORIGEM_DO_FRONT)
+                        .cookie(new Cookie("coe_refresh", refresh)))
                 .andReturn()
                 .getResponse()
                 .getStatus();
@@ -64,6 +66,7 @@ class SairTest extends IntegracaoTest {
         Sessao notebook = entrar(conta);
 
         MockHttpServletResponse resposta = mockMvc.perform(post("/api/auth/sair")
+                        .header("Origin", ORIGEM_DO_FRONT)
                         .header("Authorization", "Bearer " + celular.access())
                         .cookie(new Cookie("coe_refresh", celular.refresh())))
                 .andExpect(status().isNoContent())
@@ -82,7 +85,9 @@ class SairTest extends IntegracaoTest {
         Sessao celular = entrar(conta);
         Sessao notebook = entrar(conta);
 
-        mockMvc.perform(post("/api/auth/sair-de-todos").header("Authorization", "Bearer " + celular.access()))
+        mockMvc.perform(post("/api/auth/sair-de-todos")
+                        .header("Origin", ORIGEM_DO_FRONT)
+                        .header("Authorization", "Bearer " + celular.access()))
                 .andExpect(status().isNoContent());
 
         assertThat(renovar(celular.refresh())).isEqualTo(401);
@@ -101,6 +106,7 @@ class SairTest extends IntegracaoTest {
         Sessao alheia = entrar(contas.criar(Papel.CLIENTE));
 
         mockMvc.perform(post("/api/auth/sair")
+                        .header("Origin", ORIGEM_DO_FRONT)
                         .header("Authorization", "Bearer " + minha.access())
                         .cookie(new Cookie("coe_refresh", alheia.refresh())))
                 .andExpect(status().isNoContent());
@@ -118,13 +124,16 @@ class SairTest extends IntegracaoTest {
         java.util.concurrent.Future<?> saida = executor.submit(() -> {
             largada.await();
             return mockMvc.perform(post("/api/auth/sair")
+                            .header("Origin", ORIGEM_DO_FRONT)
                             .header("Authorization", "Bearer " + sessao.access())
                             .cookie(new Cookie("coe_refresh", sessao.refresh())))
                     .andReturn();
         });
         java.util.concurrent.Future<?> renovacao = executor.submit(() -> {
             largada.await();
-            return mockMvc.perform(post("/api/auth/renovar").cookie(new Cookie("coe_refresh", sessao.refresh())))
+            return mockMvc.perform(post("/api/auth/renovar")
+                            .header("Origin", ORIGEM_DO_FRONT)
+                            .cookie(new Cookie("coe_refresh", sessao.refresh())))
                     .andReturn();
         });
         largada.countDown();
@@ -142,7 +151,9 @@ class SairTest extends IntegracaoTest {
     @Test
     @DisplayName("sem token: 401")
     void semToken() throws Exception {
-        mockMvc.perform(post("/api/auth/sair")).andExpect(status().isUnauthorized());
-        mockMvc.perform(post("/api/auth/sair-de-todos")).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/auth/sair").header("Origin", ORIGEM_DO_FRONT))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/auth/sair-de-todos").header("Origin", ORIGEM_DO_FRONT))
+                .andExpect(status().isUnauthorized());
     }
 }

@@ -1303,8 +1303,9 @@ Ficaram para o DOM-07: custódia rastreada por contrato e saldo nunca negativo.
 
 | Migração | Conteúdo | Regra |
 |---|---|---|
-| V12 (DB-13) | Remove `spring_session*`; cria `refresh_token` (hash único, usuário, aparelho, validade, revogado em, substituído por, família); `usuario.mfa_sms_ativo` (padrão falso); finalidade `mfa` no `codigo_sms` | PA03 |
-| V13 (DB-14), junto do DOM-09 | `ocorrencia_profissional (profissional_id, diaria_id, disputa_id, tipo 'falta', registrado_por, criado_em)` só de inserção, com os gatilhos de `fn_somente_insercao` (linha e TRUNCATE) e sem UPDATE/DELETE/TRUNCATE para o `coe_app`; `profissional.motivo_suspensao` obrigatório com status `suspenso`; parâmetros `FALTAS_ALERTA` = 2 e `FALTAS_JANELA_DIAS` = 90 | PA07, RN44c–RN44e |
+| V12 (DB-13), aplicada no dia 5 | Remove `spring_session*`; cria `refresh_token` (hash único, usuário, aparelho, validade, revogado em, substituído por, família); `usuario.mfa_sms_ativo` (padrão falso); finalidade `mfa` no `codigo_sms`; COMISSAO até 30% | PA03 |
+| V13 (DB-15), dia 6 | `refresh_token.sessao_iniciada_em` (início da sessão, herdado pelo sucessor e imutável; FK do sucessor inclui a coluna); motivo de revogação `teto` | PA03 (teto de 90 dias) |
+| V14 (DB-14), junto do DOM-09 | `ocorrencia_profissional (profissional_id, diaria_id, disputa_id, tipo 'falta', registrado_por, criado_em)` só de inserção, com os gatilhos de `fn_somente_insercao` (linha e TRUNCATE) e sem UPDATE/DELETE/TRUNCATE para o `coe_app`; `profissional.motivo_suspensao` obrigatório com status `suspenso`; parâmetros `FALTAS_ALERTA` = 2 e `FALTAS_JANELA_DIAS` = 90 | PA07, RN44c–RN44e |
 | Futura (expurgo LGPD) | Permitir apagar CPF, chave Pix e data de nascimento 5 anos após a exclusão (hoje o `ck_profissional_completo` exige esses campos fora do rascunho); `cpf_hash` mantido só para inativados | RN60, RNF16 |
 
 Retenção: `ocorrencia_profissional` e o `cpf_hash` de profissional inativado ficam mesmo se a conta for excluída.

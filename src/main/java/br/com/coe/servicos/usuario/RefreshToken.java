@@ -1,6 +1,5 @@
 package br.com.coe.servicos.usuario;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 import jakarta.persistence.Column;
@@ -62,6 +61,9 @@ public class RefreshToken implements Persistable<UUID> {
     @Column(name = "substituido_por")
     private UUID substituidoPor;
 
+    @Column(name = "sessao_iniciada_em", nullable = false)
+    private Instant sessaoIniciadaEm;
+
     @Transient
     private boolean novo = true;
 
@@ -72,7 +74,8 @@ public class RefreshToken implements Persistable<UUID> {
             UUID familiaId,
             byte[] tokenHash,
             Instant agora,
-            Duration validade,
+            Instant expiraEm,
+            Instant sessaoIniciadaEm,
             String ip,
             String userAgent) {
         RefreshToken token = new RefreshToken();
@@ -81,7 +84,8 @@ public class RefreshToken implements Persistable<UUID> {
         token.familiaId = familiaId;
         token.tokenHash = tokenHash.clone();
         token.criadoEm = agora;
-        token.expiraEm = agora.plus(validade);
+        token.expiraEm = expiraEm;
+        token.sessaoIniciadaEm = sessaoIniciadaEm;
         token.ip = AceiteTermos.normalizarIp(ip);
         token.aparelho = resumirAparelho(userAgent);
         return token;
@@ -106,6 +110,10 @@ public class RefreshToken implements Persistable<UUID> {
 
     boolean vencidoEm(Instant agora) {
         return !expiraEm.isAfter(agora);
+    }
+
+    Instant getSessaoIniciadaEm() {
+        return sessaoIniciadaEm;
     }
 
     Instant getUsadoEm() {
