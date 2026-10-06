@@ -49,9 +49,9 @@ final class ContasDeTeste {
         String email = "conta" + numero + "@teste.coe.local";
         String nome = "Pessoa " + numero;
         UUID id = jdbc.queryForObject("""
-                INSERT INTO usuario (nome, celular, email, senha_hash, status, mfa_sms_ativo, excluido_em)
-                VALUES (?, ?, ?, ?, ?, ?, CASE WHEN ? = 'excluido' THEN now() END) RETURNING id
-                """, UUID.class, nome, celular, email, hash, status, mfa, status);
+                INSERT INTO usuario (nome, celular, email, senha_hash, status, mfa_sms_ativo, celular_verificado_em, excluido_em)
+                VALUES (?, ?, ?, ?, ?, ?, CASE WHEN ? THEN now() END, CASE WHEN ? = 'excluido' THEN now() END) RETURNING id
+                """, UUID.class, nome, celular, email, hash, status, mfa, mfa, status);
         for (Papel papel : papeis) {
             jdbc.update("INSERT INTO usuario_papel (usuario_id, papel) VALUES (?, ?)", id, papel.name());
         }
