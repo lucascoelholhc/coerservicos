@@ -43,15 +43,26 @@ final class ContasDeTeste {
         return criar("ativo", false, hash, papeis);
     }
 
+    /** Conta com o celular já confirmado (pode entrar por SMS). */
+    Conta criarConfirmada(Papel... papeis) {
+        return criar("ativo", false, true, hashDaSenha(), papeis);
+    }
+
     private Conta criar(String status, boolean mfa, String hash, Papel... papeis) {
+        boolean admin = java.util.Arrays.asList(papeis).contains(Papel.ADMIN);
+        return criar(status, mfa, mfa || admin, hash, papeis);
+    }
+
+    private Conta criar(String status, boolean mfa, boolean celularConfirmado, String hash, Papel... papeis) {
         long numero = SEQUENCIA.incrementAndGet();
         String celular = String.valueOf(47_900_000_000L + numero);
         String email = "conta" + numero + "@teste.coe.local";
         String nome = "Pessoa " + numero;
-        UUID id = jdbc.queryForObject("""
+        UUID id = jdbc.queryForObject(
+                """
                 INSERT INTO usuario (nome, celular, email, senha_hash, status, mfa_sms_ativo, celular_verificado_em, excluido_em)
                 VALUES (?, ?, ?, ?, ?, ?, CASE WHEN ? THEN now() END, CASE WHEN ? = 'excluido' THEN now() END) RETURNING id
-                """, UUID.class, nome, celular, email, hash, status, mfa, mfa, status);
+                """, UUID.class, nome, celular, email, hash, status, mfa, celularConfirmado, status);
         for (Papel papel : papeis) {
             jdbc.update("INSERT INTO usuario_papel (usuario_id, papel) VALUES (?, ?)", id, papel.name());
         }

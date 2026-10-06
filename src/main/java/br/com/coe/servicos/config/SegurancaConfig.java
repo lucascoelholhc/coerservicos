@@ -49,6 +49,9 @@ public class SegurancaConfig {
     public static final List<RotaPublica> ROTAS_PUBLICAS = List.of(
             new RotaPublica(HttpMethod.POST, "/api/contas/cliente"),
             new RotaPublica(HttpMethod.POST, "/api/auth/entrar"),
+            new RotaPublica(HttpMethod.POST, "/api/auth/segundo-passo"),
+            new RotaPublica(HttpMethod.POST, "/api/auth/codigo"),
+            new RotaPublica(HttpMethod.POST, "/api/auth/entrar-com-codigo"),
             new RotaPublica(HttpMethod.POST, "/api/auth/renovar"));
 
     private static final int CUSTO_BCRYPT = 12;
