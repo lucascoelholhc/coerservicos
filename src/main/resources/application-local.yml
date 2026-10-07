@@ -10,3 +10,8 @@ server.port: 8081
 coe.auth.cookie.secure: false
 # Front local (Vite)
 coe.seguranca.origens-permitidas: http://localhost:5173
+# Links por e-mail apontam para o front local; e-mail vai para o Mailpit (painel http://localhost:8025)
+coe.front.url-base: http://localhost:5173
+coe.email.remetente: nao-responda@coe.local
+spring.mail.host: localhost
+spring.mail.port: 1025

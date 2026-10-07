@@ -28,12 +28,14 @@ public class DespachoDeMensagens implements DisposableBean {
     private static final long OCIOSA_SEGUNDOS = 60;
 
     private final EnviadorSms sms;
+    private final EnviadorEmail email;
     private final ThreadPoolExecutor executor;
     private final AtomicInteger pendentes = new AtomicInteger();
 
     @Autowired
     public DespachoDeMensagens(
             EnviadorSms sms,
+            EnviadorEmail email,
             @Value("${coe.mensageria.threads:2}") int threads,
             @Value("${coe.mensageria.threads-maximo:4}") int threadsMaximo,
             @Value("${coe.mensageria.fila:100}") int fila) {
@@ -43,6 +45,7 @@ public class DespachoDeMensagens implements DisposableBean {
                             + ", " + threadsMaximo + ", " + fila + ")");
         }
         this.sms = sms;
+        this.email = email;
         AtomicInteger numero = new AtomicInteger();
         this.executor = new ThreadPoolExecutor(
                 threads,
@@ -74,7 +77,10 @@ public class DespachoDeMensagens implements DisposableBean {
 
     private void enviar(MensagemPronta mensagem) {
         try {
-            sms.enviar(mensagem.destino(), mensagem.texto());
+            switch (mensagem.canal()) {
+                case SMS -> sms.enviar(mensagem.destino(), mensagem.texto());
+                case EMAIL -> email.enviar(mensagem.destino(), mensagem.assunto(), mensagem.texto());
+            }
         } catch (RuntimeException erro) {
             LOG.error(
                     "Falha ao enviar {} para {}: {}",

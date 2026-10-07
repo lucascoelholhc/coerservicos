@@ -53,6 +53,9 @@ public class Usuario {
     @Column(name = "celular_verificado_em")
     private Instant celularVerificadoEm;
 
+    @Column(name = "email_verificado_em")
+    private Instant emailVerificadoEm;
+
     @Column(name = "mfa_sms_ativo", nullable = false)
     private boolean mfaSmsAtivo;
 
@@ -122,6 +125,17 @@ public class Usuario {
     void confirmarCelular(Instant agora) {
         if (celularVerificadoEm == null) {
             celularVerificadoEm = agora;
+        }
+    }
+
+    boolean isEmailConfirmado() {
+        return emailVerificadoEm != null;
+    }
+
+    /** E-mail confirmado por link (RN61); a primeira confirmação vale. */
+    void confirmarEmail(Instant agora) {
+        if (emailVerificadoEm == null) {
+            emailVerificadoEm = agora;
         }
     }
 

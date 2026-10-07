@@ -41,6 +41,10 @@ public abstract class IntegracaoTest {
     @Autowired
     protected br.com.coe.servicos.compartilhado.mensageria.EnviadorSmsEmMemoria sms;
 
+    /** E-mail falso: o teste lê o link com {@code email.ultimoToken(endereco)}. */
+    @Autowired
+    protected br.com.coe.servicos.compartilhado.mensageria.EnviadorEmailEmMemoria email;
+
     @Autowired
     private ConfiguracaoNegocio configuracaoNegocio;
 
@@ -61,6 +65,7 @@ public abstract class IntegracaoTest {
     void relogioEConfiguracaoNoEstadoPadrao() {
         sms.aguardarEnvios();
         sms.restaurar();
+        email.restaurar();
         relogio.voltarAoPadrao();
         configuracaoNegocio.invalidarCache();
     }

@@ -21,6 +21,9 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
 class DespachoDeMensagensTest {
 
     private static final String CELULAR = "47900000101";
+    private static final EnviadorEmail SEM_EMAIL = (para, assunto, texto) -> {
+        throw new AssertionError("não devia mandar e-mail");
+    };
 
     private final CountDownLatch liberar = new CountDownLatch(1);
     private final AtomicInteger enviados = new AtomicInteger();
@@ -48,7 +51,7 @@ class DespachoDeMensagensTest {
     @Test
     @DisplayName("fila cheia: descarta com log (celular mascarado), sem lançar nada para quem publicou")
     void filaCheiaDescarta(CapturedOutput saida) {
-        despacho = new DespachoDeMensagens(enviadorPreso(), 1, 1, 1);
+        despacho = new DespachoDeMensagens(enviadorPreso(), SEM_EMAIL, 1, 1, 1);
 
         assertThatCode(() -> {
                     for (int i = 0; i < 3; i++) {
@@ -74,6 +77,7 @@ class DespachoDeMensagensTest {
                 (celular, texto) -> {
                     throw new IllegalStateException("provedor fora " + celular);
                 },
+                SEM_EMAIL,
                 1,
                 1,
                 10);
@@ -88,6 +92,36 @@ class DespachoDeMensagensTest {
     }
 
     @Test
+    @DisplayName("e-mail: vai pelo enviador de e-mail; erro do provedor só no log, com o endereço mascarado")
+    void email(CapturedOutput saida) {
+        AtomicInteger emails = new AtomicInteger();
+        despacho = new DespachoDeMensagens(
+                enviadorPreso(),
+                (para, assunto, texto) -> {
+                    if (emails.incrementAndGet() > 1) {
+                        throw new IllegalStateException("smtp fora " + para);
+                    }
+                },
+                1,
+                1,
+                10);
+
+        despacho.aoConfirmar(MensagemPronta.email("ana.silva@exemplo.com", "Assunto", "link #token=abc"));
+        despacho.aoConfirmar(MensagemPronta.email("ana.silva@exemplo.com", "Assunto", "link #token=def"));
+
+        await().atMost(Duration.ofSeconds(5)).until(() -> despacho.pendentes() == 0);
+        assertThat(emails).hasValue(2);
+        assertThat(saida.getAll())
+                .contains("Falha ao enviar EMAIL para a***@exemplo.com")
+                .doesNotContain("ana.silva@exemplo.com")
+                .doesNotContain("#token=def");
+        assertThat(MensagemPronta.email("ana.silva@exemplo.com", "Assunto", "link #token=abc")
+                        .toString())
+                .doesNotContain("ana.silva")
+                .doesNotContain("abc");
+    }
+
+    @Test
     @DisplayName("a mensagem não mostra destino nem texto no toString")
     void toStringMascarado() {
         assertThat(MensagemPronta.sms(CELULAR, "COE: seu código é 111222.").toString())
@@ -98,12 +132,12 @@ class DespachoDeMensagensTest {
     @Test
     @DisplayName("configuração fora da faixa não sobe")
     void configuracaoInvalida() {
-        assertThatCode(() -> new DespachoDeMensagens(enviadorPreso(), 0, 1, 1))
+        assertThatCode(() -> new DespachoDeMensagens(enviadorPreso(), SEM_EMAIL, 0, 1, 1))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("coe.mensageria");
-        assertThatCode(() -> new DespachoDeMensagens(enviadorPreso(), 2, 1, 1))
+        assertThatCode(() -> new DespachoDeMensagens(enviadorPreso(), SEM_EMAIL, 2, 1, 1))
                 .isInstanceOf(IllegalStateException.class);
-        assertThatCode(() -> new DespachoDeMensagens(enviadorPreso(), 1, 1, 0))
+        assertThatCode(() -> new DespachoDeMensagens(enviadorPreso(), SEM_EMAIL, 1, 1, 0))
                 .isInstanceOf(IllegalStateException.class);
     }
 }

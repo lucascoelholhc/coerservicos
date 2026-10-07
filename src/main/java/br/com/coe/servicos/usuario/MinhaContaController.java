@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.com.coe.servicos.compartilhado.seguranca.Publico;
+
 /** A conta de quem está logado (CORE-06), confirmação do celular e MFA (CORE-04). */
 @RestController
 @RequestMapping("/api/contas")
@@ -18,10 +20,33 @@ class MinhaContaController {
 
     private final ConsultaDeConta consulta;
     private final ServicoDeCelularEMfa celularEMfa;
+    private final ServicoDeConfirmacaoDeEmail confirmacaoDeEmail;
 
-    MinhaContaController(ConsultaDeConta consulta, ServicoDeCelularEMfa celularEMfa) {
+    MinhaContaController(
+            ConsultaDeConta consulta,
+            ServicoDeCelularEMfa celularEMfa,
+            ServicoDeConfirmacaoDeEmail confirmacaoDeEmail) {
         this.consulta = consulta;
         this.celularEMfa = celularEMfa;
+        this.confirmacaoDeEmail = confirmacaoDeEmail;
+    }
+
+    @PostMapping("/eu/email/confirmacao")
+    @PreAuthorize("isAuthenticated()")
+    ResponseEntity<MensagemResponse> pedirConfirmacaoDoEmail() {
+        confirmacaoDeEmail.pedirLink();
+        return ResponseEntity.accepted().body(new MensagemResponse(ServicoDeConfirmacaoDeEmail.MENSAGEM_LINK_ENVIADO));
+    }
+
+    /**
+     * Público e sem conferência de Origin (decisão de 07/10): não usa cookie nem credencial do
+     * ambiente; o segredo é o token no corpo, então um POST de outro site não ganha nada.
+     */
+    @PostMapping("/email/confirmar")
+    @Publico
+    ResponseEntity<Void> confirmarEmail(@Valid @RequestBody TokenRequest pedido) {
+        confirmacaoDeEmail.confirmar(pedido.token());
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/eu")

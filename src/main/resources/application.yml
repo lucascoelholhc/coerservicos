@@ -25,6 +25,13 @@ spring:
     locale-resolver: fixed
 
 coe:
+  front:
+    # Base dos links mandados por e-mail (token no fragmento #token=...). Obrigatória; em prod só https.
+    url-base: ${COE_FRONT_URL_BASE:}
+  email:
+    # Remetente dos e-mails (obrigatório quando há SMTP). O SMTP vem de spring.mail.* (SPRING_MAIL_HOST,
+    # SPRING_MAIL_PORT, SPRING_MAIL_USERNAME, SPRING_MAIL_PASSWORD); sem ele a aplicação não sobe.
+    remetente: ${COE_EMAIL_REMETENTE:}
   jwt:
     # Variáveis de ambiente obrigatórias (sem elas a aplicação não sobe):
     # COE_JWT_KID_ATUAL=2026-10   COE_JWT_CHAVES=2026-10:<base64 de 32 bytes>[,kid-anterior:<base64>]
