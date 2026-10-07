@@ -10,6 +10,7 @@ import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -25,7 +26,9 @@ import br.com.coe.servicos.config.ChaveDeCodigos;
  * tentativas (a 5ª errada invalida); um código novo invalida o anterior. Por celular, no máximo 1
  * envio a cada 60 s e 5 por hora, contados no banco. O SMS sai depois do commit, em fila própria
  * ({@link MensagemPronta}): o código nunca vai em texto para o banco. Conferir devolve o resultado (não lança) para
- * que a tentativa errada fique gravada.
+ * que a tentativa errada fique gravada. Contador de falhas (07/10): {@code falhas-para-bloqueio}
+ * erros na janela bloqueiam toda entrada por código da conta até {@code duracao-bloqueio} depois do
+ * último erro (valores em {@code coe.seguranca.codigos.*}).
  */
 @Service
 class ServicoDeCodigoSms {
@@ -45,13 +48,27 @@ class ServicoDeCodigoSms {
     private final ApplicationEventPublisher eventos;
     private final TransactionTemplate transacao;
     private final Clock clock;
+    private final int falhasParaBloqueio;
+    private final Duration janelaDeFalhas;
+    private final Duration duracaoDoBloqueio;
 
+    @SuppressWarnings("java:S107") // dependências + os três parâmetros do contador de falhas
     ServicoDeCodigoSms(
             CodigoSmsRepository codigos,
             ChaveDeCodigos chave,
             ApplicationEventPublisher eventos,
             PlatformTransactionManager transacoes,
-            Clock clock) {
+            Clock clock,
+            @Value("${coe.seguranca.codigos.falhas-para-bloqueio:10}") int falhasParaBloqueio,
+            @Value("${coe.seguranca.codigos.janela-falhas:24h}") Duration janelaDeFalhas,
+            @Value("${coe.seguranca.codigos.duracao-bloqueio:1h}") Duration duracaoDoBloqueio) {
+        if (falhasParaBloqueio < 1 || !janelaDeFalhas.isPositive() || !duracaoDoBloqueio.isPositive()) {
+            throw new IllegalStateException(
+                    "coe.seguranca.codigos inválido: falhas-para-bloqueio >= 1 e janela e" + " bloqueio positivos");
+        }
+        this.falhasParaBloqueio = falhasParaBloqueio;
+        this.janelaDeFalhas = janelaDeFalhas;
+        this.duracaoDoBloqueio = duracaoDoBloqueio;
         this.codigos = codigos;
         this.chave = chave;
         this.eventos = eventos;
@@ -72,6 +89,30 @@ class ServicoDeCodigoSms {
         String desafio = TokenDeRenovacao.gerar();
         byte[] hash = TokenDeRenovacao.hash(desafio).orElseThrow();
         return emitir(usuarioId, celular, FinalidadeSms.MFA, hash, ip) ? Optional.of(desafio) : Optional.empty();
+    }
+
+    /**
+     * Entrada por código bloqueada para a conta: {@code falhas-para-bloqueio} erros ou mais na janela
+     * (somando as finalidades) e o último há menos de {@code duracao-bloqueio}.
+     */
+    boolean bloqueado(UUID usuarioId) {
+        Instant agora = clock.instant();
+        Instant desde = agora.minus(janelaDeFalhas);
+        if (codigos.somarErrosDaConta(usuarioId, desde).longValue() < falhasParaBloqueio) {
+            return false;
+        }
+        boolean bloqueado = codigos.ultimoErroDaConta(usuarioId, desde)
+                .map(ultimo -> ultimo.isAfter(agora.minus(duracaoDoBloqueio)))
+                .orElse(false);
+        if (bloqueado) {
+            LOG.warn("Entrada por código bloqueada (muitos códigos errados): {}", usuarioId);
+        }
+        return bloqueado;
+    }
+
+    /** Dono do desafio do login, sem conferir nada (para checar o bloqueio antes da tentativa). */
+    Optional<UUID> donoDoDesafio(String desafio) {
+        return TokenDeRenovacao.hash(desafio).flatMap(codigos::buscarDonoDoDesafio);
     }
 
     /** Confere o código ativo do celular para a finalidade; certo = usado (uma vez só). */

@@ -37,6 +37,11 @@ coe:
     # Chave do HMAC dos códigos SMS (base64 de pelo menos 32 bytes), separada da do JWT.
     # Obrigatória: sem ela a aplicação não sobe. Variável de ambiente COE_CHAVE_CODIGOS.
     chave-codigos: ${COE_CHAVE_CODIGOS:}
+    codigos:
+      # Contador de falhas (decisão de 07/10): erros na janela bloqueiam toda entrada por código da conta.
+      falhas-para-bloqueio: 10
+      janela-falhas: 24h
+      duracao-bloqueio: 1h
     origens-somente-https: false
     hsts: false            # só o application-prod.yml liga
   mensageria:

@@ -25,6 +25,19 @@ interface CodigoSmsRepository extends JpaRepository<CodigoSms, UUID> {
             + " AND c.usadoEm IS NULL AND c.invalidadoEm IS NULL")
     Optional<CodigoSms> buscarAtivo(String celular, String finalidade);
 
+    /** Erros (tentativas) da conta desde o instante; o código certo não soma. */
+    @Query(
+            "SELECT coalesce(sum(c.tentativas), 0) FROM CodigoSms c WHERE c.usuarioId = :usuarioId AND c.criadoEm > :desde")
+    Number somarErrosDaConta(UUID usuarioId, Instant desde);
+
+    /** Criação do código com erro mais recente (erra o instante do erro em até a validade, 5 min). */
+    @Query("SELECT max(c.criadoEm) FROM CodigoSms c WHERE c.usuarioId = :usuarioId AND c.tentativas > 0"
+            + " AND c.criadoEm > :desde")
+    Optional<Instant> ultimoErroDaConta(UUID usuarioId, Instant desde);
+
+    @Query("SELECT c.usuarioId FROM CodigoSms c WHERE c.desafioHash = :desafioHash")
+    Optional<UUID> buscarDonoDoDesafio(byte[] desafioHash);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT c FROM CodigoSms c WHERE c.desafioHash = :desafioHash")
     Optional<CodigoSms> buscarPorDesafio(byte[] desafioHash);
