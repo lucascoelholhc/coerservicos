@@ -72,6 +72,9 @@ class ServicoDeLogin {
 
     /** Segundo passo: o desafio do 403 + o código do SMS. Qualquer falha dá o 401 genérico. */
     LoginAceito segundoPasso(SegundoPassoRequest pedido, String ip, String userAgent) {
+        if (codigos.donoDoDesafio(pedido.desafioId()).filter(codigos::bloqueado).isPresent()) {
+            throw muitosCodigos(); // a senha já foi provada: pode saber do bloqueio
+        }
         Usuario usuario = codigos.conferirDesafio(pedido.desafioId(), pedido.codigo())
                 .flatMap(usuarios::findById)
                 .filter(ServicoDeLogin::podeEntrar)
@@ -106,9 +109,12 @@ class ServicoDeLogin {
             return new AcaoProibidaException(
                     "celular-nao-confirmado", "Seu celular ainda não foi confirmado. Fale com a equipe da COE.");
         }
+        if (codigos.bloqueado(usuario.getId())) {
+            return muitosCodigos();
+        }
         Optional<String> desafio = codigos.emitirDesafio(usuario.getId(), usuario.getCelular(), ip);
         if (desafio.isEmpty()) {
-            return new MuitasTentativasException("Você pediu muitos códigos. Aguarde um pouco e tente de novo.");
+            return muitosCodigos();
         }
         LOG.info("Login aguardando o segundo passo: {}", usuario.getId());
         return new AcaoProibidaException(
@@ -124,7 +130,12 @@ class ServicoDeLogin {
         return usuarios.findByCelular(Contato.normalizarCelular(celular))
                 .filter(ServicoDeLogin::podeEntrar)
                 .filter(Usuario::isCelularConfirmado)
-                .filter(conta -> !precisaSegundoPasso(conta));
+                .filter(conta -> !precisaSegundoPasso(conta))
+                .filter(conta -> !codigos.bloqueado(conta.getId())); // bloqueado responde igual a sempre
+    }
+
+    private static MuitasTentativasException muitosCodigos() {
+        return new MuitasTentativasException("Você pediu muitos códigos. Aguarde um pouco e tente de novo.");
     }
 
     private static boolean podeEntrar(Usuario usuario) {
@@ -136,16 +147,8 @@ class ServicoDeLogin {
         return new NaoAutenticadoException("login-invalido", "Código incorreto ou vencido.");
     }
 
-    /** Pelo formato: com @ é e-mail; senão, celular (normalizado como no cadastro). */
     private Optional<Usuario> buscar(String login) {
-        String texto = login.strip();
-        if (texto.contains("@")) {
-            return usuarios.findByEmail(Contato.normalizarEmail(texto));
-        }
-        if (Contato.celularDigitadoValido(texto)) {
-            return usuarios.findByCelular(Contato.normalizarCelular(texto));
-        }
-        return Optional.empty();
+        return usuarios.buscarPeloLogin(login);
     }
 
     private boolean conferir(Optional<Usuario> usuario, String senha) {

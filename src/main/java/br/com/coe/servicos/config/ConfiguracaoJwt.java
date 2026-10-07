@@ -43,6 +43,8 @@ public class ConfiguracaoJwt {
     public static final String EMISSOR = "coe-servicos";
     public static final String AUDIENCIA = "coe-api";
     public static final String CLAIM_PAPEIS = "papeis";
+    /** Conta que perdeu um contato (RN61): recalculado do banco em todo login e renovação. */
+    public static final String CLAIM_CONTATO_PENDENTE = "contato_pendente";
 
     private static final Duration TOLERANCIA = Duration.ofSeconds(30);
 

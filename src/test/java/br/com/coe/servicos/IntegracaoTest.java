@@ -41,6 +41,10 @@ public abstract class IntegracaoTest {
     @Autowired
     protected br.com.coe.servicos.compartilhado.mensageria.EnviadorSmsEmMemoria sms;
 
+    /** E-mail falso: o teste lê o link com {@code email.ultimoToken(endereco)}. */
+    @Autowired
+    protected br.com.coe.servicos.compartilhado.mensageria.EnviadorEmailEmMemoria email;
+
     @Autowired
     private ConfiguracaoNegocio configuracaoNegocio;
 
@@ -57,8 +61,19 @@ public abstract class IntegracaoTest {
                 + emissorDeToken.emitir(usuarioId, java.util.Set.of(papeis)).valor();
     }
 
+    /** Como {@link #bearer}, mas com a marca de contato pendente (RN61) no token. */
+    protected String bearerComContatoPendente(java.util.UUID usuarioId, Papel... papeis) {
+        return "Bearer "
+                + emissorDeToken
+                        .emitir(usuarioId, java.util.Set.of(papeis), true)
+                        .valor();
+    }
+
     @BeforeEach
     void relogioEConfiguracaoNoEstadoPadrao() {
+        sms.aguardarEnvios();
+        sms.restaurar();
+        email.restaurar();
         relogio.voltarAoPadrao();
         configuracaoNegocio.invalidarCache();
     }

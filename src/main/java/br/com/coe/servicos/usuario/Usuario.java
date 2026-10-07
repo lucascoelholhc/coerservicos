@@ -34,7 +34,6 @@ public class Usuario {
     @Column(nullable = false)
     private String nome;
 
-    @Column(nullable = false)
     private String celular;
 
     @Column(columnDefinition = "citext")
@@ -52,6 +51,9 @@ public class Usuario {
 
     @Column(name = "celular_verificado_em")
     private Instant celularVerificadoEm;
+
+    @Column(name = "email_verificado_em")
+    private Instant emailVerificadoEm;
 
     @Column(name = "mfa_sms_ativo", nullable = false)
     private boolean mfaSmsAtivo;
@@ -123,6 +125,55 @@ public class Usuario {
         if (celularVerificadoEm == null) {
             celularVerificadoEm = agora;
         }
+    }
+
+    /** Conta que pode entrar (e recuperar a senha): nem suspensa nem excluída. */
+    boolean podeEntrar() {
+        return !SUSPENSO.equals(status) && !EXCLUIDO.equals(status);
+    }
+
+    boolean isEmailConfirmado() {
+        return emailVerificadoEm != null;
+    }
+
+    /** E-mail confirmado por link (RN61); a primeira confirmação vale. */
+    void confirmarEmail(Instant agora) {
+        if (emailVerificadoEm == null) {
+            emailVerificadoEm = agora;
+        }
+    }
+
+    /**
+     * Contato pendente (RN61): a conta perdeu o celular ou o e-mail para o dono verdadeiro e precisa
+     * cadastrar e confirmar outro. Como o dado novo só é gravado já confirmado, basta o campo vazio.
+     */
+    boolean isContatoPendente() {
+        return !EXCLUIDO.equals(status) && (celular == null || email == null);
+    }
+
+    /** RN61: o celular foi para o dono; vai junto a confirmação e o MFA (que exige celular). */
+    void perderCelular() {
+        celular = null;
+        celularVerificadoEm = null;
+        mfaSmsAtivo = false;
+    }
+
+    /** RN61: o e-mail foi para o dono; o MFA (por SMS) não muda. */
+    void perderEmail() {
+        email = null;
+        emailVerificadoEm = null;
+    }
+
+    /** Celular novo de quem estava com o campo vazio, já confirmado pelo código (RN61). */
+    void gravarCelularConfirmado(String novo, Instant agora) {
+        celular = novo;
+        celularVerificadoEm = agora;
+    }
+
+    /** E-mail novo de quem estava com o campo vazio, já confirmado pelo link (RN61). */
+    void gravarEmailConfirmado(String novo, Instant agora) {
+        email = novo;
+        emailVerificadoEm = agora;
     }
 
     /** O banco exige celular confirmado para ligar (ck_usuario_mfa_celular). */

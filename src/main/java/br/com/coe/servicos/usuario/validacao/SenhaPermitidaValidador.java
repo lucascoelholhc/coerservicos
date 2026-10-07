@@ -2,6 +2,7 @@ package br.com.coe.servicos.usuario.validacao;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
@@ -33,26 +34,36 @@ public class SenhaPermitidaValidador implements ConstraintValidator<SenhaPermiti
 
     @Override
     public boolean isValid(NovoClienteRequest pedido, ConstraintValidatorContext contexto) {
-        String senha = pedido.senha();
-        if (senha == null) {
+        if (pedido.senha() == null) {
             return true;
         }
+        return motivoDeRecusa(pedido.senha(), pedido.celular(), pedido.email())
+                .map(motivo -> recusar(contexto, motivo))
+                .orElse(true);
+    }
+
+    /**
+     * A mesma regra para quem já tem conta (redefinir ou trocar a senha): o celular e o e-mail vêm
+     * da conta. Vazio = senha permitida; senão, o motivo em português.
+     */
+    public static Optional<String> motivoDeRecusa(String senha, String celular, String email) {
         // Mais caracteres que bytes possíveis: recusa antes de converter texto gigante.
         if (senha.length() > MAXIMO_BYTES
                 || tamanhoEmBytes(senha) < MINIMO_BYTES
                 || tamanhoEmBytes(senha) > MAXIMO_BYTES) {
-            return recusar(contexto, "A senha precisa ter de 8 a 72 caracteres (letra com acento conta como 2)");
+            return Optional.of("A senha precisa ter de 8 a 72 caracteres (letra com acento conta como 2)");
         }
         String comparavel = senha.strip().toLowerCase(Locale.ROOT);
-        if (comparavel.equals(Contato.normalizarCelular(pedido.celular()))
-                || igualAoCelularComMascara(senha, pedido.celular())
-                || comparavel.equals(Contato.normalizarEmail(pedido.email()))) {
-            return recusar(contexto, "Escolha uma senha diferente do seu celular e do seu e-mail");
+        boolean igualAoCelular = celular != null
+                && (comparavel.equals(Contato.normalizarCelular(celular)) || igualAoCelularComMascara(senha, celular));
+        boolean igualAoEmail = email != null && comparavel.equals(Contato.normalizarEmail(email));
+        if (igualAoCelular || igualAoEmail) {
+            return Optional.of("Escolha uma senha diferente do seu celular e do seu e-mail");
         }
         if (OBVIAS.contains(comparavel)) {
-            return recusar(contexto, "Essa senha é fácil de adivinhar. Escolha outra");
+            return Optional.of("Essa senha é fácil de adivinhar. Escolha outra");
         }
-        return true;
+        return Optional.empty();
     }
 
     private static int tamanhoEmBytes(String senha) {

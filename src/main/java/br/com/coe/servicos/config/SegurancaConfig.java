@@ -48,11 +48,18 @@ public class SegurancaConfig {
     /** Única lista de rotas abertas sem login (fora o health do actuator). */
     public static final List<RotaPublica> ROTAS_PUBLICAS = List.of(
             new RotaPublica(HttpMethod.POST, "/api/contas/cliente"),
+            new RotaPublica(HttpMethod.POST, "/api/contas/email/confirmar"),
+            new RotaPublica(HttpMethod.POST, "/api/contas/posse/celular"),
+            new RotaPublica(HttpMethod.POST, "/api/contas/posse/celular/confirmar"),
+            new RotaPublica(HttpMethod.POST, "/api/contas/posse/email"),
+            new RotaPublica(HttpMethod.POST, "/api/contas/posse/email/confirmar"),
             new RotaPublica(HttpMethod.POST, "/api/auth/entrar"),
             new RotaPublica(HttpMethod.POST, "/api/auth/segundo-passo"),
             new RotaPublica(HttpMethod.POST, "/api/auth/codigo"),
             new RotaPublica(HttpMethod.POST, "/api/auth/entrar-com-codigo"),
-            new RotaPublica(HttpMethod.POST, "/api/auth/renovar"));
+            new RotaPublica(HttpMethod.POST, "/api/auth/renovar"),
+            new RotaPublica(HttpMethod.POST, "/api/auth/senha/esqueci"),
+            new RotaPublica(HttpMethod.POST, "/api/auth/senha/redefinir"));
 
     private static final int CUSTO_BCRYPT = 12;
     private static final long HSTS_UM_ANO = 31_536_000L;

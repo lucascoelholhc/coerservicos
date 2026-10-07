@@ -28,4 +28,10 @@ interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID> {
     @Query("update RefreshToken r set r.revogadoEm = :agora, r.motivoRevogacao = :motivo"
             + " where r.usuarioId = :usuario and r.revogadoEm is null")
     int revogarDoUsuario(UUID usuario, Instant agora, String motivo);
+
+    /** Todas as sessões do usuário menos a deste aparelho (trocar a senha logado). */
+    @Modifying
+    @Query("update RefreshToken r set r.revogadoEm = :agora, r.motivoRevogacao = :motivo"
+            + " where r.usuarioId = :usuario and r.familiaId <> :familia and r.revogadoEm is null")
+    int revogarDoUsuarioMenosAFamilia(UUID usuario, UUID familia, Instant agora, String motivo);
 }

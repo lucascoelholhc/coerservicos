@@ -71,6 +71,14 @@ curl -b cookies.txt -c cookies.txt -X POST -H "Origin: http://localhost:5173" ht
 curl -H "Authorization: Bearer <accessToken>" http://localhost:8081/api/contas/eu
 curl -b cookies.txt -X POST -H "Origin: http://localhost:5173" -H "Authorization: Bearer <accessToken>" \
      http://localhost:8081/api/auth/sair
+
+# E-mail (confirmar e recuperar a senha) vai para o Mailpit: docker compose up -d mailpit; painel http://localhost:8025
+# O cadastro manda o link de confirmação; o token está no fragmento do link (#token=...).
+curl -H "Content-Type: application/json" -d '{"token":"<token do link>"}' http://localhost:8081/api/contas/email/confirmar
+curl -H "Content-Type: application/json" -H "Origin: http://localhost:5173" \
+     -d '{"login":"<e-mail confirmado>"}' http://localhost:8081/api/auth/senha/esqueci
+curl -H "Content-Type: application/json" -H "Origin: http://localhost:5173" \
+     -d '{"token":"<token do link>","novaSenha":"<senha nova>"}' http://localhost:8081/api/auth/senha/redefinir
 ```
 
 ## 4. Testar

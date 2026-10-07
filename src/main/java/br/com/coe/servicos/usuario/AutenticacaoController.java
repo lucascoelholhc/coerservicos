@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.com.coe.servicos.compartilhado.erro.NaoAutenticadoException;
+import br.com.coe.servicos.compartilhado.seguranca.LiberadoComContatoPendente;
 import br.com.coe.servicos.compartilhado.seguranca.Publico;
 
 /**
@@ -26,19 +27,52 @@ import br.com.coe.servicos.compartilhado.seguranca.Publico;
  */
 @RestController
 @RequestMapping("/api/auth")
+@LiberadoComContatoPendente
 class AutenticacaoController {
 
     private final ServicoDeLogin login;
     private final ServicoDeSessao sessoes;
     private final EmissorDeToken emissor;
     private final CookieDeRenovacao cookie;
+    private final ServicoDeSenha senha;
 
     AutenticacaoController(
-            ServicoDeLogin login, ServicoDeSessao sessoes, EmissorDeToken emissor, CookieDeRenovacao cookie) {
+            ServicoDeLogin login,
+            ServicoDeSessao sessoes,
+            EmissorDeToken emissor,
+            CookieDeRenovacao cookie,
+            ServicoDeSenha senha) {
         this.login = login;
         this.sessoes = sessoes;
         this.emissor = emissor;
         this.cookie = cookie;
+        this.senha = senha;
+    }
+
+    @PostMapping("/senha/esqueci")
+    @Publico
+    ResponseEntity<MensagemResponse> esqueciASenha(
+            @Valid @RequestBody EsqueciSenhaRequest pedido, HttpServletRequest requisicao) {
+        senha.esqueci(pedido.login(), requisicao.getRemoteAddr());
+        return ResponseEntity.accepted().body(new MensagemResponse(ServicoDeSenha.MENSAGEM_ESQUECI));
+    }
+
+    /** Não entra: depois de redefinir, a pessoa entra com a senha nova. */
+    @PostMapping("/senha/redefinir")
+    @Publico
+    ResponseEntity<Void> redefinirASenha(@Valid @RequestBody RedefinirSenhaRequest pedido) {
+        senha.redefinir(pedido);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Logado; o cookie (Path=/api/auth) diz qual sessão manter. */
+    @PostMapping("/senha/trocar")
+    @PreAuthorize("isAuthenticated()")
+    ResponseEntity<Void> trocarASenha(
+            @Valid @RequestBody TrocarSenhaRequest pedido,
+            @CookieValue(name = CookieDeRenovacao.NOME, required = false) String refresh) {
+        senha.trocar(pedido.senhaAtual(), pedido.novaSenha(), refresh);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/entrar")
@@ -113,7 +147,7 @@ class AutenticacaoController {
     }
 
     private ResponseEntity<SessaoResponse> responder(UsuarioResumo usuario, RefreshEmitido refresh) {
-        TokenDeAcesso acesso = emissor.emitir(usuario.id(), Set.copyOf(usuario.papeis()));
+        TokenDeAcesso acesso = emissor.emitir(usuario.id(), Set.copyOf(usuario.papeis()), usuario.contatoPendente());
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookie.criar(refresh))
                 .body(new SessaoResponse(acesso.valor(), acesso.expiraEm(), usuario));

@@ -28,10 +28,16 @@ class CadastroClienteServiceTest {
     private final ConfiguracaoNegocio configuracao = mock(ConfiguracaoNegocio.class);
     private final PlatformTransactionManager transacoes = mock(PlatformTransactionManager.class);
     private final CadastroClienteService servico = new CadastroClienteService(
-            usuarios, mock(AceiteTermosRepository.class), codificador, configuracao, transacoes);
+            usuarios,
+            mock(AceiteTermosRepository.class),
+            codificador,
+            configuracao,
+            transacoes,
+            mock(ReivindicacaoDeContato.class),
+            mock(ServicoDeConfirmacaoDeEmail.class));
 
     private final NovoClienteRequest pedido = new NovoClienteRequest(
-            "Ana Silva", "47900000901", "ana901@teste.coe.local", "89010000", "Casa-Azul-2026", "1.0");
+            "Ana Silva", "47900000901", "ana901@teste.coe.local", "89010000", "Casa-Azul-2026", "1.0", null, null);
 
     @BeforeEach
     void preparar() {

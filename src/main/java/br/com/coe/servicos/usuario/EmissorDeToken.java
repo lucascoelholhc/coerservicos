@@ -35,6 +35,11 @@ public class EmissorDeToken {
     }
 
     public TokenDeAcesso emitir(UUID usuarioId, Set<Papel> papeis) {
+        return emitir(usuarioId, papeis, false);
+    }
+
+    /** Com a marca de contato pendente (RN61), calculada do banco por quem chama. */
+    public TokenDeAcesso emitir(UUID usuarioId, Set<Papel> papeis, boolean contatoPendente) {
         Instant agora = clock.instant().truncatedTo(ChronoUnit.SECONDS);
         Instant expiraEm = agora.plus(VALIDADE);
         List<String> nomesDosPapeis = papeis.stream().map(Papel::name).sorted().toList();
@@ -46,6 +51,7 @@ public class EmissorDeToken {
                 .expiresAt(expiraEm)
                 .id(UUID.randomUUID().toString())
                 .claim(ConfiguracaoJwt.CLAIM_PAPEIS, nomesDosPapeis)
+                .claim(ConfiguracaoJwt.CLAIM_CONTATO_PENDENTE, contatoPendente)
                 .build();
         JwsHeader cabecalho =
                 JwsHeader.with(MacAlgorithm.HS256).keyId(chaves.kidAtual()).build();

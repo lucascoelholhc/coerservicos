@@ -20,7 +20,15 @@ public record NovoClienteRequest(
         @NotBlank @EmailValido String email,
         @NotBlank @CepValido String cep,
         @NotBlank String senha,
-        @NotBlank @Size(max = 20) String versaoTermosAceita) {
+        @NotBlank @Size(max = 20) String versaoTermosAceita,
+        @Size(max = 64) String comprovanteCelular,
+        @Size(max = 64) String comprovanteEmail) {
+
+    /** Cadastro sem comprovante de posse (o caso comum). */
+    public NovoClienteRequest(
+            String nome, String celular, String email, String cep, String senha, String versaoTermosAceita) {
+        this(nome, celular, email, cep, senha, versaoTermosAceita, null, null);
+    }
 
     /** Nunca mostra a senha nem os contatos (nem em log de depuração). */
     @Override

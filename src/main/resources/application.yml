@@ -13,6 +13,12 @@ spring:
     open-in-view: false
   flyway:
     locations: classpath:db/migration
+  mail:
+    properties:
+      # SMTP travado não prende as threads de envio para sempre (a fila enche e descarta)
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 10000
+      mail.smtp.writetimeout: 10000
   mvc:
     problemdetails.enabled: true      # erros em Problem Details (RFC 9457)
   jackson:
@@ -25,6 +31,13 @@ spring:
     locale-resolver: fixed
 
 coe:
+  front:
+    # Base dos links mandados por e-mail (token no fragmento #token=...). Obrigatória; em prod só https.
+    url-base: ${COE_FRONT_URL_BASE:}
+  email:
+    # Remetente dos e-mails (obrigatório quando há SMTP). O SMTP vem de spring.mail.* (SPRING_MAIL_HOST,
+    # SPRING_MAIL_PORT, SPRING_MAIL_USERNAME, SPRING_MAIL_PASSWORD); sem ele a aplicação não sobe.
+    remetente: ${COE_EMAIL_REMETENTE:}
   jwt:
     # Variáveis de ambiente obrigatórias (sem elas a aplicação não sobe):
     # COE_JWT_KID_ATUAL=2026-10   COE_JWT_CHAVES=2026-10:<base64 de 32 bytes>[,kid-anterior:<base64>]
@@ -37,8 +50,19 @@ coe:
     # Chave do HMAC dos códigos SMS (base64 de pelo menos 32 bytes), separada da do JWT.
     # Obrigatória: sem ela a aplicação não sobe. Variável de ambiente COE_CHAVE_CODIGOS.
     chave-codigos: ${COE_CHAVE_CODIGOS:}
+    codigos:
+      # Contador de falhas (decisão de 07/10): erros na janela bloqueiam toda entrada por código da conta.
+      falhas-para-bloqueio: 10
+      janela-falhas: 24h
+      duracao-bloqueio: 1h
     origens-somente-https: false
     hsts: false            # só o application-prod.yml liga
+  mensageria:
+    # Envio assíncrono de SMS e e-mail depois do commit (decisão de 07/10): fila própria e limitada.
+    # Fila cheia descarta com log mascarado; a resposta da requisição nunca muda.
+    threads: 2
+    threads-maximo: 4
+    fila: 100
   auth:
     sessao:
       duracao-maxima: 90d   # teto absoluto desde o login (PA03); depois disso, senha de novo
