@@ -187,7 +187,7 @@ São 58 requisitos em 7 módulos, cada um ligado às regras que implementa. Prio
 
 | ID | Requisito | Regras | Prioridade |
 | --- | --- | --- | --- |
-| RF01 | Entrar com celular ou e-mail + senha, ou com código por SMS; recuperar senha; segundo passo por SMS obrigatório para ADMIN e opcional (ligar/desligar) para cliente e profissional; sair de todos os aparelhos | RN58, RN61 | MVP |
+| RF01 | Entrar com celular ou e-mail + senha, ou com código por SMS; recuperar senha; segundo passo por SMS obrigatório para ADMIN e opcional (ligar/desligar) para cliente e profissional; sair de todos os aparelhos. **Fluxo (CORE-04):** senha certa com MFA exigido → SMS + resposta "falta o código" com um desafio de uso único (5 min); o código certo libera a entrada. Entrar só com código: vale para celular confirmado, nunca para ADMIN nem para quem ligou o MFA (seria um fator só). Código: 6 dígitos, 5 min, uso único, 5 tentativas; um código novo anula o anterior; no máximo 1 SMS a cada 60 s e 5 por hora por celular. Pedir código responde sempre igual, tenha ou não conta | RN58, RN61 | MVP |
 | RF02 | Criar conta perguntando primeiro "contratar" ou "trabalhar" | RN58 | MVP |
 | RF03 | Criar conta de cliente com nome, celular, e-mail, CEP e senha, com aceite dos termos; confirmar o celular é opcional para o cliente (pode contratar sem confirmar) | RN45, RN61 | MVP |
 | RF04 | Voltar à tela de origem depois de entrar ou criar conta | RN24 | MVP |
