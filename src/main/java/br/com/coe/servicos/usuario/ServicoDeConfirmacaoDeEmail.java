@@ -146,6 +146,6 @@ class ServicoDeConfirmacaoDeEmail {
     }
 
     private static ConflitoException emailJaCadastrado() {
-        return new ConflitoException("email-ja-cadastrado", "Este e-mail já está em outra conta.", "email");
+        return ContatoEmUso.no("email");
     }
 }

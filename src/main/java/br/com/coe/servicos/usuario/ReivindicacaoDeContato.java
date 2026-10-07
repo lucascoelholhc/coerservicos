@@ -132,16 +132,10 @@ class ReivindicacaoDeContato {
     /** Depois da trava: dado confirmado nunca é tomado; a conta antiga nunca fica sem contato. */
     private static void conferir(Usuario antigoDoCelular, Usuario antigoDoEmail) {
         if (antigoDoCelular != null && antigoDoCelular.isCelularConfirmado()) {
-            throw new ConflitoException(
-                    "celular-ja-cadastrado",
-                    "Este celular já tem cadastro. Entre na sua conta ou recupere a senha.",
-                    "celular");
+            throw ContatoEmUso.no("celular");
         }
         if (antigoDoEmail != null && antigoDoEmail.isEmailConfirmado()) {
-            throw new ConflitoException(
-                    "email-ja-cadastrado",
-                    "Este e-mail já tem cadastro. Entre na sua conta ou recupere a senha.",
-                    "email");
+            throw ContatoEmUso.no("email");
         }
         boolean mesmaConta = antigoDoCelular != null
                 && antigoDoEmail != null

@@ -51,7 +51,7 @@ class CadastroClienteServiceTest {
 
         assertThatThrownBy(() -> servico.cadastrar(pedido, "127.0.0.1", "Teste/1.0"))
                 .isInstanceOfSatisfying(ConflitoException.class, erro -> {
-                    assertThat(erro.getCodigo()).isEqualTo("email-ja-cadastrado");
+                    assertThat(erro.getCodigo()).isEqualTo("contato-em-uso");
                     assertThat(erro.getCampo()).isEqualTo("email");
                 });
     }

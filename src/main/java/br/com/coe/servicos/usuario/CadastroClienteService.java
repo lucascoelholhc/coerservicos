@@ -142,19 +142,15 @@ public class CadastroClienteService {
     }
 
     private static ConflitoException celularJaCadastrado() {
-        return new ConflitoException(
-                "celular-ja-cadastrado",
-                "Este celular já tem cadastro. Entre na sua conta ou recupere a senha.",
-                "celular");
+        return ContatoEmUso.no("celular");
     }
 
     /** RN61: o dado é de outra conta que nunca o confirmou; quem provar a posse fica com ele. */
     private static ConflitoException podeSerReivindicado(String campo, String mensagem) {
-        return new ConflitoException(campo + "-pode-ser-reivindicado", mensagem, campo);
+        return ContatoEmUso.no(campo);
     }
 
     private static ConflitoException emailJaCadastrado() {
-        return new ConflitoException(
-                "email-ja-cadastrado", "Este e-mail já tem cadastro. Entre na sua conta ou recupere a senha.", "email");
+        return ContatoEmUso.no("email");
     }
 }

@@ -137,7 +137,7 @@ class CadastroClienteTest extends IntegracaoTest {
 
         cadastrar(new Contato(contato.celular(), novoContato().email()))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.type").value("urn:coe:erro:celular-pode-ser-reivindicado"))
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:contato-em-uso"))
                 .andExpect(jsonPath("$.campo").value("celular"));
     }
 
@@ -149,7 +149,7 @@ class CadastroClienteTest extends IntegracaoTest {
 
         cadastrar(new Contato(novoContato().celular(), contato.email().toUpperCase()))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.type").value("urn:coe:erro:email-pode-ser-reivindicado"))
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:contato-em-uso"))
                 .andExpect(jsonPath("$.campo").value("email"));
     }
 
