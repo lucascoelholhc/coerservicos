@@ -61,6 +61,14 @@ public abstract class IntegracaoTest {
                 + emissorDeToken.emitir(usuarioId, java.util.Set.of(papeis)).valor();
     }
 
+    /** Como {@link #bearer}, mas com a marca de contato pendente (RN61) no token. */
+    protected String bearerComContatoPendente(java.util.UUID usuarioId, Papel... papeis) {
+        return "Bearer "
+                + emissorDeToken
+                        .emitir(usuarioId, java.util.Set.of(papeis), true)
+                        .valor();
+    }
+
     @BeforeEach
     void relogioEConfiguracaoNoEstadoPadrao() {
         sms.aguardarEnvios();

@@ -34,7 +34,6 @@ public class Usuario {
     @Column(nullable = false)
     private String nome;
 
-    @Column(nullable = false)
     private String celular;
 
     @Column(columnDefinition = "citext")
@@ -137,6 +136,39 @@ public class Usuario {
         if (emailVerificadoEm == null) {
             emailVerificadoEm = agora;
         }
+    }
+
+    /**
+     * Contato pendente (RN61): a conta perdeu o celular ou o e-mail para o dono verdadeiro e precisa
+     * cadastrar e confirmar outro. Como o dado novo só é gravado já confirmado, basta o campo vazio.
+     */
+    boolean isContatoPendente() {
+        return !EXCLUIDO.equals(status) && (celular == null || email == null);
+    }
+
+    /** RN61: o celular foi para o dono; vai junto a confirmação e o MFA (que exige celular). */
+    void perderCelular() {
+        celular = null;
+        celularVerificadoEm = null;
+        mfaSmsAtivo = false;
+    }
+
+    /** RN61: o e-mail foi para o dono; o MFA (por SMS) não muda. */
+    void perderEmail() {
+        email = null;
+        emailVerificadoEm = null;
+    }
+
+    /** Celular novo de quem estava com o campo vazio, já confirmado pelo código (RN61). */
+    void gravarCelularConfirmado(String novo, Instant agora) {
+        celular = novo;
+        celularVerificadoEm = agora;
+    }
+
+    /** E-mail novo de quem estava com o campo vazio, já confirmado pelo link (RN61). */
+    void gravarEmailConfirmado(String novo, Instant agora) {
+        email = novo;
+        emailVerificadoEm = agora;
     }
 
     /** O banco exige celular confirmado para ligar (ck_usuario_mfa_celular). */

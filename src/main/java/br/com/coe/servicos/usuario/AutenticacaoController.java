@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.com.coe.servicos.compartilhado.erro.NaoAutenticadoException;
+import br.com.coe.servicos.compartilhado.seguranca.LiberadoComContatoPendente;
 import br.com.coe.servicos.compartilhado.seguranca.Publico;
 
 /**
@@ -26,6 +27,7 @@ import br.com.coe.servicos.compartilhado.seguranca.Publico;
  */
 @RestController
 @RequestMapping("/api/auth")
+@LiberadoComContatoPendente
 class AutenticacaoController {
 
     private final ServicoDeLogin login;
@@ -113,7 +115,7 @@ class AutenticacaoController {
     }
 
     private ResponseEntity<SessaoResponse> responder(UsuarioResumo usuario, RefreshEmitido refresh) {
-        TokenDeAcesso acesso = emissor.emitir(usuario.id(), Set.copyOf(usuario.papeis()));
+        TokenDeAcesso acesso = emissor.emitir(usuario.id(), Set.copyOf(usuario.papeis()), usuario.contatoPendente());
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookie.criar(refresh))
                 .body(new SessaoResponse(acesso.valor(), acesso.expiraEm(), usuario));

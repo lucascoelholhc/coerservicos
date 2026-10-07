@@ -5,6 +5,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
 import org.slf4j.Logger;
@@ -28,6 +29,8 @@ class ServicoDeTokens {
 
     static final Duration INTERVALO_ENTRE_ENVIOS = Duration.ofSeconds(60);
     static final int MAXIMO_ENVIOS_POR_HORA = 5;
+    /** Comprovante de posse (RN61): vale para um cadastro, em até 30 min. */
+    static final Duration VALIDADE_DO_COMPROVANTE = Duration.ofMinutes(30);
 
     private static final Duration UMA_HORA = Duration.ofHours(1);
     private static final Logger LOG = LoggerFactory.getLogger(ServicoDeTokens.class);
@@ -78,8 +81,32 @@ class ServicoDeTokens {
         return true;
     }
 
+    /**
+     * Comprovante de posse (RN61): canal ({@code celular} ou {@code email}) e destino já provados;
+     * só o hash no banco, sem dono, sem envio. Devolve o token para o cadastro.
+     */
+    String emitirComprovante(String canal, String destino) {
+        String token = TokenDeRenovacao.gerar();
+        byte[] hash = TokenDeRenovacao.hash(token).orElseThrow();
+        transacao.executeWithoutResult(status -> gravar(
+                null,
+                canal,
+                destino,
+                FinalidadeToken.COMPROVANTE_POSSE,
+                hash,
+                clock.instant(),
+                VALIDADE_DO_COMPROVANTE));
+        return token;
+    }
+
     /** Usa o token (uma vez) se for da finalidade, estiver ativo e no prazo. */
     Optional<TokenVerificacao> consumir(String token, FinalidadeToken finalidade) {
+        return consumir(token, finalidade, encontrado -> true);
+    }
+
+    /** Como {@link #consumir(String, FinalidadeToken)}, só usando o token se a condição valer. */
+    Optional<TokenVerificacao> consumir(
+            String token, FinalidadeToken finalidade, Predicate<TokenVerificacao> condicao) {
         Optional<byte[]> hash = TokenDeRenovacao.hash(token);
         if (hash.isEmpty()) {
             return Optional.empty();
@@ -89,6 +116,7 @@ class ServicoDeTokens {
             return tokens.buscarPorHash(hash.get())
                     .filter(encontrado -> finalidade.valor().equals(encontrado.getFinalidade()))
                     .filter(encontrado -> encontrado.valeEm(agora))
+                    .filter(condicao)
                     .map(encontrado -> {
                         encontrado.usar(agora);
                         return encontrado;

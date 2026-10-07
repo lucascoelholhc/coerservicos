@@ -98,16 +98,50 @@ class ServicoDeCodigoSms {
     boolean bloqueado(UUID usuarioId) {
         Instant agora = clock.instant();
         Instant desde = agora.minus(janelaDeFalhas);
-        if (codigos.somarErrosDaConta(usuarioId, desde).longValue() < falhasParaBloqueio) {
-            return false;
-        }
-        boolean bloqueado = codigos.ultimoErroDaConta(usuarioId, desde)
-                .map(ultimo -> ultimo.isAfter(agora.minus(duracaoDoBloqueio)))
-                .orElse(false);
+        boolean bloqueado = bloqueio(
+                agora,
+                codigos.somarErrosDaConta(usuarioId, desde).longValue(),
+                () -> codigos.ultimoErroDaConta(usuarioId, desde));
         if (bloqueado) {
             LOG.warn("Entrada por código bloqueada (muitos códigos errados): {}", usuarioId);
         }
         return bloqueado;
+    }
+
+    /** Prova de posse bloqueada para o número (o código de posse não tem dono: conta pelo celular). */
+    boolean bloqueadoParaPosse(String celular) {
+        Instant agora = clock.instant();
+        Instant desde = agora.minus(janelaDeFalhas);
+        boolean bloqueado = bloqueio(
+                agora,
+                codigos.somarErrosDePosse(celular, desde).longValue(),
+                () -> codigos.ultimoErroDePosse(celular, desde));
+        if (bloqueado) {
+            LOG.warn("Prova de posse bloqueada (muitos códigos errados): {}", Mascara.celular(celular));
+        }
+        return bloqueado;
+    }
+
+    private boolean bloqueio(Instant agora, long erros, java.util.function.Supplier<Optional<Instant>> ultimoErro) {
+        return erros >= falhasParaBloqueio
+                && ultimoErro
+                        .get()
+                        .map(ultimo -> ultimo.isAfter(agora.minus(duracaoDoBloqueio)))
+                        .orElse(false);
+    }
+
+    /**
+     * Confere o código ativo da conta para a finalidade e devolve o número a que ele está preso (o
+     * do PUT), nunca um valor da requisição. Vazio se errado, vencido ou inexistente.
+     */
+    Optional<String> conferirDaConta(UUID usuarioId, FinalidadeSms finalidade, String codigo) {
+        if (codigo == null) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(transacao.execute(status -> codigos.buscarAtivoDaConta(usuarioId, finalidade.valor())
+                .filter(ativo -> tentar(ativo, codigo))
+                .map(CodigoSms::getCelular)
+                .orElse(null)));
     }
 
     /** Dono do desafio do login, sem conferir nada (para checar o bloqueio antes da tentativa). */

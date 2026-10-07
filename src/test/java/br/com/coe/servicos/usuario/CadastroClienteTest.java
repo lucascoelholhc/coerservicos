@@ -130,26 +130,26 @@ class CadastroClienteTest extends IntegracaoTest {
     }
 
     @Test
-    @DisplayName("409: celular já cadastrado, dizendo o campo")
+    @DisplayName("409: celular não confirmado de outra conta pode ser reivindicado (RN61), dizendo o campo")
     void celularRepetido() throws Exception {
         Contato contato = novoContato();
         cadastrar(contato).andExpect(status().isCreated());
 
         cadastrar(new Contato(contato.celular(), novoContato().email()))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.type").value("urn:coe:erro:celular-ja-cadastrado"))
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:celular-pode-ser-reivindicado"))
                 .andExpect(jsonPath("$.campo").value("celular"));
     }
 
     @Test
-    @DisplayName("409: e-mail já cadastrado, mesmo com outra caixa")
+    @DisplayName("409: e-mail não confirmado de outra conta pode ser reivindicado, mesmo com outra caixa")
     void emailRepetidoOutraCaixa() throws Exception {
         Contato contato = novoContato();
         cadastrar(contato).andExpect(status().isCreated());
 
         cadastrar(new Contato(novoContato().celular(), contato.email().toUpperCase()))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.type").value("urn:coe:erro:email-ja-cadastrado"))
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:email-pode-ser-reivindicado"))
                 .andExpect(jsonPath("$.campo").value("email"));
     }
 

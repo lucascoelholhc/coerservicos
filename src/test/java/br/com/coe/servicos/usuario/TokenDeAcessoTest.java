@@ -84,7 +84,8 @@ class TokenDeAcessoTest extends IntegracaoTest {
     }
 
     @Test
-    @DisplayName("token emitido: HS256, kid atual, 15 min, só id e papéis (nada de celular, e-mail ou nome)")
+    @DisplayName(
+            "token emitido: HS256, kid atual, 15 min, só id, papéis e a marca de contato pendente (nada de celular, e-mail ou nome)")
     void conteudoDoToken() throws Exception {
         UUID id = UUID.randomUUID();
         TokenDeAcesso token = emissor.emitir(id, Set.of(Papel.CLIENTE, Papel.PROFISSIONAL));
@@ -96,9 +97,11 @@ class TokenDeAcessoTest extends IntegracaoTest {
         Map<String, Object> claims = json.readValue(Base64.getUrlDecoder().decode(partes[1]), Map.class);
 
         assertThat(cabecalho).containsEntry("alg", "HS256").containsEntry("kid", "teste-2");
-        assertThat(claims.keySet()).containsExactlyInAnyOrder("sub", "papeis", "iss", "aud", "iat", "exp", "jti");
+        assertThat(claims.keySet())
+                .containsExactlyInAnyOrder("sub", "papeis", "contato_pendente", "iss", "aud", "iat", "exp", "jti");
         assertThat(claims).containsEntry("sub", id.toString()).containsEntry("iss", "coe-servicos");
         assertThat(claims.get("papeis")).isEqualTo(List.of("CLIENTE", "PROFISSIONAL"));
+        assertThat(claims).containsEntry("contato_pendente", false);
         assertThat(((Number) claims.get("exp")).longValue() - ((Number) claims.get("iat")).longValue())
                 .isEqualTo(900);
         assertThat(token.expiraEm()).isEqualTo(relogio.instant().plus(Duration.ofMinutes(15)));

@@ -1,5 +1,7 @@
 package br.com.coe.servicos.usuario;
 
+import java.util.Optional;
+
 import org.hibernate.exception.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,13 +32,16 @@ public class CadastroClienteService {
     private final PasswordEncoder codificadorDeSenha;
     private final ConfiguracaoNegocio configuracao;
     private final TransactionTemplate transacao;
+    private final ReivindicacaoDeContato reivindicacao;
 
     CadastroClienteService(
             UsuarioRepository usuarios,
             AceiteTermosRepository aceites,
             PasswordEncoder codificadorDeSenha,
             ConfiguracaoNegocio configuracao,
-            PlatformTransactionManager transacoes) {
+            PlatformTransactionManager transacoes,
+            ReivindicacaoDeContato reivindicacao) {
+        this.reivindicacao = reivindicacao;
         this.usuarios = usuarios;
         this.aceites = aceites;
         this.codificadorDeSenha = codificadorDeSenha;
@@ -52,12 +57,27 @@ public class CadastroClienteService {
         }
         String celular = Contato.normalizarCelular(pedido.celular());
         String email = Contato.normalizarEmail(pedido.email());
-        // Checagem prévia barata, antes do hash; a corrida que passar daqui é barrada pelo UNIQUE.
-        if (usuarios.existsByCelular(celular)) {
-            throw celularJaCadastrado();
+        // Checagem prévia barata, antes do hash; a corrida que passar daqui é barrada pelo UNIQUE e
+        // pela trava da reivindicação (RN61), que confere tudo de novo dentro da transação.
+        Optional<Usuario> donoDoCelular = usuarios.findByCelular(celular);
+        if (donoDoCelular.isPresent()) {
+            if (donoDoCelular.get().isCelularConfirmado()) {
+                throw celularJaCadastrado();
+            }
+            if (pedido.comprovanteCelular() == null) {
+                throw podeSerReivindicado(
+                        "celular", "Este celular está em outra conta, sem confirmação. Confirme que ele é seu.");
+            }
         }
-        if (usuarios.existsByEmail(email)) {
-            throw emailJaCadastrado();
+        Optional<Usuario> donoDoEmail = usuarios.findByEmail(email);
+        if (donoDoEmail.isPresent()) {
+            if (donoDoEmail.get().isEmailConfirmado()) {
+                throw emailJaCadastrado();
+            }
+            if (pedido.comprovanteEmail() == null) {
+                throw podeSerReivindicado(
+                        "email", "Este e-mail está em outra conta, sem confirmação. Confirme que ele é seu.");
+            }
         }
         Usuario usuario = Usuario.novoCliente(
                 Contato.normalizarNome(pedido.nome()),
@@ -68,6 +88,21 @@ public class CadastroClienteService {
         AceiteTermos aceite = new AceiteTermos(usuario.getId(), versaoVigente, ip, userAgent);
         try {
             transacao.executeWithoutResult(status -> {
+                if (pedido.comprovanteCelular() != null || pedido.comprovanteEmail() != null) {
+                    ReivindicacaoDeContato.Resultado comprovado = reivindicacao.aplicar(
+                            usuario.getId(),
+                            celular,
+                            pedido.comprovanteCelular(),
+                            email,
+                            pedido.comprovanteEmail(),
+                            ip);
+                    if (comprovado.celularComprovado()) {
+                        usuario.confirmarCelular(comprovado.em());
+                    }
+                    if (comprovado.emailComprovado()) {
+                        usuario.confirmarEmail(comprovado.em());
+                    }
+                }
                 usuarios.saveAndFlush(usuario);
                 aceites.save(aceite);
             });
@@ -104,6 +139,11 @@ public class CadastroClienteService {
                 "celular-ja-cadastrado",
                 "Este celular já tem cadastro. Entre na sua conta ou recupere a senha.",
                 "celular");
+    }
+
+    /** RN61: o dado é de outra conta que nunca o confirmou; quem provar a posse fica com ele. */
+    private static ConflitoException podeSerReivindicado(String campo, String mensagem) {
+        return new ConflitoException(campo + "-pode-ser-reivindicado", mensagem, campo);
     }
 
     private static ConflitoException emailJaCadastrado() {

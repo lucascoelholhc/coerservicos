@@ -49,6 +49,10 @@ public class SegurancaConfig {
     public static final List<RotaPublica> ROTAS_PUBLICAS = List.of(
             new RotaPublica(HttpMethod.POST, "/api/contas/cliente"),
             new RotaPublica(HttpMethod.POST, "/api/contas/email/confirmar"),
+            new RotaPublica(HttpMethod.POST, "/api/contas/posse/celular"),
+            new RotaPublica(HttpMethod.POST, "/api/contas/posse/celular/confirmar"),
+            new RotaPublica(HttpMethod.POST, "/api/contas/posse/email"),
+            new RotaPublica(HttpMethod.POST, "/api/contas/posse/email/confirmar"),
             new RotaPublica(HttpMethod.POST, "/api/auth/entrar"),
             new RotaPublica(HttpMethod.POST, "/api/auth/segundo-passo"),
             new RotaPublica(HttpMethod.POST, "/api/auth/codigo"),

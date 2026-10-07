@@ -5,6 +5,7 @@ import java.time.Duration;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -16,7 +17,8 @@ import br.com.coe.servicos.compartilhado.erro.RegraDeNegocioException;
 /**
  * Confirmar o e-mail por link (CORE-04; RN61, RF03): 24 h, uso único, token no fragmento. O link só
  * vale para o e-mail que a conta ainda tem; reusado, vencido, inventado ou de outro e-mail dá o
- * mesmo 422 link-invalido.
+ * mesmo 422 link-invalido. Conta sem e-mail (RN61, perdeu para o dono): o PUT manda o link para o
+ * endereço novo e a confirmação grava esse endereço (o do link, nunca da requisição), se ainda livre.
  */
 @Service
 class ServicoDeConfirmacaoDeEmail {
@@ -70,19 +72,70 @@ class ServicoDeConfirmacaoDeEmail {
         }
     }
 
+    /** RN61: só com o campo vazio e e-mail livre; manda o link, sem gravar nada na conta. */
+    void cadastrarEmail(String digitado) {
+        Usuario usuario = contaDeQuemChama.carregarAtiva();
+        if (usuario.getEmail() != null) {
+            throw new ConflitoException(
+                    "email-ja-preenchido", "Sua conta já tem e-mail. Para trocar, fale com a equipe da COE.", "email");
+        }
+        String email = Contato.normalizarEmail(digitado);
+        if (usuarios.existsByEmail(email)) {
+            throw emailJaCadastrado();
+        }
+        if (!tokens.enviarLink(usuario.getId(), email, FinalidadeToken.CONFIRMAR_EMAIL, VALIDADE, EMAIL)) {
+            throw new MuitasTentativasException("Você pediu muitos e-mails. Aguarde um pouco e tente de novo.");
+        }
+    }
+
+    private enum Confirmacao {
+        FEITA,
+        LINK_INVALIDO,
+        EMAIL_TOMADO
+    }
+
     void confirmar(String token) {
-        Boolean confirmou = transacao.execute(status -> tokens.consumir(token, FinalidadeToken.CONFIRMAR_EMAIL)
-                .flatMap(link -> usuarios.findById(link.getUsuarioId())
-                        .filter(usuario -> !Usuario.EXCLUIDO.equals(usuario.getStatus()))
-                        .filter(usuario -> link.getDestino().equals(usuario.getEmail())))
-                .map(usuario -> {
-                    usuario.confirmarEmail(clock.instant());
-                    LOG.info("E-mail confirmado: {}", usuario.getId());
-                    return true;
-                })
-                .orElse(false));
-        if (!Boolean.TRUE.equals(confirmou)) {
+        Confirmacao resultado;
+        try {
+            resultado = transacao.execute(status -> tokens.consumir(token, FinalidadeToken.CONFIRMAR_EMAIL)
+                    .map(this::aplicar)
+                    .orElse(Confirmacao.LINK_INVALIDO));
+        } catch (DataIntegrityViolationException corrida) {
+            resultado = Confirmacao.EMAIL_TOMADO;
+        }
+        if (resultado == Confirmacao.EMAIL_TOMADO) {
+            throw emailJaCadastrado();
+        }
+        if (resultado != Confirmacao.FEITA) {
             throw new RegraDeNegocioException("link-invalido", "Este link não vale mais. Peça um novo.");
         }
+    }
+
+    private Confirmacao aplicar(TokenVerificacao link) {
+        Usuario usuario = usuarios.findById(link.getUsuarioId())
+                .filter(conta -> !Usuario.EXCLUIDO.equals(conta.getStatus()))
+                .orElse(null);
+        if (usuario == null) {
+            return Confirmacao.LINK_INVALIDO;
+        }
+        if (usuario.getEmail() == null) {
+            if (usuarios.existsByEmail(link.getDestino())) {
+                return Confirmacao.EMAIL_TOMADO;
+            }
+            usuario.gravarEmailConfirmado(link.getDestino(), clock.instant());
+            usuarios.saveAndFlush(usuario);
+            LOG.info("E-mail novo gravado já confirmado: {}", usuario.getId());
+            return Confirmacao.FEITA;
+        }
+        if (!link.getDestino().equals(usuario.getEmail())) {
+            return Confirmacao.LINK_INVALIDO;
+        }
+        usuario.confirmarEmail(clock.instant());
+        LOG.info("E-mail confirmado: {}", usuario.getId());
+        return Confirmacao.FEITA;
+    }
+
+    private static ConflitoException emailJaCadastrado() {
+        return new ConflitoException("email-ja-cadastrado", "Este e-mail já está em outra conta.", "email");
     }
 }
