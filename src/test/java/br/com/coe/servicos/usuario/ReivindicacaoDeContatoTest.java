@@ -345,6 +345,50 @@ class ReivindicacaoDeContatoTest extends IntegracaoTest {
                 .andExpect(jsonPath("$.type").value("urn:coe:erro:contato-pendente"));
     }
 
+    @Test
+    @DisplayName("revisão: token antigo (sem a marca) da conta antiga também é barrado, pelo banco")
+    void tokenAntigoSemAMarca() throws Exception {
+        Conta antiga = contas.criar(Papel.CLIENTE);
+        String tokenDeAntes = bearer(antiga.id(), Papel.CLIENTE);
+        cadastrar(antiga.celular(), novoEmail(), comprovanteDoCelular(antiga.celular()), null)
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/contas/eu/mfa/codigo").header("Authorization", tokenDeAntes))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:contato-pendente"));
+        mockMvc.perform(get("/api/contas/eu").header("Authorization", tokenDeAntes))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("revisão: contato de conta ADMIN nunca é transferido (409 transferencia-indisponivel)")
+    void adminNaoPerdeContato() throws Exception {
+        Conta admin = contas.criar(Papel.ADMIN);
+        String comprovante = comprovanteDoEmail(admin.email());
+
+        cadastrar(novoCelular(), admin.email(), null, comprovante)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:transferencia-indisponivel"));
+        assertThat(coluna("email", admin.id())).isEqualTo(admin.email());
+    }
+
+    @Test
+    @DisplayName("revisão: PUT em dois números seguidos: só o último código vale (nada de dois ativos)")
+    void putEmDoisNumeros() throws Exception {
+        Conta antiga = contas.criar(Papel.CLIENTE);
+        String bearer = loginPendente(antiga);
+        String primeiro = novoCelular();
+        String segundo = novoCelular();
+
+        colocarCelular(bearer, primeiro).andExpect(status().isAccepted());
+        String codigoDoPrimeiro = sms.ultimoCodigo(primeiro).orElseThrow();
+        colocarCelular(bearer, segundo).andExpect(status().isAccepted());
+
+        confirmarCelular(bearer, codigoDoPrimeiro).andExpect(status().isUnprocessableEntity());
+        confirmarCelular(bearer, sms.ultimoCodigo(segundo).orElseThrow()).andExpect(status().isNoContent());
+        assertThat(coluna("celular", antiga.id())).isEqualTo(segundo);
+    }
+
     // ---------------------------------------------------------------- recolocar o dado perdido (opção 1)
 
     private String loginPendente(Conta antiga) throws Exception {

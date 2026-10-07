@@ -13,6 +13,12 @@ spring:
     open-in-view: false
   flyway:
     locations: classpath:db/migration
+  mail:
+    properties:
+      # SMTP travado não prende as threads de envio para sempre (a fila enche e descarta)
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 10000
+      mail.smtp.writetimeout: 10000
   mvc:
     problemdetails.enabled: true      # erros em Problem Details (RFC 9457)
   jackson:

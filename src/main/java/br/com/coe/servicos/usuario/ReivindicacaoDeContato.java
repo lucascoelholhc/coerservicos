@@ -21,7 +21,7 @@ import br.com.coe.servicos.compartilhado.mensageria.Mascara;
  * antiga (que nunca o confirmou). Trava as contas em ordem de id, confere de novo depois da trava,
  * encerra as sessões da antiga (motivo contato_transferido), invalida os códigos e links pendentes
  * do dado e grava a auditoria mascarada. Dado confirmado nunca é tomado; conta que ficaria sem
- * nenhum contato vai para o suporte (409 transferencia-indisponivel).
+ * nenhum contato, ou conta da equipe (ADMIN), vai para o suporte (409 transferencia-indisponivel).
  */
 @Component
 class ReivindicacaoDeContato {
@@ -68,6 +68,14 @@ class ReivindicacaoDeContato {
         Instant agora = clock.instant();
         boolean celularComprovado = comprovanteCelular != null;
         boolean emailComprovado = comprovanteEmail != null;
+        // Mesma ordem dos envios (trava consultiva do destino, depois linhas): sem deadlock com um
+        // envio de código ou link para o mesmo contato na mesma hora.
+        if (celularComprovado) {
+            codigos.travar("codigo_sms:" + celular);
+        }
+        if (emailComprovado) {
+            links.travar("token_verificacao:" + email);
+        }
         if (celularComprovado && !usarComprovante(comprovanteCelular, TokenVerificacao.CANAL_CELULAR, celular)) {
             throw comprovanteInvalido();
         }
@@ -129,9 +137,11 @@ class ReivindicacaoDeContato {
         boolean mesmaConta = antigoDoCelular != null
                 && antigoDoEmail != null
                 && antigoDoCelular.getId().equals(antigoDoEmail.getId());
+        boolean admin = (antigoDoCelular != null && antigoDoCelular.getPapeis().contains(Papel.ADMIN))
+                || (antigoDoEmail != null && antigoDoEmail.getPapeis().contains(Papel.ADMIN));
         boolean celularSemOutro = antigoDoCelular != null && antigoDoCelular.getEmail() == null;
         boolean emailSemOutro = antigoDoEmail != null && antigoDoEmail.getCelular() == null;
-        if (mesmaConta || celularSemOutro || emailSemOutro) {
+        if (admin || mesmaConta || celularSemOutro || emailSemOutro) {
             throw new ConflitoException(
                     "transferencia-indisponivel",
                     "Não conseguimos passar este contato para você agora. Fale com a equipe da COE.",

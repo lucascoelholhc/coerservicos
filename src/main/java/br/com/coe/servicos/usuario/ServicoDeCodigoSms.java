@@ -182,6 +182,11 @@ class ServicoDeCodigoSms {
             if (limiteAtingido(celular, agora)) {
                 return false;
             }
+            if (usuarioId != null) {
+                // Um ativo por conta e finalidade (o índice único é por celular): PUT em outro número
+                // ou novo desafio do MFA invalida o anterior da conta.
+                codigos.invalidarAtivosDaConta(usuarioId, finalidade.valor(), agora);
+            }
             codigos.buscarAtivo(celular, finalidade.valor()).ifPresent(anterior -> anterior.invalidar(agora));
             codigos.flush(); // o anterior sai do índice de ativos antes do INSERT do novo
             codigos.save(CodigoSms.novo(

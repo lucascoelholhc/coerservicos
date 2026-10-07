@@ -37,6 +37,11 @@ interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
     @Query(value = "UPDATE usuario SET senha_hash = :hashNovo WHERE id = :id", nativeQuery = true)
     int redefinirSenhaHash(UUID id, String hashNovo);
 
+    /** RN61: 1 se a conta (não excluída) está sem celular ou sem e-mail. */
+    @Query("SELECT count(u) FROM Usuario u WHERE u.id = :id AND u.status <> 'excluido'"
+            + " AND (u.celular IS NULL OR u.email IS NULL)")
+    long contarComContatoPendente(UUID id);
+
     /** Só o id (sem carregar a conta antes da trava). */
     @Query("SELECT u.id FROM Usuario u WHERE u.celular = :celular")
     Optional<UUID> buscarIdPeloCelular(String celular);

@@ -88,14 +88,17 @@ class ServicoDeTokens {
     String emitirComprovante(String canal, String destino) {
         String token = TokenDeRenovacao.gerar();
         byte[] hash = TokenDeRenovacao.hash(token).orElseThrow();
-        transacao.executeWithoutResult(status -> gravar(
-                null,
-                canal,
-                destino,
-                FinalidadeToken.COMPROVANTE_POSSE,
-                hash,
-                clock.instant(),
-                VALIDADE_DO_COMPROVANTE));
+        transacao.executeWithoutResult(status -> {
+            tokens.travar("token_verificacao:" + destino); // dois comprovantes ao mesmo tempo não dão 500
+            gravar(
+                    null,
+                    canal,
+                    destino,
+                    FinalidadeToken.COMPROVANTE_POSSE,
+                    hash,
+                    clock.instant(),
+                    VALIDADE_DO_COMPROVANTE);
+        });
         return token;
     }
 

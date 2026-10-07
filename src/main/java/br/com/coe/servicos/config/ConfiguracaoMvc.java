@@ -4,12 +4,20 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import br.com.coe.servicos.compartilhado.seguranca.ContatoPendente;
+
 /** Interceptores do MVC: bloqueio de quem está com contato pendente (RN61). */
 @Configuration(proxyBeanMethods = false)
 public class ConfiguracaoMvc implements WebMvcConfigurer {
 
+    private final ContatoPendente contatoPendente;
+
+    ConfiguracaoMvc(ContatoPendente contatoPendente) {
+        this.contatoPendente = contatoPendente;
+    }
+
     @Override
     public void addInterceptors(InterceptorRegistry registro) {
-        registro.addInterceptor(new BloqueioDeContatoPendente());
+        registro.addInterceptor(new BloqueioDeContatoPendente(contatoPendente));
     }
 }

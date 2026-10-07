@@ -26,6 +26,7 @@ public class DespachoDeMensagens implements DisposableBean {
 
     private static final Logger LOG = LoggerFactory.getLogger(DespachoDeMensagens.class);
     private static final long OCIOSA_SEGUNDOS = 60;
+    private static final long ESPERA_NO_DESLIGAMENTO_SEGUNDOS = 5;
 
     private final EnviadorSms sms;
     private final EnviadorEmail email;
@@ -61,7 +62,8 @@ public class DespachoDeMensagens implements DisposableBean {
                 new ThreadPoolExecutor.AbortPolicy());
     }
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    /** Fora de transação (não deveria acontecer) envia direto, em vez de sumir em silêncio. */
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void aoConfirmar(MensagemPronta mensagem) {
         pendentes.incrementAndGet();
         try {
@@ -97,8 +99,18 @@ public class DespachoDeMensagens implements DisposableBean {
         return pendentes.get();
     }
 
+    /** Desligando: termina o que está na fila (até 5 s) antes de parar as threads. */
     @Override
     public void destroy() {
-        executor.shutdownNow();
+        executor.shutdown();
+        try {
+            if (!executor.awaitTermination(ESPERA_NO_DESLIGAMENTO_SEGUNDOS, TimeUnit.SECONDS)) {
+                LOG.warn("Desligando com {} mensagem(ns) ainda na fila de envio", pendentes.get());
+                executor.shutdownNow();
+            }
+        } catch (InterruptedException interrompido) {
+            executor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
     }
 }
