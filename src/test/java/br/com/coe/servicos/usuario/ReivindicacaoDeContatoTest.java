@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
@@ -163,7 +164,7 @@ class ReivindicacaoDeContatoTest extends IntegracaoTest {
         String corpo = resposta.andExpect(status().isConflict())
                 .andReturn()
                 .getResponse()
-                .getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+                .getContentAsString(StandardCharsets.UTF_8);
         return corpo.replaceAll("\"instance\":\"[^\"]*\",?", "");
     }
 

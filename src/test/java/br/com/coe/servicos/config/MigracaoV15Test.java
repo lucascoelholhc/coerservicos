@@ -27,6 +27,9 @@ class MigracaoV15Test extends BancoIntegracaoTest {
     void semVarredura() {
         usuario = fixtures.usuario();
         jdbc.execute("SET LOCAL enable_seqscan = off");
+        // O ix_codigo_sms_usuario (V14, só usuario_id) também serviria às consultas da conta; sai só
+        // nesta transação (desfeita no fim) para provar que o índice novo é que atende.
+        jdbc.execute("DROP INDEX ix_codigo_sms_usuario");
     }
 
     private String plano(String consulta) {
