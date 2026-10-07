@@ -59,6 +59,16 @@ class ServicoDeConfirmacaoDeEmail {
         this.clock = clock;
     }
 
+    /**
+     * Cadastro novo (07/10): manda o link de confirmação sozinho, na transação do cadastro (sai só
+     * depois do commit; rollback não manda). Limite atingido só vai para o log.
+     */
+    void enviarLinkDoCadastro(java.util.UUID usuarioId, String email) {
+        if (!tokens.enviarLink(usuarioId, email, FinalidadeToken.CONFIRMAR_EMAIL, VALIDADE, EMAIL)) {
+            LOG.info("Link de confirmação do cadastro não enviado (limite): {}", usuarioId);
+        }
+    }
+
     void pedirLink() {
         Usuario usuario = contaDeQuemChama.carregarAtiva();
         if (usuario.getEmail() == null) {

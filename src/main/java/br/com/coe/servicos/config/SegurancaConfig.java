@@ -57,7 +57,9 @@ public class SegurancaConfig {
             new RotaPublica(HttpMethod.POST, "/api/auth/segundo-passo"),
             new RotaPublica(HttpMethod.POST, "/api/auth/codigo"),
             new RotaPublica(HttpMethod.POST, "/api/auth/entrar-com-codigo"),
-            new RotaPublica(HttpMethod.POST, "/api/auth/renovar"));
+            new RotaPublica(HttpMethod.POST, "/api/auth/renovar"),
+            new RotaPublica(HttpMethod.POST, "/api/auth/senha/esqueci"),
+            new RotaPublica(HttpMethod.POST, "/api/auth/senha/redefinir"));
 
     private static final int CUSTO_BCRYPT = 12;
     private static final long HSTS_UM_ANO = 31_536_000L;

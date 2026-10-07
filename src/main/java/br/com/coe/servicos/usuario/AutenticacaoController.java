@@ -34,13 +34,45 @@ class AutenticacaoController {
     private final ServicoDeSessao sessoes;
     private final EmissorDeToken emissor;
     private final CookieDeRenovacao cookie;
+    private final ServicoDeSenha senha;
 
     AutenticacaoController(
-            ServicoDeLogin login, ServicoDeSessao sessoes, EmissorDeToken emissor, CookieDeRenovacao cookie) {
+            ServicoDeLogin login,
+            ServicoDeSessao sessoes,
+            EmissorDeToken emissor,
+            CookieDeRenovacao cookie,
+            ServicoDeSenha senha) {
         this.login = login;
         this.sessoes = sessoes;
         this.emissor = emissor;
         this.cookie = cookie;
+        this.senha = senha;
+    }
+
+    @PostMapping("/senha/esqueci")
+    @Publico
+    ResponseEntity<MensagemResponse> esqueciASenha(
+            @Valid @RequestBody EsqueciSenhaRequest pedido, HttpServletRequest requisicao) {
+        senha.esqueci(pedido.login(), requisicao.getRemoteAddr());
+        return ResponseEntity.accepted().body(new MensagemResponse(ServicoDeSenha.MENSAGEM_ESQUECI));
+    }
+
+    /** Não entra: depois de redefinir, a pessoa entra com a senha nova. */
+    @PostMapping("/senha/redefinir")
+    @Publico
+    ResponseEntity<Void> redefinirASenha(@Valid @RequestBody RedefinirSenhaRequest pedido) {
+        senha.redefinir(pedido);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Logado; o cookie (Path=/api/auth) diz qual sessão manter. */
+    @PostMapping("/senha/trocar")
+    @PreAuthorize("isAuthenticated()")
+    ResponseEntity<Void> trocarASenha(
+            @Valid @RequestBody TrocarSenhaRequest pedido,
+            @CookieValue(name = CookieDeRenovacao.NOME, required = false) String refresh) {
+        senha.trocar(pedido.senhaAtual(), pedido.novaSenha(), refresh);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/entrar")

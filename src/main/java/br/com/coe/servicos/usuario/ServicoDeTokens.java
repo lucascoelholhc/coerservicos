@@ -99,6 +99,15 @@ class ServicoDeTokens {
         return token;
     }
 
+    /** Só olha (sem usar nem travar): o token é da finalidade e vale agora? */
+    Optional<TokenVerificacao> espiar(String token, FinalidadeToken finalidade) {
+        Instant agora = clock.instant();
+        return TokenDeRenovacao.hash(token)
+                .flatMap(tokens::buscarSemTravar)
+                .filter(encontrado -> finalidade.valor().equals(encontrado.getFinalidade()))
+                .filter(encontrado -> encontrado.valeEm(agora));
+    }
+
     /** Usa o token (uma vez) se for da finalidade, estiver ativo e no prazo. */
     Optional<TokenVerificacao> consumir(String token, FinalidadeToken finalidade) {
         return consumir(token, finalidade, encontrado -> true);

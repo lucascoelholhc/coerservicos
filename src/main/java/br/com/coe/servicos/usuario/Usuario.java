@@ -127,6 +127,11 @@ public class Usuario {
         }
     }
 
+    /** Conta que pode entrar (e recuperar a senha): nem suspensa nem excluída. */
+    boolean podeEntrar() {
+        return !SUSPENSO.equals(status) && !EXCLUIDO.equals(status);
+    }
+
     boolean isEmailConfirmado() {
         return emailVerificadoEm != null;
     }

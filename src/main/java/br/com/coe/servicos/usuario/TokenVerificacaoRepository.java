@@ -26,6 +26,16 @@ interface TokenVerificacaoRepository extends JpaRepository<TokenVerificacao, UUI
             + " AND t.usadoEm IS NULL AND t.invalidadoEm IS NULL")
     Optional<TokenVerificacao> buscarAtivo(String destino, String finalidade);
 
+    /** Invalida os links ativos da conta na finalidade (ex.: os de senha depois de redefinir). */
+    @Modifying
+    @Query("UPDATE TokenVerificacao t SET t.invalidadoEm = :agora WHERE t.usuarioId = :usuarioId"
+            + " AND t.finalidade = :finalidade AND t.usadoEm IS NULL AND t.invalidadoEm IS NULL")
+    int invalidarAtivosDaConta(UUID usuarioId, String finalidade, Instant agora);
+
+    /** Só lê (sem trava, sem usar): para conferir a conta antes do BCrypt. */
+    @Query("SELECT t FROM TokenVerificacao t WHERE t.tokenHash = :tokenHash")
+    Optional<TokenVerificacao> buscarSemTravar(byte[] tokenHash);
+
     /** RN61: o e-mail mudou de dono; nenhum link pendente dele continua valendo. */
     @Modifying
     @Query("UPDATE TokenVerificacao t SET t.invalidadoEm = :agora WHERE t.destino = :destino"

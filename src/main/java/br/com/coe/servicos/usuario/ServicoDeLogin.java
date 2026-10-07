@@ -147,16 +147,8 @@ class ServicoDeLogin {
         return new NaoAutenticadoException("login-invalido", "Código incorreto ou vencido.");
     }
 
-    /** Pelo formato: com @ é e-mail; senão, celular (normalizado como no cadastro). */
     private Optional<Usuario> buscar(String login) {
-        String texto = login.strip();
-        if (texto.contains("@")) {
-            return usuarios.findByEmail(Contato.normalizarEmail(texto));
-        }
-        if (Contato.celularDigitadoValido(texto)) {
-            return usuarios.findByCelular(Contato.normalizarCelular(texto));
-        }
-        return Optional.empty();
+        return usuarios.buscarPeloLogin(login);
     }
 
     private boolean conferir(Optional<Usuario> usuario, String senha) {

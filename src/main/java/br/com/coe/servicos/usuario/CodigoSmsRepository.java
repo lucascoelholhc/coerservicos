@@ -51,6 +51,12 @@ interface CodigoSmsRepository extends JpaRepository<CodigoSms, UUID> {
             + " AND c.usadoEm IS NULL AND c.invalidadoEm IS NULL")
     Optional<CodigoSms> buscarAtivoDaConta(UUID usuarioId, String finalidade);
 
+    /** Invalida os códigos ativos da conta na finalidade (ex.: os de senha depois de redefinir). */
+    @Modifying
+    @Query("UPDATE CodigoSms c SET c.invalidadoEm = :agora WHERE c.usuarioId = :usuarioId"
+            + " AND c.finalidade = :finalidade AND c.usadoEm IS NULL AND c.invalidadoEm IS NULL")
+    int invalidarAtivosDaConta(UUID usuarioId, String finalidade, Instant agora);
+
     /** RN61: o número mudou de dono; nenhum código pendente dele continua valendo. */
     @Modifying
     @Query("UPDATE CodigoSms c SET c.invalidadoEm = :agora WHERE c.celular = :celular"

@@ -20,6 +20,23 @@ interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
 
     Optional<Usuario> findByEmail(String email);
 
+    /** Pelo formato: com @ é e-mail; senão, celular (normalizado como no cadastro). */
+    default Optional<Usuario> buscarPeloLogin(String login) {
+        String texto = login.strip();
+        if (texto.contains("@")) {
+            return findByEmail(Contato.normalizarEmail(texto));
+        }
+        if (Contato.celularDigitadoValido(texto)) {
+            return findByCelular(Contato.normalizarCelular(texto));
+        }
+        return Optional.empty();
+    }
+
+    /** Senha redefinida (CORE-05): grava o hash novo, sem conferir o antigo. */
+    @Modifying
+    @Query(value = "UPDATE usuario SET senha_hash = :hashNovo WHERE id = :id", nativeQuery = true)
+    int redefinirSenhaHash(UUID id, String hashNovo);
+
     /** Só o id (sem carregar a conta antes da trava). */
     @Query("SELECT u.id FROM Usuario u WHERE u.celular = :celular")
     Optional<UUID> buscarIdPeloCelular(String celular);

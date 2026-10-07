@@ -33,6 +33,7 @@ public class CadastroClienteService {
     private final ConfiguracaoNegocio configuracao;
     private final TransactionTemplate transacao;
     private final ReivindicacaoDeContato reivindicacao;
+    private final ServicoDeConfirmacaoDeEmail confirmacaoDeEmail;
 
     CadastroClienteService(
             UsuarioRepository usuarios,
@@ -40,8 +41,10 @@ public class CadastroClienteService {
             PasswordEncoder codificadorDeSenha,
             ConfiguracaoNegocio configuracao,
             PlatformTransactionManager transacoes,
-            ReivindicacaoDeContato reivindicacao) {
+            ReivindicacaoDeContato reivindicacao,
+            ServicoDeConfirmacaoDeEmail confirmacaoDeEmail) {
         this.reivindicacao = reivindicacao;
+        this.confirmacaoDeEmail = confirmacaoDeEmail;
         this.usuarios = usuarios;
         this.aceites = aceites;
         this.codificadorDeSenha = codificadorDeSenha;
@@ -104,6 +107,9 @@ public class CadastroClienteService {
                     }
                 }
                 usuarios.saveAndFlush(usuario);
+                if (!usuario.isEmailConfirmado()) {
+                    confirmacaoDeEmail.enviarLinkDoCadastro(usuario.getId(), email);
+                }
                 aceites.save(aceite);
             });
         } catch (DataIntegrityViolationException erro) {

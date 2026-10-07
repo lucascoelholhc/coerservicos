@@ -33,7 +33,8 @@ class CadastroClienteServiceTest {
             codificador,
             configuracao,
             transacoes,
-            mock(ReivindicacaoDeContato.class));
+            mock(ReivindicacaoDeContato.class),
+            mock(ServicoDeConfirmacaoDeEmail.class));
 
     private final NovoClienteRequest pedido = new NovoClienteRequest(
             "Ana Silva", "47900000901", "ana901@teste.coe.local", "89010000", "Casa-Azul-2026", "1.0", null, null);
