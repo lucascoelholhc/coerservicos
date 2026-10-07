@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSourceResolvable;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -79,7 +80,26 @@ public class TratadorDeErros extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(AcaoProibidaException.class)
     ProblemDetail acaoProibida(AcaoProibidaException erro) {
-        return problema(HttpStatus.FORBIDDEN, erro.getCodigo(), "Acesso negado", erro.getMessage());
+        ProblemDetail problema = problema(HttpStatus.FORBIDDEN, erro.getCodigo(), "Acesso negado", erro.getMessage());
+        erro.getPropriedades().forEach(problema::setProperty);
+        return problema;
+    }
+
+    @ExceptionHandler(MuitasTentativasException.class)
+    ProblemDetail muitasTentativas(MuitasTentativasException erro) {
+        LOG.info("Limite de pedidos atingido");
+        return problema(HttpStatus.TOO_MANY_REQUESTS, "muitas-tentativas", "Muitas tentativas", erro.getMessage());
+    }
+
+    /** A linha mudou entre a leitura e a gravação (@Version): 409, a pessoa tenta de novo. */
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    ProblemDetail edicaoConcorrente(OptimisticLockingFailureException erro) {
+        LOG.info("Edição concorrente recusada pela trava otimista");
+        return problema(
+                HttpStatus.CONFLICT,
+                "edicao-concorrente",
+                "Conflito",
+                "Seus dados mudaram enquanto você salvava. Tente de novo.");
     }
 
     /** Validação feita fora do controller (ex.: {@code @Validated} num serviço). */

@@ -10,5 +10,3 @@ server.port: 8081
 coe.auth.cookie.secure: false
 # Front local (Vite)
 coe.seguranca.origens-permitidas: http://localhost:5173
-# Até o CORE-04 (SMS), o ADMIN do seed entra sem o segundo passo. SÓ AQUI, nunca em outro perfil.
-coe.seguranca.dispensar-mfa-admin: true

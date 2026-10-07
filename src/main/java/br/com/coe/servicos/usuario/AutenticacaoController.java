@@ -20,7 +20,10 @@ import org.springframework.web.bind.annotation.RestController;
 import br.com.coe.servicos.compartilhado.erro.NaoAutenticadoException;
 import br.com.coe.servicos.compartilhado.seguranca.Publico;
 
-/** Login, renovação e saída (CORE-03, PA03). O refresh só trafega no cookie HttpOnly. */
+/**
+ * Login (senha, segundo passo e código SMS), renovação e saída (CORE-03, CORE-04, PA03). O refresh
+ * só trafega no cookie HttpOnly.
+ */
 @RestController
 @RequestMapping("/api/auth")
 class AutenticacaoController {
@@ -43,6 +46,32 @@ class AutenticacaoController {
     ResponseEntity<SessaoResponse> entrar(@Valid @RequestBody LoginRequest pedido, HttpServletRequest requisicao) {
         ServicoDeLogin.LoginAceito aceito =
                 login.entrar(pedido, requisicao.getRemoteAddr(), requisicao.getHeader(HttpHeaders.USER_AGENT));
+        return responder(aceito.usuario(), aceito.refresh());
+    }
+
+    @PostMapping("/segundo-passo")
+    @Publico
+    ResponseEntity<SessaoResponse> segundoPasso(
+            @Valid @RequestBody SegundoPassoRequest pedido, HttpServletRequest requisicao) {
+        ServicoDeLogin.LoginAceito aceito =
+                login.segundoPasso(pedido, requisicao.getRemoteAddr(), requisicao.getHeader(HttpHeaders.USER_AGENT));
+        return responder(aceito.usuario(), aceito.refresh());
+    }
+
+    @PostMapping("/codigo")
+    @Publico
+    ResponseEntity<MensagemResponse> pedirCodigo(
+            @Valid @RequestBody PedidoDeCodigoRequest pedido, HttpServletRequest requisicao) {
+        login.pedirCodigo(pedido.celular(), requisicao.getRemoteAddr());
+        return ResponseEntity.accepted().body(new MensagemResponse(ServicoDeLogin.MENSAGEM_CODIGO_ENVIADO));
+    }
+
+    @PostMapping("/entrar-com-codigo")
+    @Publico
+    ResponseEntity<SessaoResponse> entrarComCodigo(
+            @Valid @RequestBody EntrarComCodigoRequest pedido, HttpServletRequest requisicao) {
+        ServicoDeLogin.LoginAceito aceito =
+                login.entrarComCodigo(pedido, requisicao.getRemoteAddr(), requisicao.getHeader(HttpHeaders.USER_AGENT));
         return responder(aceito.usuario(), aceito.refresh());
     }
 

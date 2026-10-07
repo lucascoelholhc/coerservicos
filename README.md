@@ -59,10 +59,14 @@ O Flyway aplica as migrações e o seed local (dois usuários de teste, senha `c
 ```bash
 curl http://localhost:8081/actuator/health    # {"status":"UP"} (perfil local na 8081)
 
-# Login do admin do seed (sem SMS só no perfil local), renovação e saída.
-# Renovar e sair exigem o header Origin do front (como o navegador manda).
-curl -c cookies.txt -H "Content-Type: application/json" \
+# Login do admin do seed: senha + código por SMS (MFA obrigatório para ADMIN).
+# No perfil local o SMS é falso: o código aparece no log ("SMS FALSO (perfil local) para 47*****0001: ...").
+# Todo POST em /api/auth/ (menos o entrar) exige o header Origin do front (como o navegador manda).
+curl -H "Content-Type: application/json" \
      -d '{"login":"(47) 90000-0001","senha":"coe-local-123"}' http://localhost:8081/api/auth/entrar
+#   -> 403 segundo-passo-necessario com "desafioId"; pegue o código no log da aplicação
+curl -c cookies.txt -H "Content-Type: application/json" -H "Origin: http://localhost:5173" \
+     -d '{"desafioId":"<desafioId>","codigo":"<código do log>"}' http://localhost:8081/api/auth/segundo-passo
 curl -b cookies.txt -c cookies.txt -X POST -H "Origin: http://localhost:5173" http://localhost:8081/api/auth/renovar
 curl -H "Authorization: Bearer <accessToken>" http://localhost:8081/api/contas/eu
 curl -b cookies.txt -X POST -H "Origin: http://localhost:5173" -H "Authorization: Bearer <accessToken>" \

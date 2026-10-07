@@ -117,4 +117,16 @@ public class Usuario {
     boolean isMfaSmsAtivo() {
         return mfaSmsAtivo;
     }
+
+    /** Celular confirmado por código SMS (RN08); a primeira confirmação vale. */
+    void confirmarCelular(Instant agora) {
+        if (celularVerificadoEm == null) {
+            celularVerificadoEm = agora;
+        }
+    }
+
+    /** O banco exige celular confirmado para ligar (ck_usuario_mfa_celular). */
+    void definirMfa(boolean ativo) {
+        mfaSmsAtivo = ativo;
+    }
 }

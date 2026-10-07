@@ -104,6 +104,7 @@ Numeradas na ordem em que são criadas, sem reservar número: tarefa futura apar
 | DB-10 | `V10__indices_busca` | Índices e view de busca por cidade e raio |
 | DB-11 | `R__dados_local` + seeder Java | Só no perfil local; profissionais de exemplo pelo seeder (campos cifrados) |
 | DB-13 | `V12__autenticacao_jwt` | Remove `spring_session*` (PA03 = JWT); cria `refresh_token` (hash único, usuário, aparelho, validade, revogado em, substituído por, família para revogar tudo em caso de reuso); `usuario.mfa_sms_ativo` (padrão falso); finalidade `mfa` no `codigo_sms`; comissão com teto de 30% (CHECK) |
+| DB-16 | `V14__codigos_contato_e_senha` | Confere que `token_senha` e `codigo_sms` estão vazias (senão falha); `usuario.email_verificado_em`; `ck_usuario_credenciais` = senha + celular **ou** e-mail (RN61); verificado só com o dado presente; MFA exige celular confirmado; `codigo_sms` com `codigo_hmac` (32 bytes), `usuario_id` (FK RESTRICT), `desafio_hash` (só no `mfa`), `invalidado_em`, `criado_em` vindo do Clock, finalidades `configurar_mfa`, `comprovar_posse`, `recuperar_senha`, um ativo por celular e finalidade, `coe_app` sem DELETE e com UPDATE só nas colunas de uso; `token_verificacao` (links por e-mail e comprovantes de posse, só o hash) no lugar da `token_senha`; motivo de revogação `contato_transferido` |
 | DB-15 | `V13__teto_da_sessao` | `refresh_token.sessao_iniciada_em` (gravado no login, herdado pelo sucessor, imutável; FK do sucessor inclui a coluna, então o banco recusa início diferente); linhas existentes preenchidas com o `min(criado_em)` da família; motivo de revogação `teto` |
 | DB-14 | Migração das faltas do profissional (`ocorrencia_profissional`; número quando o arquivo for criado) | Junto do DOM-09. `ocorrencia_profissional` só de inserção (gatilhos `fn_somente_insercao` de linha e TRUNCATE, sem UPDATE/DELETE/TRUNCATE para o `coe_app`); `profissional.motivo_suspensao` obrigatório com status `suspenso`; parâmetros `FALTAS_ALERTA` = 2 e `FALTAS_JANELA_DIAS` = 90 com faixa validada (PA07) |
 
@@ -186,7 +187,20 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 - "Sair de todos" concorrendo com uma renovação já travada pode deixar o sucessor dela válido (janela de milissegundos, aceita).
 - **Teto absoluto da sessão: 90 dias desde o login** (decidido em 05/10): implementado no dia 6 (V13, `sessao_iniciada_em`); o sucessor vale `min(agora + 30 dias, início + 90 dias)` e o cookie usa o mesmo prazo.
 - Opcionais apontados pela revisão: recusar chave JWT de baixa qualidade (bytes iguais, chaves repetidas) e falhar a subida com os perfis `local` e `prod` juntos.
-- No perfil `local`, o MFA do ADMIN é dispensado (bean `@Profile("local")` **e** `coe.seguranca.dispensar-mfa-admin=true` só no `application-local.yml`) até o CORE-04; em `test` e `prod` não existe.
+- ~~Dispensa do MFA do ADMIN no perfil `local`~~: removida no CORE-04 (dia 7a); no local o ADMIN entra com o código que o SMS falso escreve no log.
+
+**Pendências do dia 7a** (CORE-04 parte SMS, revisões sem HIGH):
+- **Provedor de SMS: A DEFINIR** (sugestão: Amazon SNS). Sem ele a aplicação não sobe em prod (`ConfiguracaoDeSms`).
+- **CORE-07 (rate limit por IP)** precisa cobrir `/api/auth/codigo`, `/api/auth/entrar-com-codigo`, `/api/auth/segundo-passo` e `/api/contas/eu/*/codigo`. Hoje o limite é só por celular (1 a cada 60 s e 5 por hora, somando as finalidades), o que permite a um anônimo gastar a cota de um celular e invalidar o código ativo do dono (negação do login por código e do 2º fator; sem invasão) e "bombardear" um número com até 5 SMS por hora.
+- **Para decidir** (security-reviewer, MEDIUM): no login só por código, 5 envios × 5 tentativas = 25 chutes por hora por celular (≈0,06% por dia). Proposta: contar falhas por celular (ex.: 10 em 24 h bloqueiam o login por código naquele celular por algumas horas) além do CORE-07.
+- **Para decidir** (java-reviewer e security-reviewer, MEDIUM): `/api/auth/codigo` envia o SMS de forma síncrona, então o tempo de resposta revela se o celular tem conta confirmada; uma falha do provedor dá 500 só para conta existente. Proposta: envio assíncrono (executor limitado) depois de gravar o código, com erro só no log.
+- Código SMS gravado e cota consumida antes do envio: se o provedor falhar, o código fica ativo sem ter chegado (o próximo pedido o invalida).
+- **DOM-02**: profissional sem celular confirmado não vai para análise nem aparece na busca (trava no cadastro do profissional, RN08).
+- **DOM-08**: quando existir o filtro de `contato-pendente` (RN61, dia 7b), "Cheguei", "Terminei o dia" e "aprovar diária" entram na **lista de liberados**: a marca bloqueia começar coisas novas (contratar, chat, editar perfil, cadastro de profissional), nunca a execução do que já foi pago (um profissional que perdeu um e-mail não confirmado não pode ficar travado numa diária paga).
+- **Expurgo LGPD** de `codigo_sms` e `token_verificacao` (guardam celular e e-mail): job com o dono do schema (o `coe_app` não tem DELETE), apagando linhas com mais de 30 a 90 dias (prazo a definir com o expurgo geral).
+- **Anonimização (RN60)** deve zerar também `celular_verificado_em`, `email_verificado_em` e `mfa_sms_ativo`.
+- Envios de e-mail (7b) contados por endereço em `token_verificacao`; os de SMS em `codigo_sms`.
+- `/api/auth/entrar` continua sem exigir Origin (decisão do dia 6); com o MFA, um POST de outro site com a senha certa dispara um SMS. Risco baixo (exige a senha), registrado.
 
 **Casos de teste obrigatórios do CORE-03 e CORE-04** (PA03):
 - Token de acesso expirado (Clock adiantado 15 min) é recusado com 401; renovação devolve um novo par

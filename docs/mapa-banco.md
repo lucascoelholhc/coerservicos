@@ -13,7 +13,7 @@ Os dados correm da esquerda para a direita: catálogo e conta alimentam o perfil
 ```mermaid
 flowchart LR
   CAT["Catálogo (V3)<br/>cidade · area · profissao · servico"] --> PRO
-  CON["Conta (V2)<br/>usuario · usuario_papel · codigo_sms<br/>token_senha · aceite_termos · spring_session*"] --> PRO
+  CON["Conta (V2)<br/>usuario · usuario_papel · codigo_sms<br/>token_verificacao · aceite_termos"] --> PRO
   CON --> CHAT
   CON --> CTR
   PRO["Profissional (V4)<br/>perfil, serviços, cidades,<br/>agenda, documentos, portfólio"] --> CTR
@@ -240,6 +240,7 @@ Toda pessoa com login: cliente, profissional e admin. Celular é o login.
 | `celular` | text | sim |  |  |
 | `celular_verificado_em` | timestamptz |  |  |  |
 | `email` | citext |  |  |  |
+| `email_verificado_em` | timestamptz |  |  |  |
 | `senha_hash` | text | sim |  |  |
 | `cep` | char(8) |  |  |  |
 | `status` | text | sim | `'ativo'` |  |
@@ -260,6 +261,7 @@ Regras:
 - `usuario_nome_check`: `CHECK (((char_length(btrim(nome)) >= 2) AND (char_length(btrim(nome)) <= 120)))`
 - `usuario_status_check`: `CHECK ((status = ANY (ARRAY['ativo'::text, 'em_analise'::text, 'suspenso'::text, 'excluido'::text])))`
 - `uq_usuario_celular`: `UNIQUE (celular)`
+- V14: `ck_usuario_credenciais` (fora de `excluido`: senha + celular **ou** e-mail, RN61); `ck_usuario_celular_verificado` e `ck_usuario_email_verificado` (verificado só com o dado presente); `ck_usuario_mfa_celular` (MFA ligado exige celular confirmado)
 - `uq_usuario_email`: `UNIQUE (email)`
 
 Índices:
@@ -285,51 +287,69 @@ Regras:
 
 #### `codigo_sms`
 
-Código de 6 dígitos do login por SMS, guardado só como hash, vale 5 min e 5 tentativas.
+Código de 6 dígitos por SMS (login, MFA, confirmar celular, ligar MFA, provar posse, recuperar senha). Só o HMAC-SHA256 do código (chave `COE_CHAVE_CODIGOS`); vale 5 min, uma vez, 5 tentativas; um ativo por celular e finalidade (o anterior é invalidado). O `coe_app` não apaga e só altera `tentativas`, `usado_em` e `invalidado_em` (V14).
 
 | Coluna | Tipo | Obrigatória | Padrão | Chave |
 |---|---|---|---|---|
 | `id` | uuid | sim | `gen_random_uuid()` | PK |
+| `usuario_id` | uuid |  |  | FK → `usuario` (RESTRICT) |
 | `celular` | text | sim |  |  |
 | `finalidade` | text | sim |  |  |
-| `codigo_hash` | text | sim |  |  |
+| `codigo_hmac` | bytea | sim |  |  |
+| `desafio_hash` | bytea |  |  | UNIQUE |
 | `tentativas` | smallint | sim | `0` |  |
 | `expira_em` | timestamptz | sim |  |  |
 | `usado_em` | timestamptz |  |  |  |
+| `invalidado_em` | timestamptz |  |  |  |
 | `ip` | inet |  |  |  |
-| `criado_em` | timestamptz | sim | `now()` |  |
+| `criado_em` | timestamptz | sim |  |  |
 
 Regras:
 
-- `ck_codigo_sms_validade`: `CHECK ((expira_em > criado_em))`
-- `codigo_sms_celular_check`: `CHECK ((celular ~ '^[0-9]{10,11}$'::text))`
-- `codigo_sms_finalidade_check`: `CHECK ((finalidade = ANY (ARRAY['login'::text, 'verificar_celular'::text, 'trocar_celular'::text])))`
-- `codigo_sms_tentativas_check`: `CHECK (((tentativas >= 0) AND (tentativas <= 5)))`
+- `ck_codigo_sms_finalidade`: `login`, `verificar_celular`, `trocar_celular`, `mfa`, `configurar_mfa`, `comprovar_posse`, `recuperar_senha`
+- `ck_codigo_sms_hmac`: HMAC de 32 bytes; `ck_codigo_sms_desafio`: desafio (32 bytes) só no `mfa`; `ck_codigo_sms_mfa_com_desafio`: `mfa` sempre com desafio
+- `ck_codigo_sms_dono`: sem `usuario_id` só em `comprovar_posse`
+- `ck_codigo_sms_uso`, `ck_codigo_sms_invalidacao`, `ck_codigo_sms_uso_ou_invalidado` (usado **ou** invalidado, nunca os dois), `ck_codigo_sms_validade`
+- `codigo_sms_celular_check` (10 ou 11 dígitos), `codigo_sms_tentativas_check` (0 a 5)
+- Gatilho `trg_codigo_sms_imutavel`: só tentativas (subindo), uso e invalidação mudam, uma vez
 
 Índices:
 
-- `ix_codigo_sms_celular`: `btree (celular, criado_em DESC)`
+- `uq_codigo_sms_ativo`: `UNIQUE (celular, finalidade) WHERE usado_em IS NULL AND invalidado_em IS NULL`
+- `ix_codigo_sms_celular`: `btree (celular, criado_em DESC)` (limites de envio)
+- `ix_codigo_sms_usuario`: `btree (usuario_id)`
 
-#### `token_senha`
+#### `token_verificacao`
 
-Link de 'esqueci minha senha', uso único, guardado como hash.
+Links por e-mail (confirmar e-mail, provar posse, recuperar senha) e comprovantes de posse (30 min). Só o SHA-256 do token; destino normalizado (e-mail em minúsculas, celular só com dígitos). Substitui a `token_senha` (V14). O `coe_app` não apaga e só altera `usado_em` e `invalidado_em`.
 
 | Coluna | Tipo | Obrigatória | Padrão | Chave |
 |---|---|---|---|---|
 | `id` | uuid | sim | `gen_random_uuid()` | PK |
-| `usuario_id` | uuid | sim |  | FK → `usuario` |
-| `token_hash` | text | sim |  |  |
+| `usuario_id` | uuid |  |  | FK → `usuario` (RESTRICT) |
+| `canal` | text | sim |  |  |
+| `destino` | text | sim |  |  |
+| `finalidade` | text | sim |  |  |
+| `token_hash` | bytea | sim |  | UNIQUE |
+| `criado_em` | timestamptz | sim |  |  |
 | `expira_em` | timestamptz | sim |  |  |
 | `usado_em` | timestamptz |  |  |  |
-| `criado_em` | timestamptz | sim | `now()` |  |
+| `invalidado_em` | timestamptz |  |  |  |
 
 Regras:
 
-- `uq_token_senha_hash`: `UNIQUE (token_hash)`
+- `ck_token_verificacao_finalidade`: `confirmar_email`, `link_posse`, `recuperar_senha`, `comprovante_posse`
+- `ck_token_verificacao_canal`: canal `celular` só no `comprovante_posse`
+- `ck_token_verificacao_destino`: até 254 caracteres; e-mail em minúsculas; celular com 10 ou 11 dígitos
+- `ck_token_verificacao_dono`: sem dono só em `link_posse` e `comprovante_posse`
+- `ck_token_verificacao_hash` (32 bytes), `_validade`, `_uso`, `_invalidacao`, `_uso_ou_invalidado`
+- Gatilho `trg_token_verificacao_imutavel`: só o uso e a invalidação mudam, uma vez
 
 Índices:
 
-- `ix_token_senha_usuario`: `btree (usuario_id)`
+- `uq_token_verificacao_ativo`: `UNIQUE (destino, finalidade) WHERE usado_em IS NULL AND invalidado_em IS NULL`
+- `ix_token_verificacao_destino`: `btree (destino, criado_em DESC)` (limites de envio de e-mail)
+- `ix_token_verificacao_usuario`: `btree (usuario_id)`
 
 #### `aceite_termos`
 
@@ -1305,6 +1325,7 @@ Ficaram para o DOM-07: custódia rastreada por contrato e saldo nunca negativo.
 |---|---|---|
 | V12 (DB-13), aplicada no dia 5 | Remove `spring_session*`; cria `refresh_token` (hash único, usuário, aparelho, validade, revogado em, substituído por, família); `usuario.mfa_sms_ativo` (padrão falso); finalidade `mfa` no `codigo_sms`; COMISSAO até 30% | PA03 |
 | V13 (DB-15), dia 6 | `refresh_token.sessao_iniciada_em` (início da sessão, herdado pelo sucessor e imutável; FK do sucessor inclui a coluna); motivo de revogação `teto` | PA03 (teto de 90 dias) |
+| V14 (DB-16), dia 7 | `codigo_sms` com HMAC, dono, desafio do MFA, invalidação e um ativo por celular e finalidade; `token_verificacao` no lugar da `token_senha`; `usuario.email_verificado_em`; `ck_usuario_credenciais` = senha + celular ou e-mail; MFA exige celular confirmado; motivo `contato_transferido` | RF01, RN08, RN61 |
 | Migração do DB-14 (faltas do profissional), junto do DOM-09 | `ocorrencia_profissional (profissional_id, diaria_id, disputa_id, tipo 'falta', registrado_por, criado_em)` só de inserção, com os gatilhos de `fn_somente_insercao` (linha e TRUNCATE) e sem UPDATE/DELETE/TRUNCATE para o `coe_app`; `profissional.motivo_suspensao` obrigatório com status `suspenso`; parâmetros `FALTAS_ALERTA` = 2 e `FALTAS_JANELA_DIAS` = 90 | PA07, RN44c–RN44e |
 | Futura (expurgo LGPD) | Permitir apagar CPF, chave Pix e data de nascimento 5 anos após a exclusão (hoje o `ck_profissional_completo` exige esses campos fora do rascunho); `cpf_hash` mantido só para inativados | RN60, RNF16 |
 

@@ -661,23 +661,12 @@ class MigracaoV11Test extends BancoIntegracaoTest {
         }
 
         @Test
-        @DisplayName("barra usuário ativo sem celular")
-        void barraAtivoSemCelular() {
+        @DisplayName("barra usuário ativo sem celular e sem e-mail (desde a V14, RN61: basta um dos dois)")
+        void barraAtivoSemNenhumContato() {
             UUID usuario = fixtures.usuario();
 
-            PSQLException erro =
-                    erroDoBanco(() -> jdbc.update("UPDATE usuario SET celular = NULL WHERE id = ?", usuario));
-
-            assertConstraint(erro, CHECK_VIOLATION, "ck_usuario_credenciais");
-        }
-
-        @Test
-        @DisplayName("barra usuário ativo sem e-mail (RF03)")
-        void barraAtivoSemEmail() {
-            UUID usuario = fixtures.usuario();
-
-            PSQLException erro =
-                    erroDoBanco(() -> jdbc.update("UPDATE usuario SET email = NULL WHERE id = ?", usuario));
+            PSQLException erro = erroDoBanco(
+                    () -> jdbc.update("UPDATE usuario SET celular = NULL, email = NULL WHERE id = ?", usuario));
 
             assertConstraint(erro, CHECK_VIOLATION, "ck_usuario_credenciais");
         }

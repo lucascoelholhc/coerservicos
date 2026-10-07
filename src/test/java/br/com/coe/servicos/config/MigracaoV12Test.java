@@ -350,7 +350,8 @@ class MigracaoV12Test extends BancoIntegracaoTest {
         UUID usuario = fixtures.usuario();
         fixtures.agirComoAplicacao();
 
-        assertThat(jdbc.update("UPDATE usuario SET mfa_sms_ativo = true WHERE id = ?", usuario))
+        assertThat(jdbc.update(
+                        "UPDATE usuario SET mfa_sms_ativo = true, celular_verificado_em = now() WHERE id = ?", usuario))
                 .isOne();
     }
 
@@ -367,20 +368,25 @@ class MigracaoV12Test extends BancoIntegracaoTest {
     @DisplayName("codigo_sms: finalidade mfa")
     class CodigoSms {
 
+        // Colunas como ficaram na V14 (codigo_hmac de 32 bytes, dono, criado_em do Clock).
         private static final String INSERIR = """
-                INSERT INTO codigo_sms (celular, finalidade, codigo_hash, expira_em)
-                VALUES ('47900000301', ?, 'hash', now() + interval '5 minutes')""";
+                INSERT INTO codigo_sms (usuario_id, celular, finalidade, codigo_hmac, criado_em, expira_em)
+                VALUES (?, '47900000301', ?, sha256('x'::bytea), now(), now() + interval '5 minutes')""";
 
         @ParameterizedTest(name = "aceita {0}")
-        @ValueSource(strings = {"login", "verificar_celular", "trocar_celular", "mfa"})
+        @ValueSource(strings = {"login", "verificar_celular", "trocar_celular", "configurar_mfa"})
         void aceitaFinalidades(String finalidade) {
-            assertThatCode(() -> jdbc.update(INSERIR, finalidade)).doesNotThrowAnyException();
+            UUID usuario = fixtures.usuario();
+
+            assertThatCode(() -> jdbc.update(INSERIR, usuario, finalidade)).doesNotThrowAnyException();
         }
 
         @Test
         @DisplayName("finalidade fora da lista é recusada")
         void barraOutraFinalidade() {
-            PSQLException erro = erroDoBanco(() -> jdbc.update(INSERIR, "qualquer"));
+            UUID usuario = fixtures.usuario();
+
+            PSQLException erro = erroDoBanco(() -> jdbc.update(INSERIR, usuario, "qualquer"));
 
             assertConstraint(erro, CHECK_VIOLATION, "ck_codigo_sms_finalidade");
         }
