@@ -91,6 +91,7 @@ public class CadastroClienteService {
         AceiteTermos aceite = new AceiteTermos(usuario.getId(), versaoVigente, ip, userAgent);
         try {
             transacao.executeWithoutResult(status -> {
+                reivindicacao.travarContatos(celular, email);
                 if (pedido.comprovanteCelular() != null || pedido.comprovanteEmail() != null) {
                     ReivindicacaoDeContato.Resultado comprovado = reivindicacao.aplicar(
                             usuario.getId(),

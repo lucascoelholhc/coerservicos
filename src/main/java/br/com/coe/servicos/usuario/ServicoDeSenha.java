@@ -124,10 +124,19 @@ class ServicoDeSenha {
                             FinalidadeToken.RECUPERAR_SENHA,
                             link -> link.getUsuarioId().equals(conta.getId()))
                     .isPresent();
-            if (usou) {
-                gravarSenhaNova(conta.getId(), hash);
+            // Confere de novo dentro da transação: suspensa, e-mail trocado ou reivindicado no meio = não vale.
+            boolean aindaVale = usou
+                    && usuarios.findById(conta.getId())
+                            .filter(Usuario::podeEntrar)
+                            .filter(Usuario::isEmailConfirmado)
+                            .filter(atual -> conta.getEmail().equals(atual.getEmail()))
+                            .isPresent();
+            if (!aindaVale) {
+                status.setRollbackOnly();
+                return false;
             }
-            return usou;
+            gravarSenhaNova(conta.getId(), hash);
+            return true;
         });
         if (!Boolean.TRUE.equals(trocou)) {
             throw linkInvalido();
@@ -139,17 +148,32 @@ class ServicoDeSenha {
             throw linkInvalido();
         }
         String celular = Contato.normalizarCelular(digitado);
+        // Primeiro a parte da regra que não depende da conta: a mesma resposta com e sem conta.
+        exigirSenhaPermitida(novaSenha, celular, null);
         Usuario conta = usuarios.findByCelular(celular)
                 .filter(Usuario::podeEntrar)
                 .filter(Usuario::isCelularConfirmado)
                 .filter(dono -> !codigos.bloqueado(dono.getId()))
-                .orElseThrow(ServicoDeSenha::linkInvalido);
-        exigirSenhaPermitida(conta, novaSenha);
-        String hash = codificador.encode(novaSenha);
-        if (!codigos.conferir(celular, FinalidadeSms.RECUPERAR_SENHA, codigo)) {
+                .orElse(null);
+        if (conta == null || !codigos.conferir(celular, FinalidadeSms.RECUPERAR_SENHA, codigo)) {
             throw linkInvalido();
         }
-        transacao.executeWithoutResult(status -> gravarSenhaNova(conta.getId(), hash));
+        // Só com o código certo: o resto da regra (e-mail da conta) e o BCrypt.
+        exigirSenhaPermitida(conta, novaSenha);
+        String hash = codificador.encode(novaSenha);
+        Boolean trocou = transacao.execute(status -> {
+            boolean aindaVale = usuarios.findById(conta.getId())
+                    .filter(Usuario::podeEntrar)
+                    .filter(atual -> celular.equals(atual.getCelular()))
+                    .isPresent();
+            if (aindaVale) {
+                gravarSenhaNova(conta.getId(), hash);
+            }
+            return aindaVale;
+        });
+        if (!Boolean.TRUE.equals(trocou)) {
+            throw linkInvalido();
+        }
     }
 
     /** Senha nova: nenhum outro link ou código de senha vale e todas as sessões caem. */
@@ -195,10 +219,13 @@ class ServicoDeSenha {
     }
 
     private static void exigirSenhaPermitida(Usuario conta, String novaSenha) {
-        SenhaPermitidaValidador.motivoDeRecusa(novaSenha, conta.getCelular(), conta.getEmail())
-                .ifPresent(motivo -> {
-                    throw new RegraDeNegocioException("senha-nao-permitida", motivo);
-                });
+        exigirSenhaPermitida(novaSenha, conta.getCelular(), conta.getEmail());
+    }
+
+    private static void exigirSenhaPermitida(String novaSenha, String celular, String email) {
+        SenhaPermitidaValidador.motivoDeRecusa(novaSenha, celular, email).ifPresent(motivo -> {
+            throw new RegraDeNegocioException("senha-nao-permitida", motivo);
+        });
     }
 
     private static RegraDeNegocioException linkInvalido() {

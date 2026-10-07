@@ -32,7 +32,10 @@ interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
         return Optional.empty();
     }
 
-    /** Senha redefinida (CORE-05): grava o hash novo, sem conferir o antigo. */
+    /**
+     * Senha redefinida (CORE-05): grava o hash novo, sem conferir o antigo. UPDATE nativo: não use
+     * na mesma transação em que a entidade Usuario foi alterada (o flush dela sobrescreveria o hash).
+     */
     @Modifying
     @Query(value = "UPDATE usuario SET senha_hash = :hashNovo WHERE id = :id", nativeQuery = true)
     int redefinirSenhaHash(UUID id, String hashNovo);

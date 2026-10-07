@@ -249,6 +249,64 @@ class SenhaTest extends IntegracaoTest {
                 .isEqualTo(antes);
     }
 
+    @Test
+    @DisplayName("revisão: redefinir por código responde igual com e sem conta (senha fraca e código errado)")
+    void redefinirPorCodigoNaoRevelaConta() throws Exception {
+        Conta conta = contas.criarConfirmada(Papel.CLIENTE);
+        String semConta = novoCelular();
+
+        for (String celular : List.of(conta.celular(), semConta)) {
+            redefinirComCodigo(celular, "123456", "12345678")
+                    .andExpect(status().isUnprocessableEntity())
+                    .andExpect(jsonPath("$.type").value("urn:coe:erro:senha-nao-permitida"));
+            redefinirComCodigo(celular, "123456", NOVA)
+                    .andExpect(status().isUnprocessableEntity())
+                    .andExpect(jsonPath("$.type").value("urn:coe:erro:link-invalido"));
+        }
+    }
+
+    @Test
+    @DisplayName("revisão: o mesmo link em duas redefinições ao mesmo tempo, só uma vale")
+    void corridaDoMesmoLink() throws Exception {
+        Conta conta = comEmailConfirmado();
+        esqueci(conta.email());
+        String token = email.ultimoToken(conta.email()).orElseThrow();
+        java.util.concurrent.CountDownLatch largada = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.ExecutorService duas = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            java.util.concurrent.Future<Integer> a = duas.submit(() -> {
+                largada.await();
+                return redefinirComLink(token, NOVA).andReturn().getResponse().getStatus();
+            });
+            java.util.concurrent.Future<Integer> b = duas.submit(() -> {
+                largada.await();
+                return redefinirComLink(token, "Mais-Uma-Senha-9")
+                        .andReturn()
+                        .getResponse()
+                        .getStatus();
+            });
+            largada.countDown();
+
+            assertThat(List.of(
+                            a.get(30, java.util.concurrent.TimeUnit.SECONDS),
+                            b.get(30, java.util.concurrent.TimeUnit.SECONDS)))
+                    .containsExactlyInAnyOrder(204, 422);
+        } finally {
+            duas.shutdownNow();
+        }
+    }
+
+    @Test
+    @DisplayName("revisão: conta suspensa depois do e-mail enviado não redefine a senha pelo link")
+    void suspensaDepoisDoLink() throws Exception {
+        Conta conta = comEmailConfirmado();
+        esqueci(conta.email());
+        String token = email.ultimoToken(conta.email()).orElseThrow();
+        jdbc.update("UPDATE usuario SET status = 'suspenso' WHERE id = ?", conta.id());
+
+        redefinirComLink(token, NOVA).andExpect(status().isUnprocessableEntity());
+    }
+
     // ---------------------------------------------------------------- trocar (logado)
 
     private ResultActions trocar(String bearer, Cookie cookie, String atual, String nova) throws Exception {

@@ -57,6 +57,15 @@ class ReivindicacaoDeContato {
         this.clock = clock;
     }
 
+    /**
+     * Travas consultivas dos contatos do cadastro, no início da transação e na mesma ordem dos envios
+     * (celular, depois e-mail): o cadastro não cruza a espera com uma reivindicação ou um envio.
+     */
+    void travarContatos(String celular, String email) {
+        codigos.travar("codigo_sms:" + celular);
+        links.travar("token_verificacao:" + email);
+    }
+
     /** Chamar dentro da transação que grava a conta nova (com id {@code novaConta}). */
     Resultado aplicar(
             UUID novaConta,

@@ -102,7 +102,11 @@ class ServicoDeTokens {
         return token;
     }
 
-    /** Só olha (sem usar nem travar): o token é da finalidade e vale agora? */
+    /**
+     * Só olha (sem usar nem travar): o token é da finalidade e vale agora? Quem usa de fato é o
+     * {@link #consumir}, com trava e conferindo de novo (com open-in-view desligado, nenhuma entidade
+     * lida aqui fica no contexto da transação seguinte).
+     */
     Optional<TokenVerificacao> espiar(String token, FinalidadeToken finalidade) {
         Instant agora = clock.instant();
         return TokenDeRenovacao.hash(token)
