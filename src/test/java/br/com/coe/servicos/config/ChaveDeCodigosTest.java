@@ -25,7 +25,14 @@ class ChaveDeCodigosTest {
 
     @ParameterizedTest
     @NullSource
-    @ValueSource(strings = {"", "  ", "AAECAwQFBgcICQoLDA0ODw==", "não-é-base64!!"})
+    @ValueSource(
+            strings = {
+                "",
+                "  ",
+                "AAECAwQFBgcICQoLDA0ODw==",
+                "não-é-base64!!",
+                "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+            })
     void recusaChaveRuim(String texto) {
         assertThatThrownBy(() -> ChaveDeCodigos.de(texto))
                 .isInstanceOf(IllegalStateException.class)

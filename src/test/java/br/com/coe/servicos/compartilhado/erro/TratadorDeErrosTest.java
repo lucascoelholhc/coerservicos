@@ -124,6 +124,11 @@ class TratadorDeErrosTest extends IntegracaoTest {
                             + " Detail: Key (celular)=(47900000999) already exists.");
         }
 
+        @GetMapping("/concorrencia")
+        void concorrencia() {
+            throw new org.springframework.dao.OptimisticLockingFailureException("versão 3 mudou para 4");
+        }
+
         @GetMapping("/inesperado")
         void inesperado() {
             throw new IllegalStateException("detalhe interno: SELECT * FROM usuario");
@@ -305,6 +310,15 @@ class TratadorDeErrosTest extends IntegracaoTest {
                 .andExpect(jsonPath("$.type").value("urn:coe:erro:limite-lc150"))
                 .andExpect(jsonPath("$.title").value("Não foi possível concluir"))
                 .andExpect(jsonPath("$.detail").value("A diarista já tem 2 diárias com você nestes 7 dias."));
+    }
+
+    @Test
+    @DisplayName("409: a linha mudou no meio do caminho (trava otimista), sem detalhe interno")
+    void edicaoConcorrente() throws Exception {
+        mockMvc.perform(get("/teste/erros/concorrencia"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:edicao-concorrente"))
+                .andExpect(jsonPath("$.detail").value("Seus dados mudaram enquanto você salvava. Tente de novo."));
     }
 
     @Test

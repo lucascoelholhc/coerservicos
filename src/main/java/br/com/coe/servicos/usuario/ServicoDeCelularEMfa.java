@@ -48,7 +48,7 @@ class ServicoDeCelularEMfa {
     }
 
     void pedirCodigoDeConfirmacao(String ip) {
-        Usuario usuario = carregar(usuarioAutenticado.id());
+        Usuario usuario = quemChama();
         if (usuario.isCelularConfirmado()) {
             throw new ConflitoException("celular-ja-confirmado", "Seu celular já está confirmado.", null);
         }
@@ -56,7 +56,7 @@ class ServicoDeCelularEMfa {
     }
 
     void confirmarCelular(String codigo) {
-        Usuario usuario = carregar(usuarioAutenticado.id());
+        Usuario usuario = quemChama();
         if (usuario.isCelularConfirmado()) {
             return;
         }
@@ -66,13 +66,13 @@ class ServicoDeCelularEMfa {
     }
 
     void pedirCodigoDeMfa(String ip) {
-        Usuario usuario = carregar(usuarioAutenticado.id());
+        Usuario usuario = quemChama();
         exigirCelularConfirmado(usuario);
         enviar(usuario, FinalidadeSms.CONFIGURAR_MFA, ip);
     }
 
     void definirMfa(boolean ativo, String codigo) {
-        Usuario usuario = carregar(usuarioAutenticado.id());
+        Usuario usuario = quemChama();
         if (!ativo && usuario.getPapeis().contains(Papel.ADMIN)) {
             throw new AcaoProibidaException(
                     "mfa-obrigatorio", "Para a equipe da COE, o código por SMS no login é obrigatório.");
@@ -81,6 +81,18 @@ class ServicoDeCelularEMfa {
         exigirCodigo(usuario, FinalidadeSms.CONFIGURAR_MFA, codigo);
         transacao.executeWithoutResult(status -> carregar(usuario.getId()).definirMfa(ativo));
         LOG.info("MFA {}: {}", ativo ? "ligado" : "desligado", usuario.getId());
+    }
+
+    /** A conta do token; suspensa ou excluída (token ainda válido por até 15 min) não mexe em nada. */
+    private Usuario quemChama() {
+        Usuario usuario = carregar(usuarioAutenticado.id());
+        if (Usuario.EXCLUIDO.equals(usuario.getStatus())) {
+            throw new RecursoNaoEncontradoException("Conta não encontrada.");
+        }
+        if (Usuario.SUSPENSO.equals(usuario.getStatus())) {
+            throw new AcaoProibidaException("conta-suspensa", "Sua conta está suspensa. Fale com a equipe da COE.");
+        }
+        return usuario;
     }
 
     private Usuario carregar(UUID id) {

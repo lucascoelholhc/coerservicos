@@ -115,9 +115,13 @@ class ServicoDeCodigoSmsTest extends IntegracaoTest {
         relogio.avancar(Duration.ofSeconds(61));
         String segundo = enviar(usuario, celular);
 
-        if (!primeiro.equals(segundo)) {
-            assertThat(codigos.conferir(celular, FinalidadeSms.LOGIN, primeiro)).isFalse();
-        }
+        assertThat(primeiro).isNotNull();
+        assertThat(jdbc.queryForObject(
+                        "SELECT count(*) FROM codigo_sms WHERE celular = ? AND invalidado_em IS NOT NULL",
+                        Integer.class,
+                        celular))
+                .as("o primeiro foi invalidado")
+                .isOne();
         assertThat(codigos.conferir(celular, FinalidadeSms.LOGIN, segundo)).isTrue();
     }
 

@@ -101,6 +101,18 @@ class ConfirmarCelularTest extends IntegracaoTest {
     }
 
     @Test
+    @DisplayName("conta suspensa (token ainda válido): 403 conta-suspensa e nenhum SMS")
+    void contaSuspensa() throws Exception {
+        Conta conta = contas.criar("suspenso", false, Papel.CLIENTE);
+
+        mockMvc.perform(post("/api/contas/eu/celular/codigo")
+                        .header("Authorization", bearer(conta.id(), Papel.CLIENTE)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:conta-suspensa"));
+        assertThat(sms.para(conta.celular())).isEmpty();
+    }
+
+    @Test
     @DisplayName("sem token: 401")
     void semToken() throws Exception {
         mockMvc.perform(post("/api/contas/eu/celular/codigo")).andExpect(status().isUnauthorized());

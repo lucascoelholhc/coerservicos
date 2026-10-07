@@ -33,6 +33,15 @@ class ProvedorDeSmsTest {
     }
 
     @Test
+    @DisplayName("local junto com prod: não sobe (o SMS falso escreve o código no log)")
+    void localComProdNaoSobe() {
+        contexto.withPropertyValues("spring.profiles.active=local,prod").run(ctx -> {
+            assertThat(ctx).hasFailed();
+            assertThat(ctx.getStartupFailure()).hasStackTraceContaining("perfil prod");
+        });
+    }
+
+    @Test
     @DisplayName("com um provedor de verdade, sobe em qualquer perfil")
     void comProvedorSobe() {
         contexto.withPropertyValues("spring.profiles.active=prod")

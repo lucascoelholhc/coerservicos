@@ -35,7 +35,19 @@ public final class ChaveDeCodigos {
         if (bytes.length < MINIMO_BYTES) {
             throw invalida("tem menos de 32 bytes");
         }
+        if (todosIguais(bytes)) {
+            throw invalida("tem todos os bytes iguais (gere com um gerador aleatório)");
+        }
         return new ChaveDeCodigos(new SecretKeySpec(bytes, ALGORITMO));
+    }
+
+    private static boolean todosIguais(byte[] bytes) {
+        for (byte valor : bytes) {
+            if (valor != bytes[0]) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static IllegalStateException invalida(String motivo) {
