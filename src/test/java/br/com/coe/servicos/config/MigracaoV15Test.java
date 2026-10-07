@@ -49,6 +49,6 @@ class MigracaoV15Test extends BancoIntegracaoTest {
         String sql =
                 consulta.replace(":cel", CELULAR).replace(":desde", DESDE).replace(":usuario", "'" + usuario + "'");
 
-        assertThat(plano(sql)).as(descricao).contains(indice);
+        assertThat(plano(sql)).as(descricao).containsPattern("\\b" + indice + "\\b");
     }
 }
