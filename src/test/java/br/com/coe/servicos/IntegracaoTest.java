@@ -59,6 +59,8 @@ public abstract class IntegracaoTest {
 
     @BeforeEach
     void relogioEConfiguracaoNoEstadoPadrao() {
+        sms.aguardarEnvios();
+        sms.restaurar();
         relogio.voltarAoPadrao();
         configuracaoNegocio.invalidarCache();
     }

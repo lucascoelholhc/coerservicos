@@ -39,6 +39,12 @@ coe:
     chave-codigos: ${COE_CHAVE_CODIGOS:}
     origens-somente-https: false
     hsts: false            # só o application-prod.yml liga
+  mensageria:
+    # Envio assíncrono de SMS e e-mail depois do commit (decisão de 07/10): fila própria e limitada.
+    # Fila cheia descarta com log mascarado; a resposta da requisição nunca muda.
+    threads: 2
+    threads-maximo: 4
+    fila: 100
   auth:
     sessao:
       duracao-maxima: 90d   # teto absoluto desde o login (PA03); depois disso, senha de novo

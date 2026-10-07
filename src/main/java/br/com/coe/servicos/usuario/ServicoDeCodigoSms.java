@@ -10,19 +10,21 @@ import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import br.com.coe.servicos.compartilhado.mensageria.EnviadorSms;
 import br.com.coe.servicos.compartilhado.mensageria.Mascara;
+import br.com.coe.servicos.compartilhado.mensageria.MensagemPronta;
 import br.com.coe.servicos.config.ChaveDeCodigos;
 
 /**
  * Código SMS (CORE-04; RF01, RN08): 6 dígitos do {@link SecureRandom}, guardado como HMAC-SHA256
  * (celular + finalidade + código) e conferido em tempo constante. Vale 5 min, uma vez, com 5
  * tentativas (a 5ª errada invalida); um código novo invalida o anterior. Por celular, no máximo 1
- * envio a cada 60 s e 5 por hora, contados no banco. Conferir devolve o resultado (não lança) para
+ * envio a cada 60 s e 5 por hora, contados no banco. O SMS sai depois do commit, em fila própria
+ * ({@link MensagemPronta}): o código nunca vai em texto para o banco. Conferir devolve o resultado (não lança) para
  * que a tentativa errada fique gravada.
  */
 @Service
@@ -40,19 +42,19 @@ class ServicoDeCodigoSms {
 
     private final CodigoSmsRepository codigos;
     private final ChaveDeCodigos chave;
-    private final EnviadorSms enviador;
+    private final ApplicationEventPublisher eventos;
     private final TransactionTemplate transacao;
     private final Clock clock;
 
     ServicoDeCodigoSms(
             CodigoSmsRepository codigos,
             ChaveDeCodigos chave,
-            EnviadorSms enviador,
+            ApplicationEventPublisher eventos,
             PlatformTransactionManager transacoes,
             Clock clock) {
         this.codigos = codigos;
         this.chave = chave;
-        this.enviador = enviador;
+        this.eventos = eventos;
         this.transacao = new TransactionTemplate(transacoes);
         this.clock = clock;
     }
@@ -116,14 +118,15 @@ class ServicoDeCodigoSms {
                     agora,
                     agora.plus(VALIDADE),
                     ip));
+            eventos.publishEvent(MensagemPronta.sms(
+                    celular, "COE: seu código é " + codigo + ". Vale por 5 minutos. Não passe para ninguém."));
             return true;
         });
         if (!Boolean.TRUE.equals(gravou)) {
             LOG.info("Envio de código SMS barrado pelo limite: {}", Mascara.celular(celular));
             return false;
         }
-        enviador.enviar(celular, "COE: seu código é " + codigo + ". Vale por 5 minutos. Não passe para ninguém.");
-        LOG.info("Código SMS enviado ({}) para {}", finalidade.valor(), Mascara.celular(celular));
+        LOG.info("Código SMS gerado ({}) para {}", finalidade.valor(), Mascara.celular(celular));
         return true;
     }
 
