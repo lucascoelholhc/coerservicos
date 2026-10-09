@@ -7,9 +7,9 @@
   padding-bottom: calc(var(--altura-menu) + env(safe-area-inset-bottom));
 }
 
+/* Sem espaço embaixo: cada página cuida do seu (o Início termina colado no rodapé, como no protótipo) */
 .principal {
   flex: 1;
-  padding-bottom: 40px;
 }
 
 .pular {
@@ -32,9 +32,5 @@
 @media (width >= 900px) {
   .moldura {
     padding-bottom: 0;
-  }
-
-  .principal {
-    padding-bottom: 64px;
   }
 }
