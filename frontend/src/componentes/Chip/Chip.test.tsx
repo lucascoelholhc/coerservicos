@@ -22,6 +22,7 @@ describe('Chip', () => {
     await userEvent.click(botao);
     expect(aoRemover).toHaveBeenCalledOnce();
     expect(botao.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    expect(botao).toHaveAttribute('data-alvo', '44');
     await semViolacoes(container);
   });
 });

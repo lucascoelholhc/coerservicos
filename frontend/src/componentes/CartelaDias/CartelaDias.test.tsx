@@ -25,10 +25,11 @@ describe('CartelaDias', () => {
     await semViolacoes(container);
   });
 
-  it('o nome acessível precisa começar por "Exemplo:" (honestidade: não é um contrato real)', () => {
-    expect(() => render(<CartelaDias cartela={{ ...EXEMPLO, descricao: 'Obra do Valdir.' }} />)).toThrow(
-      /Exemplo:/,
-    );
+  it('o nome acessível precisa começar por "Exemplo:" (o tipo recusa outra descrição)', () => {
+    // @ts-expect-error descrição sem "Exemplo:" não compila
+    const errada: CartelaDeExemplo = { ...EXEMPLO, descricao: 'Obra do Valdir.' };
+
+    expect(errada.descricao).not.toMatch(/^Exemplo:/);
   });
 
   it('mostra "Exemplo" e "Ilustração" na tela', () => {

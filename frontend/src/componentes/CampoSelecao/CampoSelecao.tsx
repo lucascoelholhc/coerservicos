@@ -1,3 +1,5 @@
+import { useId } from 'react';
+
 import estilos from './CampoSelecao.module.css';
 
 export interface OpcaoDeSelecao {
@@ -6,7 +8,6 @@ export interface OpcaoDeSelecao {
 }
 
 interface CampoSelecaoProps {
-  id: string;
   nome: string;
   rotulo: string;
   opcoes: readonly OpcaoDeSelecao[];
@@ -14,7 +15,9 @@ interface CampoSelecaoProps {
 }
 
 /** Select nativo (o leitor de tela e o celular já sabem usar) com rótulo sempre visível. */
-export function CampoSelecao({ id, nome, rotulo, opcoes, valorInicial }: CampoSelecaoProps) {
+export function CampoSelecao({ nome, rotulo, opcoes, valorInicial }: CampoSelecaoProps) {
+  // Id único por campo: o rótulo nunca liga ao select errado, mesmo com o componente repetido
+  const id = useId();
   return (
     <div className={estilos.campo}>
       <label className={estilos.rotulo} htmlFor={id}>

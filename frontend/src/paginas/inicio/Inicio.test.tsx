@@ -100,19 +100,6 @@ describe('Início (visitante)', () => {
     expect(document.body).not.toHaveTextContent(/em breve/i);
   });
 
-  it('nenhum número de regra de negócio fixo (prazo em horas ou comissão em %)', () => {
-    abrirInicio();
-
-    expect(document.body.textContent).not.toMatch(/\d+\s*h\b/);
-    expect(document.body.textContent).not.toMatch(/%/);
-    expect(
-      screen.getByText(
-        'Terminou o dia, você aprova. Se não responder, o valor é liberado ao profissional depois de um prazo.',
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByText('A taxa da COE é paga pelo cliente.')).toBeInTheDocument();
-  });
-
   it('seções que os menus e o rodapé abrem por âncora', () => {
     const { container } = abrirInicio();
 

@@ -92,7 +92,11 @@ test.describe('Início', () => {
     await page.keyboard.press('Tab');
 
     await expect(buscar).toBeFocused();
-    expect(await buscar.evaluate((elemento) => getComputedStyle(elemento).outlineStyle)).toBe('solid');
+    const contorno = await buscar.evaluate((elemento) => {
+      const estilo = getComputedStyle(elemento);
+      return `${estilo.outlineStyle} ${estilo.outlineWidth}`;
+    });
+    expect(contorno).toBe('solid 3px');
   });
 
   test('Archivo da própria origem com o eixo de largura: título a 125% e mais largo que a 100%', async ({ page }) => {
@@ -130,6 +134,21 @@ test.describe('Início', () => {
     await page.evaluate(() => document.fonts.ready);
 
     await semViolacoesAxe(page);
+  });
+});
+
+test.describe('Links para seções do Início', () => {
+  test('do rodapé de outra página: navega sem recarregar e mostra a seção', async ({ page }) => {
+    await page.goto('/essa-pagina-nao-existe');
+    await page.evaluate(() => {
+      (window as unknown as { semRecarregar: boolean }).semRecarregar = true;
+    });
+
+    await page.getByRole('contentinfo').getByRole('link', { name: 'Como funciona' }).click();
+
+    await expect(page).toHaveURL('/#como-funciona');
+    await expect(page.getByRole('heading', { level: 2, name: 'Como funciona' })).toBeInViewport();
+    expect(await page.evaluate(() => (window as unknown as { semRecarregar?: boolean }).semRecarregar)).toBe(true);
   });
 });
 

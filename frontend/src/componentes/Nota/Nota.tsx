@@ -9,7 +9,7 @@ const ICONES: Record<TipoDeNota, NomeDoIcone> = {
   info: 'info',
   atencao: 'alert',
   ok: 'check',
-  erro: 'alert',
+  erro: 'xcircle',
 };
 
 interface NotaProps {

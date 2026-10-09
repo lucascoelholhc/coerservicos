@@ -12,8 +12,8 @@ export interface DiaDaCartela {
 }
 
 export interface CartelaDeExemplo {
-  /** Nome acessível da cartela inteira; sempre começa por "Exemplo:". */
-  descricao: string;
+  /** Nome acessível da cartela inteira; o tipo obriga a começar por "Exemplo:" (não é um contrato real). */
+  descricao: `Exemplo:${string}`;
   profissional: string;
   titulo: string;
   subtitulo: string;
@@ -21,16 +21,11 @@ export interface CartelaDeExemplo {
   rodape: string;
 }
 
-const PREFIXO = 'Exemplo:';
-
 /**
  * Cartela de dias do "Dia carimbado" (herói do Início). É um exemplo, não um contrato: "Exemplo"
  * e "Ilustração" ficam visíveis e o leitor de tela ouve a descrição inteira.
  */
 export function CartelaDias({ cartela }: { cartela: CartelaDeExemplo }) {
-  if (!cartela.descricao.startsWith(PREFIXO)) {
-    throw new Error(`A descrição da cartela precisa começar por "${PREFIXO}".`);
-  }
   return (
     <div className={estilos.cartela} role="img" aria-label={cartela.descricao}>
       <div className={estilos.marcas}>
@@ -46,7 +41,7 @@ export function CartelaDias({ cartela }: { cartela: CartelaDeExemplo }) {
       </div>
       <div className={estilos.dias}>
         {cartela.dias.map((dia) => (
-          <div key={dia.numero} className={estilos.dia} data-estilo={dia.estilo}>
+          <div key={`${dia.semana}-${dia.numero}`} className={estilos.dia} data-estilo={dia.estilo}>
             <span className={estilos.semana}>{dia.semana}</span>
             <span className={estilos.numero}>{dia.numero}</span>
             <span className={estilos.lugarDoCarimbo}>

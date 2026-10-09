@@ -13,7 +13,7 @@ const PROFISSOES = [
 describe('CampoSelecao', () => {
   it('rótulo ligado ao select, opções e seta escondida do leitor de tela', async () => {
     const { container } = render(
-      <CampoSelecao id="h-prof" nome="profissao" rotulo="Do que você precisa?" opcoes={PROFISSOES} />,
+      <CampoSelecao nome="profissao" rotulo="Do que você precisa?" opcoes={PROFISSOES} />,
     );
     const campo = screen.getByRole('combobox', { name: 'Do que você precisa?' });
 
@@ -23,8 +23,21 @@ describe('CampoSelecao', () => {
     await semViolacoes(container);
   });
 
+  it('dois campos na mesma tela têm ids diferentes (rótulo sempre ligado ao campo certo)', () => {
+    render(
+      <>
+        <CampoSelecao nome="a" rotulo="Primeiro" opcoes={PROFISSOES} />
+        <CampoSelecao nome="b" rotulo="Segundo" opcoes={PROFISSOES} />
+      </>,
+    );
+
+    expect(screen.getByRole('combobox', { name: 'Primeiro' }).id).not.toBe(
+      screen.getByRole('combobox', { name: 'Segundo' }).id,
+    );
+  });
+
   it('escolhe uma opção', async () => {
-    render(<CampoSelecao id="h-prof" nome="profissao" rotulo="Do que você precisa?" opcoes={PROFISSOES} />);
+    render(<CampoSelecao nome="profissao" rotulo="Do que você precisa?" opcoes={PROFISSOES} />);
 
     await userEvent.selectOptions(screen.getByRole('combobox'), 'pintor');
 

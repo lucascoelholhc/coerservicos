@@ -31,15 +31,22 @@ createServer((pedido, resposta) => {
     resposta.writeHead(405).end();
     return;
   }
-  const arquivo = arquivoPedido(pedido.url ?? '/');
+  let arquivo;
   try {
+    // URL malformada (ex.: %E0%A4%A) cai aqui como 404 em vez de derrubar o servidor
+    arquivo = arquivoPedido(pedido.url ?? '/');
     if (!arquivo || !statSync(arquivo).isFile()) throw new Error('não é arquivo');
   } catch {
     resposta.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }).end('Não encontrado');
     return;
   }
-  resposta.writeHead(200, { 'Content-Type': TIPOS[extname(arquivo)] ?? 'application/octet-stream' });
-  createReadStream(arquivo).pipe(resposta);
+  resposta.writeHead(200, {
+    'Content-Type': TIPOS[extname(arquivo)] ?? 'application/octet-stream',
+    'X-Content-Type-Options': 'nosniff',
+  });
+  createReadStream(arquivo)
+    .on('error', () => resposta.destroy())
+    .pipe(resposta);
 }).listen(PORTA, '127.0.0.1', () => {
   console.log(`Protótipo (ef7d397) em http://localhost:${PORTA}`);
 });

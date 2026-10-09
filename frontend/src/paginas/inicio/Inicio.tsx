@@ -39,13 +39,11 @@ export function Inicio() {
             <p className={estilos.heroiTexto}>{HEROI.texto}</p>
             <form className={estilos.busca} role="search" aria-label="Buscar profissional" onSubmit={buscar}>
               <CampoSelecao
-                id="h-prof"
                 nome="profissao"
                 rotulo="Do que você precisa?"
                 opcoes={[{ valor: '', texto: 'Qualquer serviço' }, ...PROFISSOES]}
               />
               <CampoSelecao
-                id="h-cidade"
                 nome="cidade"
                 rotulo="Em qual cidade?"
                 opcoes={[{ valor: '', texto: 'Qualquer cidade' }, ...CIDADES]}
@@ -56,7 +54,7 @@ export function Inicio() {
               </Botao>
             </form>
             <p className={estilos.heroiProfissional}>
-              É profissional? <a href="#para-profissionais">Conheça a COE para quem trabalha</a>
+              É profissional? <Link to="/#para-profissionais">Conheça a COE para quem trabalha</Link>
             </p>
           </div>
           <CartelaDias cartela={CARTELA_EXEMPLO} />

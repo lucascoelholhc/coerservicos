@@ -15,6 +15,18 @@ describe('Nota', () => {
     await semViolacoes(container);
   });
 
+  it('erro e atenção têm ícones diferentes (status nunca só por cor)', () => {
+    const { container } = render(
+      <>
+        <Nota tipo="atencao">Atenção</Nota>
+        <Nota tipo="erro">Erro</Nota>
+      </>,
+    );
+    const icones = [...container.querySelectorAll('svg')].map((svg) => svg.getAttribute('data-icone'));
+
+    expect(icones).toEqual(['alert', 'xcircle']);
+  });
+
   it('anunciar: erro vira alert', () => {
     render(
       <Nota tipo="erro" anunciar>

@@ -14,7 +14,7 @@ export function Chip({ children, aoRemover }: ChipProps) {
   return (
     <span className={estilos.chip} data-removivel="true">
       {children}
-      <button type="button" className={estilos.remover} onClick={aoRemover} aria-label={`Remover ${children}`}>
+      <button type="button" className={estilos.remover} onClick={aoRemover} aria-label={`Remover ${children}`} data-alvo="44">
         <Icone nome="x" tamanho={16} />
       </button>
     </span>

@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router';
+import { Link, NavLink } from 'react-router';
 
 import { Botao } from '../componentes/Botao/Botao';
 import { Logo } from '../componentes/Logo/Logo';
@@ -16,10 +16,10 @@ export function Cabecalho() {
             {MENU_TOPO_VISITANTE.map((item) => (
               <li key={item.rotulo}>
                 {item.para === undefined ? (
-                  <a className={estilos.link} href={item.ancora}>
+                  <Link className={estilos.link} to={item.ancora ?? '/'}>
                     <Icone nome={item.icone} tamanho={20} />
                     <span>{item.rotulo}</span>
-                  </a>
+                  </Link>
                 ) : (
                   <NavLink className={estilos.link} to={item.para} end>
                     <Icone nome={item.icone} tamanho={20} />

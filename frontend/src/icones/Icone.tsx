@@ -37,6 +37,12 @@ const DESENHOS = {
       <path d="M12 11v6M12 7.5v.5" />
     </>
   ),
+  xcircle: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9 9l6 6M15 9l-6 6" />
+    </>
+  ),
   alert: (
     <>
       <path d="M12 3l10 18H2z" />
@@ -70,6 +76,7 @@ export function Icone({ nome, tamanho = 22, className }: IconeProps) {
       strokeLinejoin="round"
       aria-hidden="true"
       focusable="false"
+      data-icone={nome}
     >
       {DESENHOS[nome]}
     </svg>
