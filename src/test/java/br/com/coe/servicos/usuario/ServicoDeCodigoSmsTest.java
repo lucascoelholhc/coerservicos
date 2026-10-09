@@ -152,6 +152,38 @@ class ServicoDeCodigoSmsTest extends IntegracaoTest {
     }
 
     @Test
+    @DisplayName("a espera de 60 s é por finalidade: outra finalidade no mesmo minuto sai")
+    void esperaPorFinalidade() {
+        String celular = novoCelular();
+        UUID usuario = usuarioCom(celular);
+        enviar(usuario, celular);
+
+        assertThat(codigos.enviar(usuario, celular, FinalidadeSms.CONFIGURAR_MFA, "127.0.0.1"))
+                .isTrue();
+        assertThat(codigos.enviar(usuario, celular, FinalidadeSms.LOGIN, "127.0.0.1"))
+                .isFalse();
+    }
+
+    @Test
+    @DisplayName("o teto de 5 por hora soma as finalidades: a 6ª, misturando, não sai")
+    void tetoSomaAsFinalidades() {
+        String celular = novoCelular();
+        UUID usuario = usuarioCom(celular);
+        for (int i = 0; i < 3; i++) {
+            assertThat(codigos.enviar(usuario, celular, FinalidadeSms.LOGIN, "127.0.0.1"))
+                    .isTrue();
+            if (i < 2) {
+                assertThat(codigos.enviar(usuario, celular, FinalidadeSms.CONFIGURAR_MFA, "127.0.0.1"))
+                        .isTrue();
+            }
+            relogio.avancar(Duration.ofSeconds(61));
+        }
+
+        assertThat(codigos.enviar(usuario, celular, FinalidadeSms.CONFIGURAR_MFA, "127.0.0.1"))
+                .isFalse();
+    }
+
+    @Test
     @DisplayName("no máximo 5 envios por hora por celular")
     void cincoPorHora() {
         String celular = novoCelular();

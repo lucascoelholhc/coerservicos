@@ -64,7 +64,7 @@ class ServicoDeTokens {
         Boolean gravou = transacao.execute(status -> {
             Instant agora = clock.instant();
             tokens.travar("token_verificacao:" + endereco);
-            if (limiteAtingido(endereco, agora)) {
+            if (limiteAtingido(endereco, finalidade.valor(), agora)) {
                 return false;
             }
             gravar(usuarioId, TokenVerificacao.CANAL_EMAIL, endereco, finalidade, hash, agora, validade);
@@ -155,8 +155,9 @@ class ServicoDeTokens {
                 usuarioId, canal, destino, finalidade.valor(), hash, agora, agora.plus(validade)));
     }
 
-    private boolean limiteAtingido(String endereco, Instant agora) {
-        return tokens.contarEmailsDesde(endereco, agora.minus(INTERVALO_ENTRE_ENVIOS)) > 0
+    /** Espera de 60 s por endereço e finalidade; teto de 5 por hora somando as finalidades (07/10). */
+    private boolean limiteAtingido(String endereco, String finalidade, Instant agora) {
+        return tokens.contarEmailsDaFinalidadeDesde(endereco, finalidade, agora.minus(INTERVALO_ENTRE_ENVIOS)) > 0
                 || tokens.contarEmailsDesde(endereco, agora.minus(UMA_HORA)) >= MAXIMO_ENVIOS_POR_HORA;
     }
 }

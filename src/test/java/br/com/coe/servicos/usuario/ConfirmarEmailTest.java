@@ -164,6 +164,33 @@ class ConfirmarEmailTest extends IntegracaoTest {
     }
 
     @Test
+    @DisplayName("limite: a 6ª mensagem na hora, misturando finalidades (confirmar e posse), não envia")
+    void sextaNaHoraMisturandoFinalidades() throws Exception {
+        Conta conta = contas.criar(Papel.CLIENTE);
+        String posse = "{\"email\":\"" + conta.email() + "\"}";
+        for (int rodada = 0; rodada < 3; rodada++) {
+            pedirLink(conta).andExpect(status().isAccepted());
+            if (rodada < 2) {
+                mockMvc.perform(post("/api/contas/posse/email")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(posse))
+                        .andExpect(status().isAccepted());
+            }
+            relogio.avancar(Duration.ofSeconds(61));
+        }
+        assertThat(email.para(conta.email()))
+                .as("confirmar e posse no mesmo minuto: os dois saem")
+                .hasSize(5);
+
+        mockMvc.perform(post("/api/contas/posse/email")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(posse))
+                .andExpect(status().isAccepted());
+
+        assertThat(email.para(conta.email())).as("a 6ª na hora não sai").hasSize(5);
+    }
+
+    @Test
     @DisplayName("e-mail já confirmado: 409 e nenhum e-mail")
     void jaConfirmado() throws Exception {
         Conta conta = contas.criar(Papel.CLIENTE);

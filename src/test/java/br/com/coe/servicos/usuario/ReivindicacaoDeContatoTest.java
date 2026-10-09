@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
@@ -133,12 +134,38 @@ class ReivindicacaoDeContatoTest extends IntegracaoTest {
 
         cadastrar(antiga.celular(), novoEmail(), null, null)
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.type").value("urn:coe:erro:celular-pode-ser-reivindicado"))
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:contato-em-uso"))
                 .andExpect(jsonPath("$.campo").value("celular"));
         cadastrar(novoCelular(), antiga.email(), null, null)
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.type").value("urn:coe:erro:email-pode-ser-reivindicado"))
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:contato-em-uso"))
                 .andExpect(jsonPath("$.campo").value("email"));
+    }
+
+    @Test
+    @DisplayName("409 neutro: contato confirmado e não confirmado dão o mesmo corpo, byte a byte (fora o instance)")
+    void conflitoNeutro() throws Exception {
+        Conta confirmada = contas.criarConfirmada(Papel.CLIENTE);
+        jdbc.update("UPDATE usuario SET email_verificado_em = now() WHERE id = ?", confirmada.id());
+        Conta naoConfirmada = contas.criar(Papel.CLIENTE);
+
+        String doCelularConfirmado = corpoSemInstance(cadastrar(confirmada.celular(), novoEmail(), null, null));
+        String doCelularNaoConfirmado = corpoSemInstance(cadastrar(naoConfirmada.celular(), novoEmail(), null, null));
+        String doEmailConfirmado = corpoSemInstance(cadastrar(novoCelular(), confirmada.email(), null, null));
+        String doEmailNaoConfirmado = corpoSemInstance(cadastrar(novoCelular(), naoConfirmada.email(), null, null));
+
+        assertThat(doCelularConfirmado).isEqualTo(doCelularNaoConfirmado).contains("urn:coe:erro:contato-em-uso");
+        assertThat(doEmailConfirmado).isEqualTo(doEmailNaoConfirmado);
+        assertThat(doCelularConfirmado)
+                .contains("Esse contato já está em uso. Se ele for seu, confirme que é seu para usar nesta conta.");
+    }
+
+    private static String corpoSemInstance(ResultActions resposta) throws Exception {
+        String corpo = resposta.andExpect(status().isConflict())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(StandardCharsets.UTF_8);
+        return corpo.replaceAll("\"instance\":\"[^\"]*\",?", "");
     }
 
     @Test
@@ -148,7 +175,7 @@ class ReivindicacaoDeContatoTest extends IntegracaoTest {
 
         cadastrar(antiga.celular(), novoEmail(), null, null)
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.type").value("urn:coe:erro:celular-ja-cadastrado"));
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:contato-em-uso"));
         mockMvc.perform(post("/api/contas/posse/celular")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"celular\":\"" + antiga.celular() + "\"}"))
@@ -165,7 +192,7 @@ class ReivindicacaoDeContatoTest extends IntegracaoTest {
 
         cadastrar(antiga.celular(), novoEmail(), comprovante, null)
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.type").value("urn:coe:erro:celular-ja-cadastrado"));
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:contato-em-uso"));
         assertThat(coluna("celular", antiga.id())).isEqualTo(antiga.celular());
     }
 
@@ -443,7 +470,7 @@ class ReivindicacaoDeContatoTest extends IntegracaoTest {
         String bearer = loginPendente(antiga);
         colocarCelular(bearer, normal.celular())
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.type").value("urn:coe:erro:celular-ja-cadastrado"));
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:contato-em-uso"));
     }
 
     @Test
@@ -459,7 +486,7 @@ class ReivindicacaoDeContatoTest extends IntegracaoTest {
 
         confirmarCelular(bearer, codigo)
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.type").value("urn:coe:erro:celular-ja-cadastrado"));
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:contato-em-uso"));
         assertThat(coluna("celular", antiga.id())).isNull();
     }
 

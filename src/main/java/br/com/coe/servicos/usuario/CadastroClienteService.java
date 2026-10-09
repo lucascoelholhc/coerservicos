@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import br.com.coe.servicos.compartilhado.erro.ConflitoException;
 import br.com.coe.servicos.compartilhado.erro.RegraDeNegocioException;
 import br.com.coe.servicos.config.ConfiguracaoNegocio;
 
@@ -61,26 +60,16 @@ public class CadastroClienteService {
         String celular = Contato.normalizarCelular(pedido.celular());
         String email = Contato.normalizarEmail(pedido.email());
         // Checagem prévia barata, antes do hash; a corrida que passar daqui é barrada pelo UNIQUE e
-        // pela trava da reivindicação (RN61), que confere tudo de novo dentro da transação.
+        // pela trava da reivindicação (RN61), que confere tudo de novo dentro da transação. Contato
+        // confirmado ou não dá o mesmo 409 neutro; com comprovante, só o não confirmado segue (RN61).
         Optional<Usuario> donoDoCelular = usuarios.findByCelular(celular);
-        if (donoDoCelular.isPresent()) {
-            if (donoDoCelular.get().isCelularConfirmado()) {
-                throw celularJaCadastrado();
-            }
-            if (pedido.comprovanteCelular() == null) {
-                throw podeSerReivindicado(
-                        "celular", "Este celular está em outra conta, sem confirmação. Confirme que ele é seu.");
-            }
+        if (donoDoCelular.isPresent()
+                && (donoDoCelular.get().isCelularConfirmado() || pedido.comprovanteCelular() == null)) {
+            throw ContatoEmUso.no("celular");
         }
         Optional<Usuario> donoDoEmail = usuarios.findByEmail(email);
-        if (donoDoEmail.isPresent()) {
-            if (donoDoEmail.get().isEmailConfirmado()) {
-                throw emailJaCadastrado();
-            }
-            if (pedido.comprovanteEmail() == null) {
-                throw podeSerReivindicado(
-                        "email", "Este e-mail está em outra conta, sem confirmação. Confirme que ele é seu.");
-            }
+        if (donoDoEmail.isPresent() && (donoDoEmail.get().isEmailConfirmado() || pedido.comprovanteEmail() == null)) {
+            throw ContatoEmUso.no("email");
         }
         Usuario usuario = Usuario.novoCliente(
                 Contato.normalizarNome(pedido.nome()),
@@ -124,10 +113,10 @@ public class CadastroClienteService {
     private static RuntimeException traduzirDuplicidade(DataIntegrityViolationException erro) {
         String constraint = nomeDaConstraint(erro);
         if ("uq_usuario_celular".equals(constraint)) {
-            return celularJaCadastrado();
+            return ContatoEmUso.no("celular");
         }
         if ("uq_usuario_email".equals(constraint)) {
-            return emailJaCadastrado();
+            return ContatoEmUso.no("email");
         }
         return erro;
     }
@@ -139,22 +128,5 @@ public class CadastroClienteService {
             }
         }
         return null;
-    }
-
-    private static ConflitoException celularJaCadastrado() {
-        return new ConflitoException(
-                "celular-ja-cadastrado",
-                "Este celular já tem cadastro. Entre na sua conta ou recupere a senha.",
-                "celular");
-    }
-
-    /** RN61: o dado é de outra conta que nunca o confirmou; quem provar a posse fica com ele. */
-    private static ConflitoException podeSerReivindicado(String campo, String mensagem) {
-        return new ConflitoException(campo + "-pode-ser-reivindicado", mensagem, campo);
-    }
-
-    private static ConflitoException emailJaCadastrado() {
-        return new ConflitoException(
-                "email-ja-cadastrado", "Este e-mail já tem cadastro. Entre na sua conta ou recupere a senha.", "email");
     }
 }

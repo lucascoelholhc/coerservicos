@@ -146,7 +146,7 @@ class ServicoDeCelularEMfa {
     }
 
     private static ConflitoException celularJaCadastrado() {
-        return new ConflitoException("celular-ja-cadastrado", "Este celular já está em outra conta.", "celular");
+        return ContatoEmUso.no("celular");
     }
 
     private static void exigirCelularConfirmado(Usuario usuario) {

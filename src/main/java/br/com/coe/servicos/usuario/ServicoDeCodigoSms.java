@@ -179,7 +179,7 @@ class ServicoDeCodigoSms {
         Boolean gravou = transacao.execute(status -> {
             Instant agora = clock.instant();
             codigos.travar("codigo_sms:" + celular);
-            if (limiteAtingido(celular, agora)) {
+            if (limiteAtingido(celular, finalidade.valor(), agora)) {
                 return false;
             }
             if (usuarioId != null) {
@@ -210,8 +210,9 @@ class ServicoDeCodigoSms {
         return true;
     }
 
-    private boolean limiteAtingido(String celular, Instant agora) {
-        return codigos.contarEnviosDesde(celular, agora.minus(INTERVALO_ENTRE_ENVIOS)) > 0
+    /** Espera de 60 s por celular e finalidade; teto de 5 por hora somando as finalidades (07/10). */
+    private boolean limiteAtingido(String celular, String finalidade, Instant agora) {
+        return codigos.contarEnviosDaFinalidadeDesde(celular, finalidade, agora.minus(INTERVALO_ENTRE_ENVIOS)) > 0
                 || codigos.contarEnviosDesde(celular, agora.minus(UMA_HORA)) >= MAXIMO_ENVIOS_POR_HORA;
     }
 

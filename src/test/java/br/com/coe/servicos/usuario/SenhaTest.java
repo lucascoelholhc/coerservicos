@@ -398,6 +398,37 @@ class SenhaTest extends IntegracaoTest {
     }
 
     @Test
+    @DisplayName("limite: esqueci a senha logo depois do e-mail de confirmação do cadastro manda o link")
+    void esqueciLogoDepoisDoCadastro() throws Exception {
+        String endereco = "cad-" + SEQUENCIA.incrementAndGet() + "@teste.coe.local";
+        cadastrar(novoCelular(), endereco).andExpect(status().isCreated());
+        mockMvc.perform(post("/api/contas/email/confirmar")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"" + email.ultimoToken(endereco).orElseThrow() + "\"}"))
+                .andExpect(status().isNoContent());
+
+        esqueci(endereco).andExpect(status().isAccepted());
+
+        assertThat(email.ultimoLink(endereco))
+                .hasValueSatisfying(link -> assertThat(link).contains("/redefinir-senha#token="));
+    }
+
+    @Test
+    @DisplayName("limite: duas vezes a mesma finalidade em menos de 60 s, a segunda não envia e responde 202 igual")
+    void mesmaFinalidadeEmMenosDe60s() throws Exception {
+        Conta conta = comEmailConfirmado();
+
+        esqueci(conta.email())
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.mensagem").value(MENSAGEM));
+        esqueci(conta.email())
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.mensagem").value(MENSAGEM));
+
+        assertThat(email.para(conta.email())).hasSize(1);
+    }
+
+    @Test
     @DisplayName("provedor de e-mail fora no cadastro: o 201 sai do mesmo jeito")
     void cadastroComProvedorFora() throws Exception {
         String endereco = "cad-" + SEQUENCIA.incrementAndGet() + "@teste.coe.local";

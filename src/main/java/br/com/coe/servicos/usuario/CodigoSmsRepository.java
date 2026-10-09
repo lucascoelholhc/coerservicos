@@ -21,6 +21,13 @@ interface CodigoSmsRepository extends JpaRepository<CodigoSms, UUID> {
             nativeQuery = true)
     long contarEnviosDesde(String celular, Instant desde);
 
+    /** Envios da finalidade (espera de 60 s por destino e finalidade). */
+    @Query(
+            value = "SELECT count(*) FROM codigo_sms WHERE celular = :celular AND finalidade = :finalidade"
+                    + " AND criado_em > :desde",
+            nativeQuery = true)
+    long contarEnviosDaFinalidadeDesde(String celular, String finalidade, Instant desde);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT c FROM CodigoSms c WHERE c.celular = :celular AND c.finalidade = :finalidade"
             + " AND c.usadoEm IS NULL AND c.invalidadoEm IS NULL")

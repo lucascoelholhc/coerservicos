@@ -21,6 +21,11 @@ interface TokenVerificacaoRepository extends JpaRepository<TokenVerificacao, UUI
             + " AND t.finalidade <> 'comprovante_posse' AND t.criadoEm > :desde")
     long contarEmailsDesde(String destino, Instant desde);
 
+    /** E-mails da finalidade (espera de 60 s por destino e finalidade). */
+    @Query("SELECT count(t) FROM TokenVerificacao t WHERE t.destino = :destino AND t.canal = 'email'"
+            + " AND t.finalidade = :finalidade AND t.criadoEm > :desde")
+    long contarEmailsDaFinalidadeDesde(String destino, String finalidade, Instant desde);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT t FROM TokenVerificacao t WHERE t.destino = :destino AND t.finalidade = :finalidade"
             + " AND t.usadoEm IS NULL AND t.invalidadoEm IS NULL")
