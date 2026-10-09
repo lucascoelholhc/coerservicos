@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { encerrarSessao, iniciarSessao, iniciarVerificacao } from '../api/sessao';
+import { foiSaidaVoluntaria } from '../api/sessao';
 import { SESSAO_PADRAO } from '../teste/dadosDaApi';
 import { semViolacoes } from '../teste/axe';
 import { RotaPrivada } from './RotaPrivada';
@@ -25,6 +26,7 @@ function abrir(papeis?: ('CLIENTE' | 'PROFISSIONAL' | 'ADMIN')[]) {
           }
         />
         <Route path="/entrar" element={<OndeEstou />} />
+        <Route path="/" element={<OndeEstou />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -66,5 +68,20 @@ describe('RotaPrivada', () => {
     expect(screen.getByRole('link', { name: 'Ir para minha conta' })).toHaveAttribute('href', '/conta');
     expect(screen.queryByText('Página não encontrada')).not.toBeInTheDocument();
     await semViolacoes(container);
+  });
+
+  it('saída voluntária ("Sair"): vai para o Início, não para /entrar; depois disso, volta ao normal', () => {
+    iniciarSessao(SESSAO_PADRAO);
+    const { unmount } = abrir();
+    expect(screen.getByRole('heading', { name: 'Minha conta' })).toBeInTheDocument();
+
+    act(() => encerrarSessao({ voluntaria: true }));
+
+    expect(screen.getByText('Em /')).toBeInTheDocument();
+    expect(foiSaidaVoluntaria()).toBe(false);
+    unmount();
+
+    abrir();
+    expect(screen.getByText('Em /entrar?voltar=%2Fconta%3Faba%3Ddados')).toBeInTheDocument();
   });
 });

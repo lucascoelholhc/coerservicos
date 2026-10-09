@@ -1,46 +1,12 @@
-import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 import cabecalhos from '../cabecalhos-seguranca.json' with { type: 'json' };
+import { semRolagemLateral, semViolacoesAxe, vigiarCsp } from './ajudantes';
 import { simularApi } from './apiSimulada';
-
-const NORMAS_WCAG = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
 
 test.beforeEach(async ({ page }) => {
   await simularApi(page);
 });
-
-/** Guarda toda violação de CSP (evento do navegador e aviso do console) desde o início da página. */
-async function vigiarCsp(pagina: Page): Promise<string[]> {
-  const violacoes: string[] = [];
-  pagina.on('console', (mensagem) => {
-    if (/Content Security Policy/i.test(mensagem.text())) violacoes.push(mensagem.text());
-  });
-  await pagina.exposeFunction('registrarViolacaoCsp', (texto: string) => violacoes.push(texto));
-  await pagina.addInitScript(() => {
-    document.addEventListener('securitypolicyviolation', (evento) => {
-      (window as unknown as { registrarViolacaoCsp: (t: string) => void }).registrarViolacaoCsp(
-        `${evento.violatedDirective} ${evento.blockedURI}`,
-      );
-    });
-  });
-  return violacoes;
-}
-
-async function semRolagemLateral(pagina: Page) {
-  const larguras = await pagina.evaluate(() => ({
-    pagina: document.documentElement.scrollWidth,
-    janela: window.innerWidth,
-  }));
-  expect(larguras.pagina).toBeLessThanOrEqual(larguras.janela);
-}
-
-async function semViolacoesAxe(pagina: Page) {
-  const resultado = await new AxeBuilder({ page: pagina }).withTags(NORMAS_WCAG).analyze();
-  expect(resultado.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`)).toEqual(
-    [],
-  );
-}
 
 test.describe('Início', () => {
   test('cabeçalhos de segurança, nenhuma violação de CSP e nenhuma rolagem lateral', async ({ page }) => {

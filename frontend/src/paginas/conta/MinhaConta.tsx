@@ -127,9 +127,9 @@ function Sair() {
     } catch {
       // Mesmo sem resposta da API, a sessão deste aparelho sai: o token só existia na memória.
     }
-    // Primeiro o Início, depois limpar: a página privada não chega a mandar para /entrar.
+    // Saída voluntária: a página privada leva ao Início (o mesmo destino daqui), não a /entrar.
+    encerrarSessao({ voluntaria: true });
     void navegar(CAMINHOS.inicio, { replace: true });
-    encerrarSessao();
   }
 
   if (pergunta) {

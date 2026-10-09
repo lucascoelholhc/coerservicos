@@ -10,6 +10,8 @@ export type SituacaoDaSessao = 'verificando' | 'visitante' | 'logado';
 
 let situacao: SituacaoDaSessao = 'visitante';
 let token: string | null = null;
+/** "Sair" pedido pela pessoa: a página privada vai para o Início (o mesmo destino do botão), não para /entrar. */
+let saidaVoluntaria = false;
 /** Muda a cada encerramento: renovação iniciada antes de "sair" não pode trazer a sessão de volta. */
 let geracao = 0;
 let usuario: UsuarioDaSessao | null = null;
@@ -45,18 +47,29 @@ export function terminarVerificacaoSemSessao(): void {
 }
 
 export function iniciarSessao(sessao: SessaoResposta): void {
+  saidaVoluntaria = false;
   situacao = 'logado';
   token = sessao.accessToken;
   usuario = sessao.usuario;
   avisar();
 }
 
-export function encerrarSessao(): void {
+export function encerrarSessao(opcoes: { voluntaria?: boolean } = {}): void {
+  saidaVoluntaria = opcoes.voluntaria ?? false;
   geracao += 1;
   situacao = 'visitante';
   token = null;
   usuario = null;
   avisar();
+}
+
+export function foiSaidaVoluntaria(): boolean {
+  return saidaVoluntaria;
+}
+
+/** Depois de levar a pessoa ao Início, a próxima página privada volta a mandar para /entrar. */
+export function esquecerSaidaVoluntaria(): void {
+  saidaVoluntaria = false;
 }
 
 export function geracaoDaSessao(): number {
