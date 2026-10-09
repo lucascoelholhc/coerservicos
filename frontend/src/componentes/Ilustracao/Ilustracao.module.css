@@ -1,0 +1,32 @@
+.ilustracao {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: var(--surface-2);
+}
+
+.ilustracao[data-formato="1:1"] {
+  aspect-ratio: 1 / 1;
+}
+
+.imagem {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.etiqueta {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 2px 8px;
+  border-radius: var(--r-pilula);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  color: var(--tinta-2);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
