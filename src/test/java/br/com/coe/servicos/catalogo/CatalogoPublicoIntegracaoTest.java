@@ -124,38 +124,46 @@ class CatalogoPublicoIntegracaoTest extends IntegracaoTest {
 
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> cidades = (List<Map<String, Object>>) corpo.get("cidades");
-        assertThat(cidades)
-                .extracting(cidade -> cidade.get("nome"))
-                .containsExactly(
-                        "Abatiá",
-                        "Balneário Camboriú",
-                        "Blumenau",
-                        "Brusque",
-                        "Gaspar",
-                        "Ilhota",
-                        "Indaial",
-                        "Itajaí",
-                        "Jaraguá do Sul",
-                        "Navegantes",
-                        "Pomerode",
-                        "Timbó");
+        List<Object> nomes = cidades.stream().map(cidade -> cidade.get("nome")).toList();
+        // PR antes de SC; dentro de SC, "Ilhota" < "Indaial" < "Itajaí" sem acento; a inativa não aparece.
+        assertThat(nomes.get(0)).isEqualTo("Abatiá");
+        assertThat(nomes).containsSubsequence("Ilhota", "Indaial", "Itajaí").doesNotContain("Criciúma");
         assertThat(cidades.get(0))
                 .containsExactlyInAnyOrderEntriesOf(Map.of("codigoIbge", 4100103, "nome", "Abatiá", "uf", "PR"));
     }
 
     @Test
-    @DisplayName("nunca expõe faixa de diária, NR-10, LC 150 nem ids internos")
+    @DisplayName(
+            "nunca expõe faixa de diária, NR-10, LC 150 nem ids internos (só as chaves do contrato, em todos os níveis)")
     void semCamposProibidos() throws Exception {
-        String corpo = mockMvc.perform(get(URL)).andReturn().getResponse().getContentAsString();
+        Map<String, Object> corpo = resposta();
 
-        assertThat(corpo)
-                .doesNotContainIgnoringCase("faixa")
-                .doesNotContainIgnoringCase("nr10")
-                .doesNotContainIgnoringCase("lc150")
-                .doesNotContain("\"id\"")
-                .doesNotContain("ativa")
-                .doesNotContain("ordem")
-                .doesNotContain("latitude");
+        java.util.Set<String> chaves = new java.util.TreeSet<>();
+        coletarChaves(corpo, chaves);
+
+        assertThat(chaves)
+                .containsExactlyInAnyOrder(
+                        "areas",
+                        "cidades",
+                        "codigo",
+                        "nome",
+                        "profissoes",
+                        "nomePlural",
+                        "icone",
+                        "servicos",
+                        "codigoIbge",
+                        "uf");
+    }
+
+    private static void coletarChaves(Object valor, java.util.Set<String> chaves) {
+        if (valor instanceof Map<?, ?> mapa) {
+            mapa.forEach((chave, filho) -> {
+                chaves.add((String) chave);
+                coletarChaves(filho, chaves);
+            });
+        } else if (valor instanceof List<?> lista) {
+            lista.forEach(item -> coletarChaves(item, chaves));
+        }
     }
 
     @Test

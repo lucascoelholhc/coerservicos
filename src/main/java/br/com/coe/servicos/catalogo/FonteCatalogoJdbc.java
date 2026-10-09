@@ -12,7 +12,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Três consultas, uma por bloco (profissões com a área, serviços, cidades), sem N+1. A ordem das
- * cidades usa {@code f_sem_acento(nome)} (V3) para não depender da collation do banco.
+ * cidades usa {@code f_sem_acento(nome) COLLATE "C"} (função da V1) para não depender da collation
+ * do banco (acento, espaço e hífen ordenam igual no Windows, no Testcontainers e no RDS).
  */
 @Component
 class FonteCatalogoJdbc implements FonteCatalogo {
@@ -36,7 +37,7 @@ class FonteCatalogoJdbc implements FonteCatalogo {
             SELECT codigo_ibge, nome, uf
             FROM cidade
             WHERE ativa
-            ORDER BY uf, f_sem_acento(nome), codigo_ibge
+            ORDER BY uf, f_sem_acento(nome) COLLATE "C", codigo_ibge
             """;
 
     private record LinhaProfissao(

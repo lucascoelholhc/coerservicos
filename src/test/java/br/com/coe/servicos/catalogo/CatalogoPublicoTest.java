@@ -79,6 +79,33 @@ class CatalogoPublicoTest {
     }
 
     @Test
+    @DisplayName("primeira leitura falhou: por 5 s repete a falha sem ir ao banco; depois tenta de novo")
+    void falhaRecenteNaoVaiAoBanco() {
+        IllegalStateException fora = new IllegalStateException("banco fora");
+        when(fonte.ler()).thenThrow(fora).thenReturn(PRIMEIRO);
+
+        assertThatThrownBy(catalogo::atual).isSameAs(fora);
+        relogio.avancar(Duration.ofSeconds(4));
+        assertThatThrownBy(catalogo::atual).isSameAs(fora);
+        verify(fonte, times(1)).ler();
+
+        relogio.avancar(Duration.ofSeconds(1));
+        assertThat(catalogo.atual()).isEqualTo(PRIMEIRO);
+        verify(fonte, times(2)).ler();
+    }
+
+    @Test
+    @DisplayName("invalidarCache também descarta a falha guardada")
+    void invalidarDescartaAFalha() {
+        when(fonte.ler()).thenThrow(new IllegalStateException("banco fora")).thenReturn(PRIMEIRO);
+        assertThatThrownBy(catalogo::atual).isInstanceOf(IllegalStateException.class);
+
+        catalogo.invalidarCache();
+
+        assertThat(catalogo.atual()).isEqualTo(PRIMEIRO);
+    }
+
+    @Test
     @DisplayName("relógio que volta no tempo também invalida")
     void relogioQueVoltaInvalida() {
         when(fonte.ler()).thenReturn(PRIMEIRO, SEGUNDO);
