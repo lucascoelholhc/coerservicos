@@ -27,6 +27,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/teste/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
+    // O axe na página inteira (Início) passa dos 5 s padrão quando roda com cobertura
+    testTimeout: 15_000,
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],

@@ -10,7 +10,7 @@ export interface ItemDeMenu {
 }
 
 /** Menu de baixo (celular) do visitante, como no protótipo (NAV, ef7d397). */
-export const MENU_VISITANTE: readonly ItemDeMenu[] = [
+export const MENU_VISITANTE: readonly (ItemDeMenu & { para: string })[] = [
   { rotulo: 'Início', icone: 'home', para: '/' },
   { rotulo: 'Buscar', icone: 'search', para: '/buscar' },
   { rotulo: 'Entrar', icone: 'user', para: '/entrar' },

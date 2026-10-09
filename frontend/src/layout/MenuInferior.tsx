@@ -11,7 +11,7 @@ export function MenuInferior() {
       <ul>
         {MENU_VISITANTE.map((item) => (
           <li key={item.rotulo}>
-            <NavLink className={estilos.link} to={item.para ?? '/'} end>
+            <NavLink className={estilos.link} to={item.para} end>
               <span className={estilos.icone}>
                 <Icone nome={item.icone} />
               </span>
