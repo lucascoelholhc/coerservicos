@@ -1,0 +1,62 @@
+/*
+ * Tokens da identidade "Dia carimbado" (docs/identidade-visual.md, seções 3 a 6).
+ * Único arquivo com cor em hex: todo o resto do CSS usa só estas variáveis (o stylelint barra hex
+ * e nome de cor fora daqui).
+ */
+:root {
+  /* Cor (seção 3) */
+  --carimbo: #3b3dc4;
+  --carimbo-2: #2d2f9f;
+  --carimbo-3: #5254d6;
+  --carimbo-soft: #e4e5fa;
+  --carimbo-txt: #2d2f9f;
+  --sinal: #ffcf33;
+  --sinal-2: #f5be0b;
+  --sinal-soft: #fff3c7;
+  --tinta: #1c1f2e;
+  --tinta-2: #4a4f63;
+  --tinta-3: #6c7186;
+  --papel: #eef0f4;
+  --surface: #fff;
+  --surface-2: #e6e8ee;
+  --surface-3: #d9dce5;
+  --line: #d9dce5;
+  --line-2: #a9aebf;
+  --ok: #1e7a4c;
+  --ok-soft: #ddf0e5;
+  --bad: #c2362c;
+  --bad-soft: #fbe2df;
+  --warn: #7a5300;
+  --warn-soft: #fff3c7;
+
+  /* Texto das etiquetas sobre --ok-soft e --bad-soft (ajuste de contraste da seção 3: 6,1:1 e 5,8:1) */
+  --ok-txt: #17633d;
+  --bad-txt: #a52a21;
+
+  /*
+   * Fora da tabela da identidade, vindos do CSS do protótipo (ef7d397) e sem token igual ou quase igual:
+   * hover do botão escuro, hover do chip removível, texto do rodapé e a máscara do carimbo.
+   */
+  --tinta-hover: #33374a;
+  --carimbo-soft-2: #d3d5f6;
+  --rodape-txt: #b9bdcc;
+  --mascara: #000;
+
+  /* Tipografia (seção 4): uma família só, hospedada no front (@fontsource-variable/archivo, eixos wght e wdth) */
+  --fonte: "Archivo Variable", "Segoe UI", "Roboto", "Arial", sans-serif;
+  --largura-titulo: 125%;
+
+  /* Forma e espaço (seção 5) */
+  --r: 12px;
+  --r-sm: 6px;
+  --r-pilula: 999px;
+  --largura-max: 1160px;
+  --margem: 16px;
+  --margem-larga: 28px;
+
+  /* Layout (seção 6) */
+  --altura-cabecalho: 64px;
+  --altura-menu: 66px;
+
+  color-scheme: light;
+}

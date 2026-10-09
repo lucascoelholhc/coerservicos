@@ -1,0 +1,37 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: var(--r-pilula);
+  background: var(--surface-2);
+  color: var(--tinta);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.chip[data-removivel="true"] {
+  min-height: 38px;
+  padding: 6px 8px 6px 14px;
+  background: var(--carimbo-soft);
+  color: var(--carimbo-txt);
+}
+
+/* Alvo de toque de 44 px (identidade, seção 9); a margem negativa mantém o chip baixo */
+.remover {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -8px -8px -8px -4px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.remover:hover {
+  background: var(--carimbo-soft-2);
+}

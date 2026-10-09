@@ -28,6 +28,7 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
+import org.springframework.security.web.header.writers.StaticHeadersWriter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
@@ -60,6 +61,21 @@ public class SegurancaConfig {
             new RotaPublica(HttpMethod.POST, "/api/auth/renovar"),
             new RotaPublica(HttpMethod.POST, "/api/auth/senha/esqueci"),
             new RotaPublica(HttpMethod.POST, "/api/auth/senha/redefinir"));
+
+    /**
+     * CSP de toda resposta: só recursos da própria origem, imagens também em data: (ilustrações
+     * embutidas pelo Vite), nada de objeto, frame ou script de fora. O vite preview lê o mesmo texto
+     * de frontend/cabecalhos-seguranca.json (PoliticasDoNavegadorTest compara os dois).
+     */
+    public static final String CONTENT_SECURITY_POLICY = "default-src 'self'; script-src 'self'; style-src 'self'; "
+            + "img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; "
+            + "base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+
+    /**
+     * Recursos do aparelho fechados. Cada um só abre quando uma funcionalidade pedir, com a decisão
+     * registrada no plano (ex.: câmera para a selfie do cadastro do profissional).
+     */
+    public static final String PERMISSIONS_POLICY = "camera=(), microphone=(), geolocation=(), payment=(), usb=()";
 
     private static final int CUSTO_BCRYPT = 12;
     private static final long HSTS_UM_ANO = 31_536_000L;
@@ -102,6 +118,8 @@ public class SegurancaConfig {
                 .headers(cabecalhos -> {
                     cabecalhos.referrerPolicy(politica -> politica.policy(ReferrerPolicy.NO_REFERRER));
                     cabecalhos.frameOptions(quadros -> quadros.deny());
+                    cabecalhos.contentSecurityPolicy(csp -> csp.policyDirectives(CONTENT_SECURITY_POLICY));
+                    cabecalhos.addHeaderWriter(new StaticHeadersWriter("Permissions-Policy", PERMISSIONS_POLICY));
                     if (hsts) {
                         cabecalhos.httpStrictTransportSecurity(
                                 transporte -> transporte.includeSubDomains(true).maxAgeInSeconds(HSTS_UM_ANO));

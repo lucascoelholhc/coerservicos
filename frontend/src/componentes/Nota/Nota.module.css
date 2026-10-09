@@ -1,0 +1,38 @@
+.nota {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--r);
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+
+.icone {
+  flex: none;
+  margin-top: 1px;
+}
+
+.nota[data-tipo="info"] {
+  background: var(--carimbo-soft);
+  color: var(--carimbo-txt);
+}
+
+.nota[data-tipo="atencao"] {
+  background: var(--sinal-soft);
+  color: var(--tinta);
+}
+
+.nota[data-tipo="atencao"] .icone {
+  color: var(--warn);
+}
+
+.nota[data-tipo="ok"] {
+  background: var(--ok-soft);
+  color: var(--ok-txt);
+}
+
+.nota[data-tipo="erro"] {
+  background: var(--bad-soft);
+  color: var(--bad-txt);
+}

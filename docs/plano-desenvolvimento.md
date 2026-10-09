@@ -266,6 +266,17 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 | FE-09 | Testes | Vitest nos componentes; Playwright no caminho feliz em 360 px e desktop |
 | FE-10 | Acessibilidade | axe nas telas principais + teste só com teclado |
 
+**FE-01 (dia 8): decisões e pendências**
+- **Números de regra no front:** o Início não cita prazo de liberação nem comissão ("depois de um prazo", "A taxa da COE é paga pelo cliente."). No dia 9/10 entra um endpoint público de leitura (ex.: `GET /api/publico/regras`, `@Publico`, só comissão e prazo de liberação, lidos de `ConfiguracaoNegocio`, com cache) e o texto monta a frase com o valor da API. Nenhum desses números fica fixo no front.
+- **Textos provisórios:** `frontend/src/paginas/inicio/conteudo.ts` (profissões do V3, cidades do V11, textos do protótipo) vira dado da API do catálogo no DOM-01/FE-03.
+- **CSP e Permissions-Policy:** o Spring manda os dois em toda resposta (`SegurancaConfig`), com o mesmo texto de `frontend/cabecalhos-seguranca.json`, que o `vite preview` usa (`PoliticasDoNavegadorTest` compara). O `npm run dev` não tem CSP (o HMR precisa de script inline).
+- **Quem emite os cabeçalhos em produção** (Spring ou ALB/CloudFront servindo o build): decidir no AWS-05/AWS-07. Se o HTML sair da borda, a borda aplica o mesmo `cabecalhos-seguranca.json`.
+- **Permissões do aparelho:** câmera, microfone, localização, pagamento e USB fechados. Cada uma só abre quando uma funcionalidade pedir, com a decisão registrada aqui (próxima prevista: `camera=(self)` para a selfie do cadastro do profissional, FE-04). Quando houver upload, o `img-src` troca `data:` pelo host do bucket com URL assinada.
+- **Risco aceito (`npm audit`):** 7 avisos "high", todos de desenvolvimento, na cadeia `braces` 3.0.3 → micromatch → stylelint (ReDoS ao expandir globs no lint local). Não há versão corrigida do `braces` (a 3.0.3 é a última) e o `audit fix` rebaixaria o stylelint para a 7. `npm audit --omit=dev` = 0. Rever quando o stylelint trocar a dependência.
+- **Rotas que ainda não existem** (`/buscar`, `/entrar`, `/criar-conta`, `/como-funciona`, `/para-profissionais`) caem em "Página não encontrada" até o FE-03.
+- **Componentes base ainda sem tela** (StatusDiaria, Nota, Chip, carimbo "recusado"): entram nas telas do FE-03 a FE-06.
+- **Protótipo:** `docs/prototipo/` é cópia só de leitura do commit ef7d397; as ilustrações saíram dele uma vez (`frontend/scripts/gerar-ilustracoes.mjs`) e os SVGs ficam no git.
+
 **Pronto quando:** o caminho feliz roda clicando, sem nenhum dado falso no front.
 
 ## 8. Etapa 5: Aceite local

@@ -1,0 +1,137 @@
+.cartela {
+  display: grid;
+  gap: 14px;
+}
+
+.marcas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.exemplo,
+.ilustracao {
+  padding: 2px 10px;
+  border-radius: var(--r-pilula);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.exemplo {
+  background: var(--tinta);
+  color: var(--surface);
+}
+
+.ilustracao {
+  background: var(--surface-2);
+  color: var(--tinta-2);
+  font-weight: 600;
+}
+
+.cabeca {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cabeca b {
+  display: block;
+  font-size: 1.02rem;
+}
+
+.subtitulo {
+  color: var(--tinta-2);
+  font-size: 0.92rem;
+}
+
+.dias {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dia {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  justify-items: start;
+  gap: 8px;
+  overflow: hidden;
+  min-height: 200px;
+  padding: 12px 12px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--r);
+  background: var(--papel);
+}
+
+.semana {
+  color: var(--tinta-2);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.numero {
+  font-size: 3.4rem;
+  font-weight: 800;
+  font-stretch: var(--largura-titulo);
+  font-variant-numeric: tabular-nums;
+  line-height: 0.85;
+  letter-spacing: -0.04em;
+}
+
+.lugarDoCarimbo {
+  align-self: center;
+  margin-block: 4px;
+}
+
+.texto {
+  color: var(--tinta-2);
+  font-size: 0.88rem;
+  line-height: 1.3;
+}
+
+.dia[data-estilo="liberado"] .numero {
+  color: var(--ok-txt);
+}
+
+.dia[data-estilo="aprovar"] {
+  border-color: var(--sinal);
+  background: var(--sinal);
+}
+
+.dia[data-estilo="aprovar"] .semana,
+.dia[data-estilo="aprovar"] .texto {
+  color: var(--tinta);
+}
+
+.dia[data-estilo="guardado"] {
+  border-style: dashed;
+  border-color: var(--line-2);
+  background: var(--surface);
+}
+
+.dia[data-estilo="guardado"] .numero {
+  color: var(--carimbo);
+}
+
+.rodape {
+  padding-top: 12px;
+  border-top: 2px dashed var(--line);
+  color: var(--tinta-2);
+  font-size: 0.92rem;
+}
+
+@media (width <= 480px) {
+  .dia {
+    min-height: 170px;
+    padding: 10px 8px;
+  }
+
+  .numero {
+    font-size: 2.5rem;
+  }
+
+  .texto {
+    font-size: 0.8rem;
+  }
+}

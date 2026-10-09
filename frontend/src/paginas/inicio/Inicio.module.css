@@ -1,0 +1,320 @@
+/* Início do visitante (protótipo ef7d397, telas-publicas.js e estilos.css). Só variáveis do tokens.css. */
+section[id] {
+  scroll-margin-top: var(--altura-cabecalho);
+}
+
+/* Herói */
+.heroi {
+  padding-block: 28px 40px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.heroiGrade {
+  display: grid;
+  align-items: center;
+  gap: 34px;
+}
+
+.heroiTitulo {
+  max-width: 15ch;
+  font-size: clamp(2.2rem, 6.4vw, 4rem);
+  line-height: 0.98;
+  letter-spacing: -0.03em;
+}
+
+.heroiTexto {
+  max-width: 48ch;
+  margin-top: 18px;
+  color: var(--tinta-2);
+  font-size: 1.12rem;
+}
+
+.busca {
+  display: grid;
+  gap: 12px;
+  margin-top: 26px;
+  padding: 14px;
+  border-radius: var(--r);
+  background: var(--papel);
+}
+
+.heroiProfissional {
+  margin-top: 16px;
+  color: var(--tinta-2);
+}
+
+.heroiProfissional a {
+  color: var(--carimbo-txt);
+  font-weight: 700;
+}
+
+/* Seções */
+.secao {
+  padding-block: 52px;
+}
+
+.secaoBranca {
+  background: var(--surface);
+}
+
+.secaoTitulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 16px;
+  margin-bottom: 22px;
+}
+
+.linkTexto {
+  display: inline-block;
+  padding-block: 8px;
+  color: var(--carimbo-txt);
+  font-weight: 700;
+  text-decoration: underline 2px var(--carimbo-soft);
+  text-underline-offset: 4px;
+}
+
+.linkTexto:hover {
+  text-decoration-color: var(--carimbo);
+}
+
+.apagado {
+  color: var(--tinta-2);
+}
+
+/* Categorias: rolagem lateral no celular, 5 colunas a partir de 720 px */
+.categorias {
+  display: grid;
+  grid-auto-columns: minmax(160px, 44%);
+  grid-auto-flow: column;
+  gap: 12px;
+  margin: 0 calc(-1 * var(--margem));
+  padding: 0 var(--margem) 6px;
+  overflow-x: auto;
+  list-style: none;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.categorias li {
+  scroll-snap-align: start;
+}
+
+.categoria {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--tinta);
+  text-decoration: none;
+}
+
+.categoria:hover,
+.categoria:focus-visible {
+  border-color: var(--carimbo);
+}
+
+.categoriaNome {
+  padding: 12px 14px 14px;
+  font-size: 1.15rem;
+  font-weight: 800;
+  font-stretch: var(--largura-titulo);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.categoria:hover .categoriaNome {
+  color: var(--carimbo-txt);
+}
+
+/* Como funciona */
+.passos {
+  display: grid;
+  gap: 26px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.passos li {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding-top: 18px;
+  border-top: 2px solid var(--tinta);
+}
+
+.passoNumero {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  margin-bottom: 6px;
+  border: 2.5px solid var(--carimbo);
+  border-radius: 50%;
+  color: var(--carimbo);
+  font-weight: 800;
+  font-stretch: var(--largura-titulo);
+  line-height: 1;
+}
+
+/* Seu dinheiro protegido */
+.fatos {
+  display: grid;
+  margin: 0;
+}
+
+.fatos > div {
+  display: grid;
+  grid-template-columns: minmax(110px, 150px) 1fr;
+  align-items: baseline;
+  gap: 18px;
+  padding-block: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.fatos > div:first-child {
+  border-top: 0;
+}
+
+.fatos dd {
+  margin: 0;
+}
+
+.fatoDestaque {
+  color: var(--carimbo);
+  font-size: 1.9rem;
+  font-weight: 800;
+  font-stretch: var(--largura-titulo);
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+/* Convite ao profissional, sobre o --carimbo */
+.convite {
+  background: var(--carimbo);
+  color: var(--surface);
+}
+
+.conviteGrade {
+  display: grid;
+  gap: 26px;
+  padding-block: 44px;
+}
+
+.conviteTexto {
+  display: grid;
+  gap: 14px;
+}
+
+.conviteTexto h2 {
+  font-size: clamp(1.9rem, 5vw, 3rem);
+  letter-spacing: -0.03em;
+}
+
+.conviteTexto p {
+  max-width: 44ch;
+  color: var(--carimbo-soft);
+}
+
+.conviteTexto .chamada {
+  color: var(--sinal);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.conviteItens {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  font-weight: 600;
+  list-style: none;
+}
+
+.conviteItens li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--surface) 20%, transparent);
+}
+
+.conviteItens li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.conviteIcone {
+  flex: none;
+  color: var(--sinal);
+}
+
+@media (width >= 640px) {
+  .busca {
+    grid-template-columns: 1fr 1fr;
+    align-items: end;
+  }
+
+  .busca > button {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (width >= 720px) {
+  .categorias {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    margin-inline: 0;
+    padding-inline: 0;
+    overflow: visible;
+  }
+}
+
+@media (width >= 760px) {
+  .passos {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 28px;
+  }
+}
+
+@media (width >= 900px) {
+  .fatos {
+    grid-template-columns: 1fr 1fr;
+    column-gap: 48px;
+  }
+
+  .fatos > div:nth-child(2) {
+    border-top: 0;
+  }
+
+  .conviteGrade {
+    grid-template-columns: 1.2fr 1fr;
+    align-items: center;
+    padding-block: 64px;
+  }
+}
+
+@media (width >= 960px) {
+  .heroi {
+    padding-block: 64px 72px;
+  }
+
+  .heroiGrade {
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 56px;
+  }
+}
+
+@media (width >= 1180px) {
+  .busca {
+    grid-template-columns: 1fr 1fr auto;
+  }
+
+  .busca > button {
+    grid-column: auto;
+  }
+}

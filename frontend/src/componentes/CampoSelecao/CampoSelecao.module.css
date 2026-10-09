@@ -1,0 +1,43 @@
+.campo {
+  display: grid;
+  gap: 7px;
+}
+
+.rotulo {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.caixa {
+  position: relative;
+}
+
+.select {
+  width: 100%;
+  min-height: 54px;
+  padding: 12px 44px 12px 14px;
+  border: 1.5px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--tinta);
+  appearance: none;
+  cursor: pointer;
+}
+
+.select:hover {
+  border-color: var(--tinta-3);
+}
+
+.select:focus {
+  border-color: var(--carimbo);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--carimbo) 25%, transparent);
+}
+
+.seta {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  color: var(--tinta-2);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
