@@ -126,7 +126,7 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 | CORE-04 | Login por SMS, MFA e confirmação de contato | Código de 6 dígitos em hash, 5 min, 5 tentativas; `EnviadorSms` falso no local; entrar só com código (alternativa à senha); segundo passo por SMS **obrigatório para ADMIN** e opcional para os demais; o login responde 403 `segundo-passo-necessario` com um id de desafio **de uso único, curto (minutos), preso ao usuário e que não autentica nada sozinho**; confirmação do celular (obrigatória para profissional, opcional para cliente, RN08) e do e-mail por link; **RN61**: contato confirmado pelo dono passa para a conta dele e a outra conta fica bloqueada até cadastrar e confirmar outro (exige migration: hoje `ck_usuario_credenciais` obriga celular e e-mail) | RF01, RN08, RN61 |
 | CORE-05 | Recuperar senha | Token de uso único com validade curta | RF01 |
 | CORE-06 | Papéis e autorização | CLIENTE, PROFISSIONAL, ADMIN; checagem de dono em todo recurso | RNF02 |
-| CORE-07 | Rate limit | Bucket4j em login, SMS, recuperação de senha e chat; rate limit por IP e global em `/api/auth/*`, `/api/contas/posse/*`, `/api/contas/cliente`, `PUT /api/contas/eu/{celular,email}` e `trocar` (o "existe ou não existe" que sobra no cadastro fica com ele); **fila de envio com prioridade** (login, MFA e recuperação de senha separados de prova de posse e confirmação de contato), com a cota devolvida quando a mensagem é descartada, e teste de inundação de prova de posse sem perder código de login | RNF03 |
+| CORE-07 | Rate limit | Bucket4j em login, SMS, recuperação de senha e chat; rate limit por IP e global em `/api/auth/*`, `/api/contas/posse/*`, `/api/contas/cliente`, `GET /api/publico/*`, `PUT /api/contas/eu/{celular,email}` e `trocar` (o "existe ou não existe" que sobra no cadastro fica com ele); **fila de envio com prioridade** (login, MFA e recuperação de senha separados de prova de posse e confirmação de contato), com a cota devolvida quando a mensagem é descartada, e teste de inundação de prova de posse sem perder código de login | RNF03 |
 | CORE-08 | CSRF e CORS | CORS fechado ao domínio da COE; CSRF só no endpoint de renovação do token (único que usa cookie) | RNF01 |
 | CORE-09 | Arquivos | `Armazenamento` (S3): tipo real, tamanho, sem EXIF, nome gerado, URL assinada. Escolher o S3 local do compose (SeaweedFS, LocalStack ou RustFS) | RNF07, RNF14 |
 | CORE-10 | Criptografia de campo | Conversor JPA AES-GCM para CPF, Pix e endereço | RNF13 |
@@ -265,6 +265,16 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 | FE-08 | Estados de tela | Carregando, vazio, erro e sem conexão |
 | FE-09 | Testes | Vitest nos componentes; Playwright no caminho feliz em 360 px e desktop |
 | FE-10 | Acessibilidade | axe nas telas principais + teste só com teclado |
+
+**DOM-01 + FE-02 (dia 9): decisões e pendências**
+- **Catálogo público:** `GET /api/publico/catalogo` (áreas com profissões ativas, serviços ativos e cidades ativas por UF e `f_sem_acento(nome) COLLATE "C"`); sem ids internos, faixa de diária, NR-10 ou LC 150. Área não tem coluna `ativa`: aparece se tiver ao menos uma profissão ativa. Três consultas e cache de 60 s com `invalidarCache()` (para o admin, no FE-07). O `icone` sai na resposta, mas o front escolhe a ilustração pelo `codigo` da profissão.
+- **Regras públicas:** `GET /api/publico/regras` = `{comissao: "0.1000", prazoLiberacao: "PT12H", taxaPagaPor: "CLIENTE"}`, de um snapshot do `ConfiguracaoNegocio`; nada mais sai. Frases do Início (09/10): "A taxa da COE é de 10%, paga pelo cliente." ou "..., descontada do valor do profissional."; valor desconhecido não mostra a frase.
+- **Cache HTTP/CDN** dos dois GETs públicos: hoje `no-store`; decidir na etapa AWS (AWS-05/AWS-07).
+- **Rate limit** dos dois GETs públicos entra na **CORE-07** (dia 11).
+- **Dia 10, junto com o entrar:** renovação silenciosa ao abrir o app (recuperar a sessão pelo cookie) e a conferência manual da renovação pelo navegador (precisa de um login de verdade). A tela de entrar lê o `voltar` só com `caminhoInternoSeguro` e navega pelo Router (nunca `window.location`).
+- **Busca de dados no front:** `useRecurso` (sem biblioteca); React Query só quando as telas logadas pedirem. Tipos das respostas à mão em `frontend/src/api/tipos.ts`; OpenAPI fica para depois.
+- **Rotas do front** num arquivo só (`frontend/src/caminhos.ts`); a busca é `/busca?profissao=<codigo>&cidade=<codigoIbge>` (página de não encontrado até o dia 21).
+- **Regras sem resposta:** o Início mostra a versão sem número ("depois de um prazo") e esconde a frase da taxa, sem caixa de erro; o "Tentar de novo" fica só no catálogo.
 
 **FE-01 (dia 8): decisões e pendências**
 - **Números de regra no front:** o Início não cita prazo de liberação nem comissão ("depois de um prazo", "A taxa da COE é paga pelo cliente."). No dia 9/10 entra um endpoint público de leitura (ex.: `GET /api/publico/regras`, `@Publico`, só comissão e prazo de liberação, lidos de `ConfiguracaoNegocio`, com cache) e o texto monta a frase com o valor da API. Nenhum desses números fica fixo no front.
