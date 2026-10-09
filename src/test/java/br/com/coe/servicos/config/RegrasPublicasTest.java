@@ -67,6 +67,7 @@ class RegrasPublicasTest extends BancoIntegracaoTest {
         jdbc.update(NOVO_VALOR, "COMISSAO", "0.125", "decimal");
         jdbc.update(NOVO_VALOR, "AUTO_LIBERA_HORAS", "24", "inteiro");
         jdbc.update(NOVO_VALOR, "TAXA_PAGA_POR", "profissional", "texto");
+        jdbc.update(NOVO_VALOR, "VERSAO_TERMOS", "2.0", "texto");
         configuracao.invalidarCache();
 
         assertThat(regras())
@@ -74,12 +75,12 @@ class RegrasPublicasTest extends BancoIntegracaoTest {
                         "comissao", "0.1250",
                         "prazoLiberacao", "PT24H",
                         "taxaPagaPor", "PROFISSIONAL",
-                        "versaoTermos", "1.0"));
+                        "versaoTermos", "2.0"));
     }
 
     @Test
     @DisplayName("só os quatro campos públicos: nenhum outro parâmetro sai (prazo de disputa, limite LC 150...)")
-    void soOsTres() throws Exception {
+    void soOsQuatro() throws Exception {
         assertThat(regras()).containsOnlyKeys("comissao", "prazoLiberacao", "taxaPagaPor", "versaoTermos");
     }
 

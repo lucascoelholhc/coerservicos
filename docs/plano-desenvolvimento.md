@@ -266,6 +266,12 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 | FE-09 | Testes | Vitest nos componentes; Playwright no caminho feliz em 360 px e desktop |
 | FE-10 | Acessibilidade | axe nas telas principais + teste só com teclado |
 
+**FE-03 (dia 10): decisões e pendências**
+- **Termos de uso e política de privacidade:** hoje `/termos` e `/privacidade` são **rascunho** (etiqueta visível). O texto final é **pendência obrigatória antes do lançamento** (LGPD, RNF18); quem redige: **A DEFINIR**. Ao publicar, subir `VERSAO_TERMOS` na configuração (o cadastro já pede o aceite da versão em vigor).
+- **Sessão no front:** uma renovação silenciosa ao abrir o app (cookie HttpOnly do refresh); enquanto verifica, página privada mostra "Carregando…"; "Sair" leva ao Início (saída voluntária), sessão perdida leva a `/entrar?voltar=`.
+- **`mfaAtivo` em `GET /api/contas/eu`** é a escolha da pessoa; para o ADMIN o código é sempre obrigatório (o front decide pelo papel).
+- **"Quero trabalhar"** usa `CAMINHOS.paraProfissionais` (`/para-profissionais`), a mesma página do Início; não encontrado até o DOM-02.
+
 **DOM-01 + FE-02 (dia 9): decisões e pendências**
 - **Catálogo público:** `GET /api/publico/catalogo` (áreas com profissões ativas, serviços ativos e cidades ativas por UF e `f_sem_acento(nome) COLLATE "C"`); sem ids internos, faixa de diária, NR-10 ou LC 150. Área não tem coluna `ativa`: aparece se tiver ao menos uma profissão ativa. Três consultas e cache de 60 s com `invalidarCache()` (para o admin, no FE-07). O `icone` sai na resposta, mas o front escolhe a ilustração pelo `codigo` da profissão.
 - **Regras públicas:** `GET /api/publico/regras` = `{comissao: "0.1000", prazoLiberacao: "PT12H", taxaPagaPor: "CLIENTE"}`, de um snapshot do `ConfiguracaoNegocio`; nada mais sai. Frases do Início (09/10): "A taxa da COE é de 10%, paga pelo cliente." ou "..., descontada do valor do profissional."; valor desconhecido não mostra a frase.

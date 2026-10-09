@@ -78,6 +78,7 @@ class MinhaContaTest extends IntegracaoTest {
         mockMvc.perform(get("/api/contas/eu").header("Authorization", bearer(conta.id(), Papel.CLIENTE)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.emailConfirmado").value(true))
+                .andExpect(jsonPath("$.celularConfirmado").value(true))
                 .andExpect(jsonPath("$.mfaAtivo").value(true));
     }
 
@@ -90,6 +91,18 @@ class MinhaContaTest extends IntegracaoTest {
         mockMvc.perform(get("/api/contas/eu").header("Authorization", bearer(conta.id(), Papel.CLIENTE)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value(Matchers.nullValue()))
+                .andExpect(jsonPath("$.contatoPendente").value(true));
+    }
+
+    @Test
+    @DisplayName("conta que perdeu o celular para o dono (RN61): contato pendente")
+    void contatoPendenteSemCelular() throws Exception {
+        Conta conta = contas.criar(Papel.CLIENTE);
+        jdbc.update("UPDATE usuario SET celular = NULL WHERE id = ?", conta.id());
+
+        mockMvc.perform(get("/api/contas/eu").header("Authorization", bearer(conta.id(), Papel.CLIENTE)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.celular").value(Matchers.nullValue()))
                 .andExpect(jsonPath("$.contatoPendente").value(true));
     }
 
