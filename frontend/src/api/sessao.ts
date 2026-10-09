@@ -6,6 +6,8 @@ import type { SessaoResposta, UsuarioDaSessao } from './tipos';
  * refresh (renovação silenciosa ao abrir o app: dia 10, junto com o entrar).
  */
 let token: string | null = null;
+/** Muda a cada encerramento: renovação iniciada antes de "sair" não pode trazer a sessão de volta. */
+let geracao = 0;
 let usuario: UsuarioDaSessao | null = null;
 let aoPerder: () => void = () => undefined;
 const ouvintes = new Set<() => void>();
@@ -25,9 +27,14 @@ export function iniciarSessao(sessao: SessaoResposta): void {
 }
 
 export function encerrarSessao(): void {
+  geracao += 1;
   token = null;
   usuario = null;
   avisar();
+}
+
+export function geracaoDaSessao(): number {
+  return geracao;
 }
 
 export function ouvirSessao(ouvinte: () => void): () => void {

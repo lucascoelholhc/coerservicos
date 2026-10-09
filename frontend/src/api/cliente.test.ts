@@ -154,6 +154,50 @@ describe('cliente da API', () => {
     expect(aoPerderSessao).not.toHaveBeenCalled();
   });
 
+  it('sair durante a renovação: a resposta da renovação não ressuscita a sessão', async () => {
+    entrarComo('velho');
+    let liberarRenovacao: () => void = () => undefined;
+    const renovacao = new Promise<void>((resolver) => {
+      liberarRenovacao = resolver;
+    });
+    const { pedidos } = simularFetch(async (pedido) => {
+      if (pedido.url === '/api/auth/renovar') {
+        await renovacao;
+        return json({ accessToken: 'novo', expiraEm: 'x', usuario: USUARIO });
+      }
+      return problema(401, 'x', 'x');
+    });
+
+    const promessa = chamar('/contas/eu');
+    await vi.waitFor(() => expect(pedidos.some((pedido) => pedido.url === '/api/auth/renovar')).toBe(true));
+    encerrarSessao();
+    liberarRenovacao();
+
+    expect((await erroDe(promessa)).tipo).toBe('sessao');
+    expect(tokenAtual()).toBeNull();
+    expect(aoPerderSessao).not.toHaveBeenCalled();
+  });
+
+  it('outra chamada já encerrou a sessão: erro de sessão, sem renovar e sem avisar de novo', async () => {
+    entrarComo('velho');
+    const { pedidos } = simularFetch(() => {
+      encerrarSessao();
+      return problema(401, 'x', 'x');
+    });
+
+    expect((await erroDe(chamar('/contas/eu'))).tipo).toBe('sessao');
+    expect(pedidos).toHaveLength(1);
+    expect(aoPerderSessao).not.toHaveBeenCalled();
+  });
+
+  it('renovação que demora demais: erro de tempo (a sessão fica)', async () => {
+    entrarComo('velho');
+    simularFetch((pedido) => (pedido.url === '/api/auth/renovar' ? esperarAborto(pedido) : problema(401, 'x', 'x')));
+
+    expect((await erroDe(chamar('/contas/eu', { tempoLimiteMs: 20 }))).tipo).toBe('tempo');
+    expect(tokenAtual()).toBe('velho');
+  });
+
   it('se outra chamada já renovou, repete sem renovar de novo', async () => {
     entrarComo('velho');
     const { pedidos } = simularFetch((pedido) => {
@@ -255,7 +299,7 @@ describe('cliente da API', () => {
     expect(erro.message).toBe('Sem conexão. Confira a internet e tente de novo.');
   });
 
-  it.each([['texto'], [{}]])('falha estranha do fetch (%o) também vira "sem conexão"', async (falha) => {
+  it.each([['texto'], [{}], [null]])('falha estranha do fetch (%o) também vira "sem conexão"', async (falha) => {
     simularFetch(() => {
       throw falha;
     });
@@ -263,13 +307,36 @@ describe('cliente da API', () => {
     expect((await erroDe(chamar('/x'))).tipo).toBe('sem-conexao');
   });
 
-  it('navegador avisando que está offline: nem tenta', async () => {
-    const { falso } = simularFetch(() => json({}));
+  it('navigator.onLine falso não bloqueia (às vezes está errado): tenta mesmo assim', async () => {
+    const { falso } = simularFetch(() => json({ ok: true }));
     vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
 
-    expect((await erroDe(chamar('/x'))).tipo).toBe('sem-conexao');
-    expect(falso).not.toHaveBeenCalled();
+    await expect(chamar('/x')).resolves.toEqual({ ok: true });
+    expect(falso).toHaveBeenCalledOnce();
     vi.restoreAllMocks();
+  });
+
+  it('funciona em navegador sem AbortSignal.any e AbortSignal.timeout (celular antigo)', async () => {
+    const any = AbortSignal.any;
+    const timeout = AbortSignal.timeout;
+    Object.assign(AbortSignal, { any: undefined, timeout: undefined });
+    try {
+      simularFetch(() => json({ ok: true }));
+      await expect(chamar('/x')).resolves.toEqual({ ok: true });
+
+      simularFetch(esperarAborto);
+      expect((await erroDe(chamar('/x', { tempoLimiteMs: 20 }))).tipo).toBe('tempo');
+    } finally {
+      Object.assign(AbortSignal, { any, timeout });
+    }
+  });
+
+  it('sinal de quem chamou já abortado: cancelado, sem esperar', async () => {
+    simularFetch(esperarAborto);
+    const controle = new AbortController();
+    controle.abort();
+
+    expect((await erroDe(chamar('/x', { sinal: controle.signal }))).tipo).toBe('cancelado');
   });
 
   it('demorou mais que o limite: erro de tempo (diferente de sem conexão)', async () => {

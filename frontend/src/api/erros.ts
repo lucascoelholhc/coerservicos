@@ -62,7 +62,8 @@ export async function erroDaResposta(resposta: Response): Promise<ErroDaApi> {
 
 /** Falha do fetch: tempo esgotado, cancelamento de quem chamou ou falta de rede. */
 export function erroDaFalha(falha: unknown): ErroDaApi {
-  const nome = falha instanceof Object && 'name' in falha ? falha.name : undefined;
+  // typeof em vez de instanceof: a falha pode vir de outro realm (iframe, jsdom) e ainda ter name.
+  const nome = typeof falha === 'object' && falha !== null && 'name' in falha ? falha.name : undefined;
   if (nome === 'TimeoutError') {
     return new ErroDaApi('tempo');
   }

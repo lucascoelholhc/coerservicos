@@ -27,8 +27,13 @@ export function useRecurso<T>(
     const controle = new AbortController();
     funcoes.current.buscar(controle.signal).then(
       (dados) => {
-        if (!controle.signal.aborted) {
+        if (controle.signal.aborted) {
+          return;
+        }
+        try {
           setEstado({ situacao: funcoes.current.estaVazio?.(dados) ? 'vazio' : 'pronto', dados });
+        } catch {
+          setEstado({ situacao: 'erro', erro: new ErroDaApi('servidor') });
         }
       },
       (falha: unknown) => {

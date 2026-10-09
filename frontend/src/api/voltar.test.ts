@@ -24,6 +24,12 @@ describe('caminho de volta seguro (sem redirecionamento aberto)', () => {
     [null],
     [undefined],
     ['/entrar?voltar=/conta'],
+    ['/entrar/'],
+    ['/ENTRAR'],
+    ['/%65ntrar'],
+    ['/.//evil.com'],
+    ['/a/..//evil.com'],
+    ['/%2e%2e//evil.com'],
   ])('recusa %s e volta ao início', (valor) => {
     expect(caminhoInternoSeguro(valor)).toBe('/');
   });

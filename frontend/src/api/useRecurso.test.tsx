@@ -36,6 +36,19 @@ describe('useRecurso', () => {
     expect(buscar).toHaveBeenCalledTimes(2);
   });
 
+  it('regra de vazio que quebra vira erro tipado (não fica carregando para sempre)', async () => {
+    const { result } = renderHook(() =>
+      useRecurso(
+        async () => 'ok',
+        () => {
+          throw new Error('regra quebrada');
+        },
+      ),
+    );
+
+    await waitFor(() => expect(result.current.erro?.tipo).toBe('servidor'));
+  });
+
   it('falha que não é ErroDaApi também vira erro tipado (servidor)', async () => {
     const { result } = renderHook(() => useRecurso(async () => Promise.reject(new Error('boom'))));
 

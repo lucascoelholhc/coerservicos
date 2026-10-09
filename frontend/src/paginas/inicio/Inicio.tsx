@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react';
+import { useRef, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 
 import { buscarCatalogo, profissoesDoCatalogo } from '../../api/catalogo';
@@ -106,6 +106,7 @@ export function Inicio() {
 /** Profissão e cidade vêm da API; enquanto carrega (ou se falhar), os campos ficam desabilitados. */
 function FormularioDeBusca({ catalogo }: { catalogo: EstadoDoCatalogo }) {
   const navegar = useNavigate();
+  const aviso = useRef<HTMLParagraphElement>(null);
   const dados = catalogo.dados;
   const carregando = catalogo.situacao === 'carregando';
 
@@ -135,12 +136,19 @@ function FormularioDeBusca({ catalogo }: { catalogo: EstadoDoCatalogo }) {
           Buscar
         </Botao>
       </form>
-      <p className="sr-only" role="status">
+      <p className="sr-only" role="status" tabIndex={-1} ref={aviso}>
         {carregando ? 'Carregando profissões e cidades…' : ''}
       </p>
       {catalogo.situacao === 'erro' && (
         <div className={estilos.falhaNaBusca}>
-          <FalhaAoCarregar erro={catalogo.erro} aoTentarDeNovo={catalogo.tentarDeNovo} />
+          <FalhaAoCarregar
+            erro={catalogo.erro}
+            aoTentarDeNovo={() => {
+              // O botão some ao tentar de novo: o foco vai para o aviso, não se perde no <body>.
+              catalogo.tentarDeNovo();
+              aviso.current?.focus();
+            }}
+          />
         </div>
       )}
     </>

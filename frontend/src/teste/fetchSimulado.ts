@@ -44,6 +44,10 @@ export function simularFetch(responder: Responder) {
 /** fetch que só termina quando o sinal for abortado (para timeout e cancelamento). */
 export function esperarAborto(pedido: Pedido): Promise<Response> {
   return new Promise((_, rejeitar) => {
+    if (pedido.sinal?.aborted) {
+      rejeitar(pedido.sinal.reason);
+      return;
+    }
     pedido.sinal?.addEventListener('abort', () => rejeitar(pedido.sinal?.reason));
   });
 }

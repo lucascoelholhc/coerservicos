@@ -195,6 +195,8 @@ describe('Início (visitante) com dados da API', () => {
     expect(screen.getByRole('button', { name: 'Buscar' })).toBeDisabled();
 
     await userEvent.click(screen.getByRole('button', { name: 'Tentar de novo' }));
+    // O botão some: o foco vai para o aviso de carregamento, não se perde no <body>
+    expect(screen.getByRole('status')).toHaveFocus();
 
     expect(await screen.findByRole('link', { name: 'Pintor' })).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();

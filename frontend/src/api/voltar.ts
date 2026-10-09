@@ -18,10 +18,15 @@ export function caminhoInternoSeguro(valor: string | null | undefined): string {
   } catch {
     return INICIO;
   }
-  if (caminhoDecodificado.startsWith('//') || url.pathname === '/entrar') {
+  if (caminhoDecodificado.startsWith('//') || ehATelaDeEntrar(caminhoDecodificado)) {
     return INICIO;
   }
   return `${url.pathname}${url.search}${url.hash}`;
+}
+
+/** "/entrar", "/entrar/", "/ENTRAR" ou "/%65ntrar": voltar para a própria tela de entrar faria um ciclo. */
+function ehATelaDeEntrar(caminhoDecodificado: string): boolean {
+  return caminhoDecodificado.toLowerCase().replace(/\/+$/, '') === '/entrar';
 }
 
 /** Caracteres de controle (0x00 a 0x1F e 0x7F) não têm lugar num caminho de volta. */
