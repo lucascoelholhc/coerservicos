@@ -1,2 +1,4 @@
 /mvnw text eol=lf
 *.cmd text eol=crlf
+# Protótipo "Dia carimbado": cópia byte a byte do ef7d397 (CRLF original), sem conversão de fim de linha
+docs/prototipo/** -text

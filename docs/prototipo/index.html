@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>COE Serviços</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,100..125,400..800;1,100,400&display=swap">
+<link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+
+<button class="skip" type="button" data-act="skip">Pular para o conteúdo</button>
+
+<div class="proto" role="region" aria-label="Controles do protótipo">
+  <div class="wrap">
+    <span class="proto-msg"><b>Protótipo:</b> nomes, fotos e valores são fictícios</span>
+    <div class="proto-ctl">
+      <label for="proto-cenario">Cenário
+        <select id="proto-cenario">
+          <option value="lancamento">Lançamento (sem avaliações)</option>
+          <option value="historico">Com histórico</option>
+        </select>
+      </label>
+      <label for="proto-role">Ver como
+        <select id="proto-role">
+          <option value="visitante">Visitante</option>
+          <option value="cliente">Cliente</option>
+          <option value="profissional">Profissional (Valdir, pedreiro)</option>
+          <option value="admin">Admin COE</option>
+        </select>
+      </label>
+    </div>
+  </div>
+</div>
+
+<header class="top">
+  <div class="wrap top-in">
+    <a class="logo" href="#inicio" id="logo-link" aria-label="COE Serviços, página inicial"></a>
+    <nav class="topnav" id="topnav" aria-label="Principal"></nav>
+    <div class="top-right" id="topright"></div>
+  </div>
+</header>
+
+<main id="app" tabindex="-1"></main>
+
+<nav class="bnav" aria-label="Menu"><ul id="bnav"></ul></nav>
+<dialog id="dlg" aria-labelledby="dlg-title"></dialog>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="js/config.js"></script>
+<script src="js/dados.js"></script>
+<script src="js/util.js"></script>
+<script src="js/cenas.js"></script>
+<script src="js/componentes.js"></script>
+<script src="js/telas-publicas.js"></script>
+<script src="js/telas-cliente.js"></script>
+<script src="js/telas-profissional.js"></script>
+<script src="js/cadastro.js"></script>
+<script src="js/telas-admin.js"></script>
+<script src="js/acoes.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
