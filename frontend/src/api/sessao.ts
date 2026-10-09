@@ -5,6 +5,10 @@ import type { SessaoResposta, UsuarioDaSessao } from './tipos';
  * legível ou log. Recarregar a página perde o token; quem recupera a sessão é o cookie HttpOnly do
  * refresh (renovação silenciosa ao abrir o app: dia 10, junto com o entrar).
  */
+/** verificando: o app acabou de abrir e tenta recuperar a sessão pelo cookie; ninguém é mandado para /entrar. */
+export type SituacaoDaSessao = 'verificando' | 'visitante' | 'logado';
+
+let situacao: SituacaoDaSessao = 'visitante';
 let token: string | null = null;
 /** Muda a cada encerramento: renovação iniciada antes de "sair" não pode trazer a sessão de volta. */
 let geracao = 0;
@@ -20,7 +24,28 @@ export function usuarioAtual(): UsuarioDaSessao | null {
   return usuario;
 }
 
+export function situacaoDaSessao(): SituacaoDaSessao {
+  return situacao;
+}
+
+/** Ao abrir o app, antes da renovação silenciosa. */
+export function iniciarVerificacao(): void {
+  if (situacao === 'visitante' && token === null) {
+    situacao = 'verificando';
+    avisar();
+  }
+}
+
+/** A renovação silenciosa não trouxe sessão: visitante (sem mensagem). */
+export function terminarVerificacaoSemSessao(): void {
+  if (situacao === 'verificando') {
+    situacao = 'visitante';
+    avisar();
+  }
+}
+
 export function iniciarSessao(sessao: SessaoResposta): void {
+  situacao = 'logado';
   token = sessao.accessToken;
   usuario = sessao.usuario;
   avisar();
@@ -28,6 +53,7 @@ export function iniciarSessao(sessao: SessaoResposta): void {
 
 export function encerrarSessao(): void {
   geracao += 1;
+  situacao = 'visitante';
   token = null;
   usuario = null;
   avisar();

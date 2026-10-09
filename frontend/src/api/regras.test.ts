@@ -8,12 +8,15 @@ describe('regras públicas', () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it('lê /api/publico/regras e devolve tipado', async () => {
-    const { pedidos } = simularFetch(() => json({ comissao: '0.1000', prazoLiberacao: 'PT12H', taxaPagaPor: 'CLIENTE' }));
+    const { pedidos } = simularFetch(() =>
+      json({ comissao: '0.1000', prazoLiberacao: 'PT12H', taxaPagaPor: 'CLIENTE', versaoTermos: '1.0' }),
+    );
 
     await expect(buscarRegras(new AbortController().signal)).resolves.toEqual({
       comissao: '0.1000',
       prazoLiberacao: 'PT12H',
       taxaPagaPor: 'CLIENTE',
+      versaoTermos: '1.0',
     });
     expect(pedidos[0]?.url).toBe('/api/publico/regras');
   });
@@ -23,6 +26,7 @@ describe('regras públicas', () => {
     [{ comissao: 'dez', prazoLiberacao: 'PT12H', taxaPagaPor: 'CLIENTE' }],
     [{ comissao: '0.1000', prazoLiberacao: '12 horas', taxaPagaPor: 'CLIENTE' }],
     [{ comissao: '0.1000', taxaPagaPor: 'CLIENTE' }],
+    [{ comissao: '0.1000', prazoLiberacao: 'PT12H', taxaPagaPor: 'CLIENTE' }],
   ])('valor desconhecido ou fora do formato vira erro de resposta: %o', async (corpo) => {
     simularFetch(() => json(corpo));
 

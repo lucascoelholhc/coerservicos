@@ -17,6 +17,13 @@ export const MENU_VISITANTE: readonly (ItemDeMenu & { para: string })[] = [
   { rotulo: 'Entrar', icone: 'user', para: CAMINHOS.entrar },
 ];
 
+/** Menu de baixo de quem entrou: "Minha conta" no lugar de "Entrar". */
+export const MENU_LOGADO: readonly (ItemDeMenu & { para: string })[] = [
+  { rotulo: 'Início', icone: 'home', para: CAMINHOS.inicio },
+  { rotulo: 'Buscar', icone: 'search', para: CAMINHOS.busca },
+  { rotulo: 'Minha conta', icone: 'user', para: CAMINHOS.conta },
+];
+
 /** Menu de cima (a partir de 900 px): sem "Entrar" (vira botão) e com as seções do Início. */
 export const MENU_TOPO_VISITANTE: readonly ItemDeMenu[] = [
   { rotulo: 'Início', icone: 'home', para: CAMINHOS.inicio },

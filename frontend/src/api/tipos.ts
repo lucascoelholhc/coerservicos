@@ -31,11 +31,15 @@ export interface CidadeDoCatalogo {
 
 export type TaxaPagaPor = 'CLIENTE' | 'PROFISSIONAL';
 
+export type Papel = 'CLIENTE' | 'PROFISSIONAL' | 'ADMIN';
+
 /** GET /api/publico/regras: comissão como fração ("0.1000") e prazo em ISO-8601 ("PT12H"). */
 export interface Regras {
   comissao: string;
   prazoLiberacao: string;
   taxaPagaPor: TaxaPagaPor;
+  /** Versão dos termos em vigor: o cadastro manda esta versão como aceita. */
+  versaoTermos: string;
 }
 
 /** Resposta do entrar e do renovar (SessaoResponse). */

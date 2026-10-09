@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { avisarSessaoPerdida, encerrarSessao, iniciarSessao, ouvirSessao, tokenAtual, usuarioAtual } from './sessao';
+import {
+  avisarSessaoPerdida,
+  iniciarVerificacao,
+  situacaoDaSessao,
+  terminarVerificacaoSemSessao,
+  encerrarSessao, iniciarSessao, ouvirSessao, tokenAtual, usuarioAtual } from './sessao';
 
 const SESSAO = {
   accessToken: 'token-secreto',
@@ -28,6 +33,29 @@ describe('sessão em memória', () => {
     encerrarSessao();
     expect(tokenAtual()).toBeNull();
     expect(usuarioAtual()).toBeNull();
+  });
+
+  it('situação: visitante por padrão; verificando ao abrir; logado ao iniciar; visitante ao encerrar', () => {
+    expect(situacaoDaSessao()).toBe('visitante');
+
+    iniciarVerificacao();
+    expect(situacaoDaSessao()).toBe('verificando');
+
+    iniciarSessao(SESSAO);
+    expect(situacaoDaSessao()).toBe('logado');
+
+    encerrarSessao();
+    expect(situacaoDaSessao()).toBe('visitante');
+  });
+
+  it('terminar a verificação sem sessão vira visitante; com sessão, não mexe', () => {
+    iniciarVerificacao();
+    terminarVerificacaoSemSessao();
+    expect(situacaoDaSessao()).toBe('visitante');
+
+    iniciarSessao(SESSAO);
+    terminarVerificacaoSemSessao();
+    expect(situacaoDaSessao()).toBe('logado');
   });
 
   it('avisa quem está ouvindo; quem parou de ouvir não é avisado', () => {

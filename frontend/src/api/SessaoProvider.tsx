@@ -1,7 +1,7 @@
 import { useEffect, useRef, useSyncExternalStore, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 
-import { definirAoPerderSessao, ouvirSessao, usuarioAtual } from './sessao';
+import { definirAoPerderSessao, ouvirSessao, situacaoDaSessao, usuarioAtual, type SituacaoDaSessao } from './sessao';
 import type { UsuarioDaSessao } from './tipos';
 import { caminhoDeEntrar } from './voltar';
 
@@ -28,4 +28,9 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
 /** Usuário da sessão atual (ou null para visitante), atualizado quando a sessão muda. */
 export function useSessao(): UsuarioDaSessao | null {
   return useSyncExternalStore(ouvirSessao, usuarioAtual);
+}
+
+/** verificando, visitante ou logado; atualiza quando muda. */
+export function useSituacaoDaSessao(): SituacaoDaSessao {
+  return useSyncExternalStore(ouvirSessao, situacaoDaSessao);
 }

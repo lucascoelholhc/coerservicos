@@ -4,6 +4,10 @@ export const CAMINHOS = {
   busca: '/busca',
   entrar: '/entrar',
   criarConta: '/criar-conta',
+  criarContaCliente: '/criar-conta/cliente',
+  conta: '/conta',
+  termos: '/termos',
+  privacidade: '/privacidade',
   comoFunciona: '/como-funciona',
   paraProfissionais: '/para-profissionais',
 } as const;

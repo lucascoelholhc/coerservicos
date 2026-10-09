@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { fraseDaAprovacao, fraseDaLiberacaoAoProfissional, fraseDaTaxa } from './frases';
 
-const REGRAS = { comissao: '0.1000', prazoLiberacao: 'PT12H', taxaPagaPor: 'CLIENTE' } as const;
+const REGRAS = { comissao: '0.1000', prazoLiberacao: 'PT12H', taxaPagaPor: 'CLIENTE', versaoTermos: '1.0' } as const;
 
 describe('frases com os números da API', () => {
   it('aprovação: com o prazo da API, ou sem número enquanto não há regra', () => {

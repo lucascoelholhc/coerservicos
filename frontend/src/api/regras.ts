@@ -9,10 +9,11 @@ export async function buscarRegras(sinal: AbortSignal): Promise<Regras> {
 
 /** Valor desconhecido (ex.: quem paga a taxa) ou fora do formato vira erro tipado: a frase não aparece. */
 function validar(corpo: unknown): Regras {
-  const { comissao, prazoLiberacao, taxaPagaPor } = corpo as Record<string, unknown>;
+  const { comissao, prazoLiberacao, taxaPagaPor, versaoTermos } = corpo as Record<string, unknown>;
   if (
     typeof comissao !== 'string' ||
     typeof prazoLiberacao !== 'string' ||
+    typeof versaoTermos !== 'string' ||
     (taxaPagaPor !== 'CLIENTE' && taxaPagaPor !== 'PROFISSIONAL')
   ) {
     throw new ErroDaApi('resposta');
@@ -23,5 +24,5 @@ function validar(corpo: unknown): Regras {
   } catch {
     throw new ErroDaApi('resposta');
   }
-  return { comissao, prazoLiberacao, taxaPagaPor };
+  return { comissao, prazoLiberacao, taxaPagaPor, versaoTermos };
 }

@@ -3,7 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { describe, expect, it } from 'vitest';
 
+import { encerrarSessao, iniciarSessao, iniciarVerificacao } from '../api/sessao';
 import { semViolacoes } from '../teste/axe';
+import { SESSAO_PADRAO } from '../teste/dadosDaApi';
 import { Moldura } from './Moldura';
 
 function abrirEm(caminho: string) {
@@ -81,5 +83,29 @@ describe('Moldura', () => {
     expect(within(cabecalho).getByRole('link', { name: 'COE Serviços, página inicial' })).toHaveAttribute('href', '/');
     expect(within(cabecalho).getByRole('link', { name: 'Entrar' })).toHaveAttribute('data-variante', 'contorno');
     expect(within(cabecalho).getByRole('link', { name: 'Criar conta' })).toHaveAttribute('data-variante', 'escuro');
+  });
+
+  it('logado: cabeçalho com "Olá, Ana" e "Minha conta"; menu de baixo com "Minha conta" no lugar de "Entrar"', () => {
+    iniciarSessao(SESSAO_PADRAO);
+    abrirEm('/');
+    const cabecalho = screen.getByRole('banner');
+    const menu = screen.getByRole('navigation', { name: 'Menu' });
+
+    expect(within(cabecalho).getByText('Olá, Ana')).toBeInTheDocument();
+    expect(within(cabecalho).getByRole('link', { name: 'Minha conta' })).toHaveAttribute('href', '/conta');
+    expect(within(cabecalho).queryByRole('link', { name: 'Entrar' })).not.toBeInTheDocument();
+    expect(within(cabecalho).queryByRole('link', { name: 'Criar conta' })).not.toBeInTheDocument();
+    expect(within(menu).getAllByRole('link').map((link) => link.textContent)).toEqual(['Início', 'Buscar', 'Minha conta']);
+    encerrarSessao();
+  });
+
+  it('verificando a sessão: nem "Entrar" nem "Minha conta" (não pisca)', () => {
+    iniciarVerificacao();
+    abrirEm('/');
+    const cabecalho = screen.getByRole('banner');
+
+    expect(within(cabecalho).queryByRole('link', { name: 'Entrar' })).not.toBeInTheDocument();
+    expect(within(cabecalho).queryByRole('link', { name: 'Minha conta' })).not.toBeInTheDocument();
+    encerrarSessao();
   });
 });
