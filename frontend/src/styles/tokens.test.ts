@@ -29,6 +29,11 @@ const ESPERADOS: Record<string, string> = {
   '--bad-txt': '#A52A21',
   '--warn': '#7A5300',
   '--warn-soft': '#FFF3C7',
+  // Fora da tabela da identidade, vindos do CSS do protótipo (sem token igual ou quase igual)
+  '--tinta-hover': '#33374A',
+  '--carimbo-soft-2': '#D3D5F6',
+  '--rodape-txt': '#B9BDCC',
+  '--mascara': '#000000',
   '--r': '12px',
   '--r-sm': '6px',
   '--r-pilula': '999px',

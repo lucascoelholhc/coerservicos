@@ -1,0 +1,63 @@
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--tinta);
+  text-decoration: none;
+}
+
+.texto {
+  display: grid;
+}
+
+.texto b {
+  font-size: 1.45rem;
+  font-weight: 800;
+  font-stretch: var(--largura-titulo);
+  line-height: 0.9;
+  letter-spacing: -0.03em;
+}
+
+.texto small {
+  color: var(--tinta-2);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.simbolo {
+  flex: none;
+}
+
+.parede {
+  fill: var(--surface);
+  stroke: var(--carimbo);
+}
+
+.traco {
+  fill: none;
+  stroke: var(--carimbo);
+}
+
+.porta {
+  fill: var(--sinal);
+  stroke: var(--carimbo);
+}
+
+.telhado {
+  fill: none;
+  stroke: var(--carimbo);
+}
+
+.simbolo[data-claro="true"] .parede {
+  fill: var(--tinta);
+  stroke: var(--surface);
+}
+
+.simbolo[data-claro="true"] .traco,
+.simbolo[data-claro="true"] .porta {
+  stroke: var(--surface);
+}
+
+.simbolo[data-claro="true"] .telhado {
+  stroke: var(--sinal);
+}

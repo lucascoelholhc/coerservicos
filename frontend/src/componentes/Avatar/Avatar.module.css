@@ -1,0 +1,54 @@
+.avatar {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--carimbo);
+  color: var(--surface);
+  font-weight: 800;
+  font-stretch: var(--largura-titulo);
+  line-height: 1;
+}
+
+.avatar[data-tamanho="sm"] {
+  width: 42px;
+  height: 42px;
+  font-size: 0.95rem;
+}
+
+.avatar[data-tamanho="md"] {
+  width: 58px;
+  height: 58px;
+  font-size: 1.25rem;
+}
+
+.avatar[data-tamanho="lg"] {
+  width: 104px;
+  height: 104px;
+  border-radius: 24px;
+  font-size: 2.1rem;
+}
+
+.avatar[data-cor="carimbo-2"] {
+  background: var(--carimbo-2);
+}
+
+.avatar[data-cor="tinta"] {
+  background: var(--tinta);
+}
+
+.avatar[data-cor="tinta-2"] {
+  background: var(--tinta-2);
+}
+
+.avatar[data-cor="ok"] {
+  background: var(--ok);
+}
+
+.avatar[data-cor="bad"] {
+  background: var(--bad);
+}
+
+.avatar[data-cor="warn"] {
+  background: var(--warn);
+}

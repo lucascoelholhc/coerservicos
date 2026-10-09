@@ -33,6 +33,15 @@
   --ok-txt: #17633d;
   --bad-txt: #a52a21;
 
+  /*
+   * Fora da tabela da identidade, vindos do CSS do protótipo (ef7d397) e sem token igual ou quase igual:
+   * hover do botão escuro, hover do chip removível, texto do rodapé e a máscara do carimbo.
+   */
+  --tinta-hover: #33374a;
+  --carimbo-soft-2: #d3d5f6;
+  --rodape-txt: #b9bdcc;
+  --mascara: #000;
+
   /* Tipografia (seção 4): uma família só, hospedada no front (@fontsource-variable/archivo, eixos wght e wdth) */
   --fonte: "Archivo Variable", "Segoe UI", "Roboto", "Arial", sans-serif;
   --largura-titulo: 125%;

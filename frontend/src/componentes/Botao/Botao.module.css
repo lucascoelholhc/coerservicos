@@ -1,0 +1,110 @@
+.botao {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 52px;
+  padding: 0 22px;
+  border: 2px solid transparent;
+  border-radius: var(--r-sm);
+  font: 700 1rem/1.1 var(--fonte);
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.botao:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Variantes */
+.botao[data-variante="principal"] {
+  background: var(--carimbo);
+  color: var(--surface);
+}
+
+.botao[data-variante="principal"]:hover:not(:disabled) {
+  background: var(--carimbo-2);
+}
+
+.botao[data-variante="escuro"] {
+  background: var(--tinta);
+  color: var(--surface);
+}
+
+.botao[data-variante="escuro"]:hover:not(:disabled) {
+  background: var(--tinta-hover);
+}
+
+.botao[data-variante="contorno"] {
+  border-color: var(--tinta);
+  background: var(--surface);
+  color: var(--tinta);
+}
+
+.botao[data-variante="contorno"]:hover:not(:disabled) {
+  background: var(--papel);
+}
+
+.botao[data-variante="suave"] {
+  background: var(--surface-2);
+  color: var(--tinta);
+}
+
+.botao[data-variante="suave"]:hover:not(:disabled) {
+  background: var(--surface-3);
+}
+
+.botao[data-variante="perigo"] {
+  border-color: var(--bad);
+  background: var(--surface);
+  color: var(--bad-txt);
+}
+
+.botao[data-variante="perigo"]:hover:not(:disabled) {
+  background: var(--bad-soft);
+}
+
+.botao[data-variante="sucesso"] {
+  background: var(--ok);
+  color: var(--surface);
+}
+
+.botao[data-variante="sucesso"]:hover:not(:disabled) {
+  background: var(--ok-txt);
+}
+
+/* Sobre fundo --carimbo (faixa "Para profissionais"): amarelo com texto --tinta */
+.botao[data-fundo-escuro="true"] {
+  border-color: transparent;
+  background: var(--sinal);
+  color: var(--tinta);
+}
+
+.botao[data-fundo-escuro="true"]:hover:not(:disabled) {
+  background: var(--sinal-2);
+}
+
+/* Tamanhos */
+.botao[data-tamanho="sm"] {
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: 0.94rem;
+}
+
+.botao[data-tamanho="lg"] {
+  min-height: 58px;
+  padding: 0 26px;
+  font-size: 1.08rem;
+}
+
+.botao[data-tamanho="xl"] {
+  width: 100%;
+  min-height: 68px;
+  font-size: 1.18rem;
+}

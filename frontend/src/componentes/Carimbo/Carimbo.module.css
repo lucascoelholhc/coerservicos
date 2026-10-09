@@ -1,0 +1,57 @@
+.carimbo {
+  --cor-do-carimbo: var(--carimbo);
+
+  display: inline-block;
+  padding: 7px 12px 6px;
+  border: 3px solid var(--cor-do-carimbo);
+  border-radius: 8px;
+  color: var(--cor-do-carimbo);
+  font-size: 1rem;
+  font-weight: 800;
+  font-stretch: var(--largura-titulo);
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transform: rotate(-8deg);
+  mask-image: radial-gradient(
+    circle at 30% 40%,
+    var(--mascara) 0 60%,
+    color-mix(in srgb, var(--mascara) 82%, transparent) 61% 100%
+  );
+}
+
+.carimbo[data-tom="ok"] {
+  --cor-do-carimbo: var(--ok-txt);
+}
+
+.carimbo[data-tom="bad"] {
+  --cor-do-carimbo: var(--bad-txt);
+}
+
+.carimbo[data-compacto="true"] {
+  padding: 6px 8px 5px;
+  border-width: 2.5px;
+  font-size: 0.74rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .carimbo[data-animar="true"] {
+    animation: carimbar 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.2) 0.5s both;
+  }
+}
+
+@keyframes carimbar {
+  0% {
+    opacity: 0;
+    transform: rotate(-16deg) scale(1.9);
+  }
+
+  60% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: rotate(-8deg) scale(1);
+  }
+}
