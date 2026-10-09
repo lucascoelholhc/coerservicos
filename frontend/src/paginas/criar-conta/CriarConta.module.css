@@ -1,0 +1,89 @@
+.pagina {
+  padding-block: 20px 40px;
+}
+
+.coluna {
+  display: grid;
+  gap: 18px;
+  max-width: 480px;
+  margin-inline: auto;
+}
+
+.voltar {
+  justify-self: start;
+  padding-block: 10px;
+  color: var(--carimbo-txt);
+  font-weight: 700;
+}
+
+.topo {
+  display: grid;
+  gap: 6px;
+}
+
+.chamada {
+  color: var(--carimbo-txt);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.apagado {
+  color: var(--tinta-2);
+}
+
+.cartao {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+
+.aceite {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 4px 12px;
+  font-size: 0.95rem;
+}
+
+.aceite input {
+  width: 24px;
+  height: 24px;
+  margin: 2px 0 0;
+  accent-color: var(--carimbo);
+}
+
+.aceite a {
+  color: var(--carimbo-txt);
+  font-weight: 700;
+}
+
+.erroDoAceite {
+  grid-column: 2;
+  color: var(--bad-txt);
+  font-weight: 600;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 6px;
+}
+
+.links a {
+  color: inherit;
+  font-weight: 700;
+}
+
+.rodape {
+  color: var(--tinta-2);
+  text-align: center;
+}
+
+.rodape a {
+  color: var(--carimbo-txt);
+  font-weight: 700;
+}

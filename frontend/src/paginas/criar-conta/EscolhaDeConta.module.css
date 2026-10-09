@@ -1,0 +1,69 @@
+.pagina {
+  display: grid;
+  gap: 20px;
+  max-width: 760px;
+  padding-block: 28px 40px;
+}
+
+.topo {
+  display: grid;
+  gap: 6px;
+}
+
+.apagado {
+  color: var(--tinta-2);
+  font-size: 1.1rem;
+}
+
+.opcoes {
+  display: grid;
+  gap: 14px;
+}
+
+.opcao {
+  display: grid;
+  overflow: hidden;
+  border: 1.5px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--tinta);
+  text-decoration: none;
+}
+
+.opcao:hover,
+.opcao:focus-visible {
+  border-color: var(--carimbo);
+}
+
+.texto {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+}
+
+.texto b {
+  font-size: 1.3rem;
+  font-weight: 800;
+  font-stretch: var(--largura-titulo);
+}
+
+.chamada {
+  color: var(--carimbo-txt);
+  font-weight: 700;
+}
+
+.rodape {
+  color: var(--tinta-2);
+  text-align: center;
+}
+
+.rodape a {
+  color: var(--carimbo-txt);
+  font-weight: 700;
+}
+
+@media (width >= 640px) {
+  .opcoes {
+    grid-template-columns: 1fr 1fr;
+  }
+}
