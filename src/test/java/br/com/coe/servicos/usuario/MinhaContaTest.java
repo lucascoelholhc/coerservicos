@@ -47,6 +47,9 @@ class MinhaContaTest extends IntegracaoTest {
                 .andExpect(jsonPath("$.email").value(conta.email()))
                 .andExpect(jsonPath("$.celular").value(conta.celular()))
                 .andExpect(jsonPath("$.celularConfirmado").value(false))
+                .andExpect(jsonPath("$.emailConfirmado").value(false))
+                .andExpect(jsonPath("$.contatoPendente").value(false))
+                .andExpect(jsonPath("$.mfaAtivo").value(false))
                 .andExpect(jsonPath("$.senhaHash").doesNotExist())
                 .andExpect(jsonPath("$.status").doesNotExist())
                 .andExpect(jsonPath("$.mfaSmsAtivo").doesNotExist())
@@ -62,6 +65,32 @@ class MinhaContaTest extends IntegracaoTest {
         mockMvc.perform(get("/api/contas/eu").header("Authorization", bearer(conta.id(), Papel.PROFISSIONAL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.celularConfirmado").value(true));
+    }
+
+    @Test
+    @DisplayName("e-mail confirmado e código no login ligado aparecem (para a tela de segurança)")
+    void emailConfirmadoEMfaAtivo() throws Exception {
+        Conta conta = contas.criar(Papel.CLIENTE);
+        jdbc.update(
+                "UPDATE usuario SET email_verificado_em = now(), celular_verificado_em = now(), mfa_sms_ativo = true WHERE id = ?",
+                conta.id());
+
+        mockMvc.perform(get("/api/contas/eu").header("Authorization", bearer(conta.id(), Papel.CLIENTE)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.emailConfirmado").value(true))
+                .andExpect(jsonPath("$.mfaAtivo").value(true));
+    }
+
+    @Test
+    @DisplayName("conta que perdeu o e-mail para o dono (RN61): contato pendente, lido do banco")
+    void contatoPendente() throws Exception {
+        Conta conta = contas.criar(Papel.CLIENTE);
+        jdbc.update("UPDATE usuario SET email = NULL WHERE id = ?", conta.id());
+
+        mockMvc.perform(get("/api/contas/eu").header("Authorization", bearer(conta.id(), Papel.CLIENTE)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value(Matchers.nullValue()))
+                .andExpect(jsonPath("$.contatoPendente").value(true));
     }
 
     @Test

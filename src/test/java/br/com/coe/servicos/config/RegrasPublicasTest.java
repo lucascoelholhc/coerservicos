@@ -54,8 +54,11 @@ class RegrasPublicasTest extends BancoIntegracaoTest {
     @DisplayName("200 sem token com os valores em vigor: comissão, prazo de liberação (ISO-8601) e quem paga")
     void valoresDoSeed() throws Exception {
         assertThat(regras())
-                .containsExactlyInAnyOrderEntriesOf(
-                        Map.of("comissao", "0.1000", "prazoLiberacao", "PT12H", "taxaPagaPor", "CLIENTE"));
+                .containsExactlyInAnyOrderEntriesOf(Map.of(
+                        "comissao", "0.1000",
+                        "prazoLiberacao", "PT12H",
+                        "taxaPagaPor", "CLIENTE",
+                        "versaoTermos", "1.0"));
     }
 
     @Test
@@ -67,14 +70,17 @@ class RegrasPublicasTest extends BancoIntegracaoTest {
         configuracao.invalidarCache();
 
         assertThat(regras())
-                .containsExactlyInAnyOrderEntriesOf(
-                        Map.of("comissao", "0.1250", "prazoLiberacao", "PT24H", "taxaPagaPor", "PROFISSIONAL"));
+                .containsExactlyInAnyOrderEntriesOf(Map.of(
+                        "comissao", "0.1250",
+                        "prazoLiberacao", "PT24H",
+                        "taxaPagaPor", "PROFISSIONAL",
+                        "versaoTermos", "1.0"));
     }
 
     @Test
-    @DisplayName("nenhum outro parâmetro sai (prazo de disputa, limite LC 150, versão dos termos...)")
+    @DisplayName("só os quatro campos públicos: nenhum outro parâmetro sai (prazo de disputa, limite LC 150...)")
     void soOsTres() throws Exception {
-        assertThat(regras()).containsOnlyKeys("comissao", "prazoLiberacao", "taxaPagaPor");
+        assertThat(regras()).containsOnlyKeys("comissao", "prazoLiberacao", "taxaPagaPor", "versaoTermos");
     }
 
     @Test
