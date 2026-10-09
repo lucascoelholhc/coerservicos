@@ -1,5 +1,6 @@
 import { Link } from 'react-router';
 
+import { SECOES_DO_INICIO } from '../caminhos';
 import { Simbolo } from '../componentes/Logo/Logo';
 import estilos from './Rodape.module.css';
 
@@ -14,13 +15,13 @@ export function Rodape() {
         <nav aria-label="Rodapé">
           <ul className={estilos.links}>
             <li>
-              <Link to="/#como-funciona">Como funciona</Link>
+              <Link to={SECOES_DO_INICIO.comoFunciona}>Como funciona</Link>
             </li>
             <li>
-              <Link to="/#categorias">Categorias</Link>
+              <Link to={SECOES_DO_INICIO.categorias}>Categorias</Link>
             </li>
             <li>
-              <Link to="/#para-profissionais">Para profissionais</Link>
+              <Link to={SECOES_DO_INICIO.paraProfissionais}>Para profissionais</Link>
             </li>
           </ul>
         </nav>

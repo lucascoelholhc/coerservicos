@@ -28,6 +28,13 @@
   border-color: var(--tinta-3);
 }
 
+.select:disabled {
+  border-color: var(--line);
+  background: var(--surface-2);
+  color: var(--tinta-2);
+  cursor: not-allowed;
+}
+
 .select:focus {
   border-color: var(--carimbo);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--carimbo) 25%, transparent);

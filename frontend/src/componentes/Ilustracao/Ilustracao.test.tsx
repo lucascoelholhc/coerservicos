@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { semViolacoes } from '../../teste/axe';
-import { Ilustracao, PROFISSOES_ILUSTRADAS } from './Ilustracao';
+import { Ilustracao, PROFISSOES_ILUSTRADAS, temIlustracao } from './Ilustracao';
 
 describe('Ilustracao', () => {
   it('tem as 5 profissões do lançamento', () => {
@@ -29,6 +29,11 @@ describe('Ilustracao', () => {
     });
 
     expect(new Set(fontes).size).toBe(5);
+  });
+
+  it('sabe quais profissões têm desenho (profissão nova fica sem ilustração)', () => {
+    expect(temIlustracao('pintor')).toBe(true);
+    expect(temIlustracao('encanador')).toBe(false);
   });
 
   it('formato quadrado ou 4:3', () => {

@@ -2,6 +2,8 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 
 import { test, type Page } from '@playwright/test';
 
+import { simularApi } from '../apiSimulada';
+
 /**
  * Início do protótipo (ef7d397) x Início do React, lado a lado, em test-results/comparacao/ (fora do
  * git). A barra de controles do protótipo é escondida: ela não faz parte do produto.
@@ -26,6 +28,7 @@ for (const tamanho of TAMANHOS) {
     const contexto = await browser.newContext({ viewport: { width: tamanho.width, height: tamanho.height } });
     const pagina = await contexto.newPage();
     const prototipo = await capturar(pagina, 'http://localhost:4174/#inicio', '.proto');
+    await simularApi(pagina);
     const react = await capturar(pagina, 'http://localhost:4173/');
 
     // Junta as duas capturas numa imagem só, com o rótulo de cada lado

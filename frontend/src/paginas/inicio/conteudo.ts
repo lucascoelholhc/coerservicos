@@ -1,34 +1,9 @@
 import type { CartelaDeExemplo } from '../../componentes/CartelaDias/CartelaDias';
-import type { OpcaoDeSelecao } from '../../componentes/CampoSelecao/CampoSelecao';
-import type { ProfissaoIlustrada } from '../../componentes/Ilustracao/Ilustracao';
 
 /*
- * PROVISÓRIO (FE-01): textos e listas do Início, copiados do protótipo (ef7d397).
- * - Profissões e cidades: viram dados da API do catálogo no DOM-01/FE-03 (hoje, as mesmas do V3 e do V11).
- * - Prazo de liberação e comissão: voltam no dia 9/10 lidos de GET /api/publico/regras. Nenhum número de
- *   regra de negócio fica fixo no front; por isso os textos abaixo não citam horas nem porcentagem.
+ * Textos do Início (protótipo ef7d397). Profissões, cidades, prazo de liberação e comissão vêm da
+ * API (GET /api/publico/catalogo e /api/publico/regras): nenhuma lista nem número de regra fica aqui.
  */
-
-export const PROFISSOES: readonly (OpcaoDeSelecao & { valor: ProfissaoIlustrada })[] = [
-  { valor: 'pedreiro', texto: 'Pedreiro' },
-  { valor: 'pintor', texto: 'Pintor' },
-  { valor: 'eletricista', texto: 'Eletricista' },
-  { valor: 'diarista', texto: 'Diarista' },
-  { valor: 'jardineiro', texto: 'Jardineiro' },
-];
-
-export const CIDADES: readonly OpcaoDeSelecao[] = [
-  'Blumenau',
-  'Gaspar',
-  'Pomerode',
-  'Indaial',
-  'Timbó',
-  'Brusque',
-  'Itajaí',
-  'Balneário Camboriú',
-  'Jaraguá do Sul',
-  'Navegantes',
-].map((cidade) => ({ valor: cidade, texto: cidade }));
 
 export const HEROI = {
   titulo: 'Pague por dia. Libere quando o dia estiver feito.',
@@ -65,11 +40,9 @@ export const PASSOS = [
   },
 ] as const;
 
-export const FATOS = [
-  {
-    destaque: 'Você aprova',
-    texto: 'Terminou o dia, você aprova. Se não responder, o valor é liberado ao profissional depois de um prazo.',
-  },
+export const DESTAQUE_DA_APROVACAO = 'Você aprova';
+
+export const OUTROS_FATOS = [
   {
     destaque: '1 dia',
     texto: 'Se algo der errado, só aquele dia fica travado até a equipe COE decidir. Os outros seguem normais.',
@@ -90,10 +63,5 @@ export const CONVITE_PROFISSIONAL = {
   texto:
     'O cliente paga antes de você sair de casa. Você define o valor da diária e até onde vai trabalhar. O cadastro é feito pelo celular, uma pergunta de cada vez.',
   botao: 'Quero trabalhar com a COE',
-  itens: [
-    'Sem mensalidade',
-    'Dinheiro no Pix quando o cliente aprova o dia',
-    'Sem resposta do cliente, o dinheiro é liberado depois de um prazo',
-    'A taxa da COE é paga pelo cliente.',
-  ],
+  itensFixos: ['Sem mensalidade', 'Dinheiro no Pix quando o cliente aprova o dia'],
 } as const;

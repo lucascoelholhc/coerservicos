@@ -1,5 +1,6 @@
 import { Link, NavLink } from 'react-router';
 
+import { CAMINHOS } from '../caminhos';
 import { Botao } from '../componentes/Botao/Botao';
 import { Logo } from '../componentes/Logo/Logo';
 import { Icone } from '../icones/Icone';
@@ -16,7 +17,7 @@ export function Cabecalho() {
             {MENU_TOPO_VISITANTE.map((item) => (
               <li key={item.rotulo}>
                 {item.para === undefined ? (
-                  <Link className={estilos.link} to={item.ancora ?? '/'}>
+                  <Link className={estilos.link} to={item.ancora ?? CAMINHOS.inicio}>
                     <Icone nome={item.icone} tamanho={20} />
                     <span>{item.rotulo}</span>
                   </Link>
@@ -32,11 +33,11 @@ export function Cabecalho() {
         </nav>
         <div className={estilos.acoes}>
           <span className={estilos.entrar}>
-            <Botao para="/entrar" variante="contorno" tamanho="sm">
+            <Botao para={CAMINHOS.entrar} variante="contorno" tamanho="sm">
               Entrar
             </Botao>
           </span>
-          <Botao para="/criar-conta" variante="escuro" tamanho="sm">
+          <Botao para={CAMINHOS.criarConta} variante="escuro" tamanho="sm">
             Criar conta
           </Botao>
         </div>

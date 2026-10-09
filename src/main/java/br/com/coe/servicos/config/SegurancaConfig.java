@@ -48,6 +48,8 @@ public class SegurancaConfig {
 
     /** Única lista de rotas abertas sem login (fora o health do actuator). */
     public static final List<RotaPublica> ROTAS_PUBLICAS = List.of(
+            new RotaPublica(HttpMethod.GET, "/api/publico/catalogo"),
+            new RotaPublica(HttpMethod.GET, "/api/publico/regras"),
             new RotaPublica(HttpMethod.POST, "/api/contas/cliente"),
             new RotaPublica(HttpMethod.POST, "/api/contas/email/confirmar"),
             new RotaPublica(HttpMethod.POST, "/api/contas/posse/celular"),

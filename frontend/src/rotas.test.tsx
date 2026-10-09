@@ -1,9 +1,11 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Rotas } from './rotas';
+import { simularApiPublica } from './teste/apiSimulada';
+import { problema } from './teste/fetchSimulado';
 
 function abrirEm(caminho: string) {
   return render(
@@ -16,7 +18,10 @@ function abrirEm(caminho: string) {
 describe('Rotas', () => {
   beforeEach(() => {
     vi.mocked(Element.prototype.scrollIntoView).mockClear();
+    simularApiPublica();
   });
+
+  afterEach(() => vi.unstubAllGlobals());
 
   it('"/" abre o Início dentro da moldura', () => {
     abrirEm('/');
@@ -36,17 +41,24 @@ describe('Rotas', () => {
     expect(screen.getByRole('navigation', { name: 'Menu' })).toBeInTheDocument();
   });
 
-  it('nenhum número de regra de negócio fixo na tela inteira (prazo em horas ou comissão em %)', () => {
+  it('sem as regras da API, nenhum número de regra na tela inteira (prazo em horas ou comissão em %)', async () => {
+    simularApiPublica({ regras: () => problema(500, 'erro-interno', 'x') });
     abrirEm('/');
+    await screen.findByRole('link', { name: 'Pintor' });
     const texto = document.body.textContent ?? '';
 
     expect(texto).not.toMatch(/\d+\s*(h\b|hs\b|horas?\b|min\b|minutos?\b)/i);
     expect(texto).not.toMatch(/%/);
-    expect(
-      screen.getByText(
-        'Terminou o dia, você aprova. Se não responder, o valor é liberado ao profissional depois de um prazo.',
-      ),
-    ).toBeInTheDocument();
+  });
+
+  it('com as regras da API, os únicos números de regra são os da resposta', async () => {
+    simularApiPublica({ regras: { comissao: '0.1500', prazoLiberacao: 'PT24H', taxaPagaPor: 'CLIENTE' } });
+    abrirEm('/');
+    await screen.findByText('A taxa da COE é de 15%, paga pelo cliente.');
+    const texto = document.body.textContent ?? '';
+
+    expect(texto.match(/\d+\s*(h\b|hs\b|horas?\b|min\b|minutos?\b)/gi) ?? []).toEqual(['24 h', '24 h']);
+    expect(texto.match(/\d+(,\d+)?%/g)).toEqual(['15%']);
   });
 
   it('ao abrir a primeira página o foco não sai do lugar', () => {

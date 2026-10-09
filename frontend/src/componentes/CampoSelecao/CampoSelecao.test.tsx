@@ -36,6 +36,12 @@ describe('CampoSelecao', () => {
     );
   });
 
+  it('desabilitado enquanto as opções carregam', () => {
+    render(<CampoSelecao nome="profissao" rotulo="Do que você precisa?" opcoes={PROFISSOES} desabilitado />);
+
+    expect(screen.getByRole('combobox', { name: 'Do que você precisa?' })).toBeDisabled();
+  });
+
   it('escolhe uma opção', async () => {
     render(<CampoSelecao nome="profissao" rotulo="Do que você precisa?" opcoes={PROFISSOES} />);
 

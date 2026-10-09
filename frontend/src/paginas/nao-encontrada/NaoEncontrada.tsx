@@ -1,3 +1,4 @@
+import { CAMINHOS } from '../../caminhos';
 import { Botao } from '../../componentes/Botao/Botao';
 import { Icone } from '../../icones/Icone';
 import { useTitulo } from '../../layout/titulo';
@@ -10,7 +11,7 @@ export function NaoEncontrada() {
       <div className={estilos.cartao}>
         <Icone nome="search" tamanho={40} className={estilos.icone} />
         <h1>Página não encontrada</h1>
-        <Botao para="/">Ir para o início</Botao>
+        <Botao para={CAMINHOS.inicio}>Ir para o início</Botao>
       </div>
     </section>
   );

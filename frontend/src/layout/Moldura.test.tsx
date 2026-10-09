@@ -55,7 +55,7 @@ describe('Moldura', () => {
   });
 
   it('em outra rota, a marca de página atual muda', () => {
-    abrirEm('/buscar');
+    abrirEm('/busca');
     const menu = screen.getByRole('navigation', { name: 'Menu' });
 
     expect(within(menu).getByRole('link', { name: 'Buscar' })).toHaveAttribute('aria-current', 'page');
