@@ -6,6 +6,7 @@ export const CAMINHOS = {
   criarConta: '/criar-conta',
   criarContaCliente: '/criar-conta/cliente',
   conta: '/conta',
+  esqueciSenha: '/esqueci-senha',
   termos: '/termos',
   privacidade: '/privacidade',
   comoFunciona: '/como-funciona',

@@ -1,6 +1,8 @@
 import { Route, Routes } from 'react-router';
 
+import { CAMINHOS } from './caminhos';
 import { Moldura } from './layout/Moldura';
+import { Entrar } from './paginas/entrar/Entrar';
 import { Inicio } from './paginas/inicio/Inicio';
 import { NaoEncontrada } from './paginas/nao-encontrada/NaoEncontrada';
 
@@ -10,6 +12,7 @@ export function Rotas() {
     <Routes>
       <Route element={<Moldura />}>
         <Route index element={<Inicio />} />
+        <Route path={CAMINHOS.entrar} element={<Entrar />} />
         <Route path="*" element={<NaoEncontrada />} />
       </Route>
     </Routes>

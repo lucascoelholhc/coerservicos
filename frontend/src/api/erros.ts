@@ -27,6 +27,7 @@ interface Detalhes {
   codigo?: string;
   mensagem?: string;
   campos?: Record<string, string>;
+  desafioId?: string;
 }
 
 export class ErroDaApi extends Error {
@@ -36,6 +37,8 @@ export class ErroDaApi extends Error {
   readonly codigo: string | undefined;
   /** Mensagem por campo do formulário (validação ou conflito). */
   readonly campos: Readonly<Record<string, string>>;
+  /** 403 segundo-passo-necessario: o desafio do código por SMS (só em memória, nunca em URL). */
+  readonly desafioId: string | undefined;
 
   constructor(tipo: TipoDeErro, detalhes: Detalhes = {}) {
     super(detalhes.mensagem ?? MENSAGENS[tipo]);
@@ -44,6 +47,7 @@ export class ErroDaApi extends Error {
     this.status = detalhes.status;
     this.codigo = detalhes.codigo;
     this.campos = detalhes.campos ?? {};
+    this.desafioId = detalhes.desafioId;
   }
 }
 
@@ -83,7 +87,7 @@ async function lerProblema(resposta: Response): Promise<Omit<Detalhes, 'status'>
   if (typeof corpo !== 'object' || corpo === null) {
     return {};
   }
-  const { type, detail, campos, campo } = corpo as Record<string, unknown>;
+  const { type, detail, campos, campo, desafioId } = corpo as Record<string, unknown>;
   const codigo = typeof type === 'string' && type.startsWith(PREFIXO_DO_TIPO) ? type.slice(PREFIXO_DO_TIPO.length) : undefined;
   const mensagem = typeof detail === 'string' && detail.trim() !== '' ? detail : undefined;
   const porCampo: Record<string, string> = {};
@@ -98,5 +102,5 @@ async function lerProblema(resposta: Response): Promise<Omit<Detalhes, 'status'>
   if (typeof campo === 'string' && mensagem !== undefined) {
     porCampo[campo] = mensagem;
   }
-  return { codigo, mensagem, campos: porCampo };
+  return { codigo, mensagem, campos: porCampo, desafioId: typeof desafioId === 'string' ? desafioId : undefined };
 }

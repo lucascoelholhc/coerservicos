@@ -276,6 +276,14 @@ describe('cliente da API', () => {
     expect(erro.message).toBe(MENSAGENS.problema);
   });
 
+  it('403 segundo-passo-necessario traz o desafioId (só em memória, para o código por SMS)', async () => {
+    simularFetch(() => problema(403, 'segundo-passo-necessario', 'Digite o código que enviamos por SMS.', { desafioId: 'd-1' }));
+
+    const erro = await erroDe(chamar('/auth/entrar', { metodo: 'POST', corpo: {} }));
+
+    expect(erro).toMatchObject({ status: 403, codigo: 'segundo-passo-necessario', desafioId: 'd-1' });
+  });
+
   it('Problem Details sem detail usa a mensagem genérica', async () => {
     simularFetch(() => json({ type: 'urn:coe:erro:x', status: 422 }, 422, 'application/problem+json'));
 
