@@ -38,13 +38,18 @@ docker compose down -v                                        # recria o banco d
 ./mvnw test                                                   # só testes
 ./mvnw spring-boot:run "-Dspring-boot.run.profiles=local"     # rodar local na porta 8081 (aplica Flyway + dados locais)
 
-# frontend
+# frontend (Node 24, ver frontend/.nvmrc)
 cd frontend
 npm install
-npm run dev        # http://localhost:5173, com proxy /api -> http://localhost:8081
-npm test           # Vitest
-npm run build      # gera frontend/dist
-npx playwright test
+npm run dev              # http://localhost:5173, proxy /api -> http://localhost:8081; SEM CSP (o HMR precisa de script inline)
+npm run lint             # eslint (typescript-eslint, react-hooks, jsx-a11y) + stylelint (hex e nome de cor proibidos fora do tokens.css)
+npm test                 # Vitest + Testing Library + axe
+npm run test:cobertura   # cobertura v8: 80% geral, 100% no StatusDiaria
+npm run build            # tsc --noEmit + vite build -> frontend/dist
+npm run preview          # http://localhost:4173, build com a CSP e a Permissions-Policy de cabecalhos-seguranca.json
+npm run test:e2e         # Playwright contra o preview, 360x740 e 1280x800 (1ª vez: npx playwright install chromium)
+npm run prototipo        # protótipo docs/prototipo em http://localhost:4174
+npm run comparar         # protótipo x React lado a lado em frontend/test-results/comparacao/
 ```
 
 ## Status atual
@@ -60,7 +65,8 @@ npx playwright test
 - Feito (dia 7a): DB-16 (V14: `codigo_sms` com HMAC, dono, desafio, invalidação e um ativo por celular e finalidade; `token_verificacao` no lugar da `token_senha`; `email_verificado_em`; `ck_usuario_credenciais` = senha + celular ou e-mail; MFA exige celular confirmado) e CORE-04 (código SMS com HMAC e limites no banco, MFA com desafio, login só com código, confirmar celular, ligar/desligar MFA; sai a dispensa do MFA no local). Pendências no plano (seção do CORE-04).
 - Feito (dia 7b): CORE-04 (envio assíncrono de SMS e e-mail depois do commit; contador de falhas; confirmar e-mail por link com Mailpit no local; RN61: prova de posse, transferência auditada, marca `contato_pendente` com lista de liberados por anotação, recolocar o contato perdido) e CORE-05 (esqueci, redefinir e trocar senha; link só para e-mail confirmado). Sem migração nova. Pendências e decisões no plano (seção do CORE-04).
 - Feito (fix do dia 7, PR #13): **V15** (só o índice `ix_codigo_sms_usuario_criado (usuario_id, criado_em DESC)`; os de envio por celular e por endereço já existiam, conferidos com EXPLAIN), espera de 60 s por destino e finalidade (teto de 5/h somando), 409 neutro `contato-em-uso`. **CORE-04 e CORE-05 concluídas.** Fila de envio com prioridade e rate limit por IP ficam na CORE-07 (dia 11).
-- Próximo: dia 8 (fatia 1), **FE-01** (base do React: Vite + React + TS strict, `tokens.css`, fontes, layout e componentes base; pronto quando o início estático estiver igual ao protótipo).
+- Feito (dia 8): **FE-01** (React 19 + TS strict + Vite 8 + React Router 8 em `frontend/`; tokens e Archivo com eixo de largura hospedada no front; moldura com cabeçalho, menu de baixo e rodapé; componentes base; Início estático igual ao protótipo, sem números de regra; CSP e Permissions-Policy no Spring e no `vite preview`; E2E em 360 e 1280 px). Protótipo copiado em `docs/prototipo/` (ef7d397, só leitura). Decisões e pendências no plano (seção 7, FE-01).
+- Próximo: dia 9 (fatia 1), FE-02 (camada `src/api/`) e o endpoint público de regras (comissão e prazo de liberação para os textos do Início).
 
 ## Estrutura do backend (por domínio, não por camada)
 `usuario` (conta, login, SMS) · `catalogo` (cidades, profissões, serviços) · `profissional` (cadastro, verificação, portfólio, agenda) · `contrato` (contratos e diárias) · `pagamento` (gateway, webhooks, ledger, repasse, reembolso) · `mensagem` (chat + censura) · `avaliacao` · `disputa` · `moderacao` (denúncias) · `admin` · `config` · `compartilhado` (Dinheiro, erros, auditoria, armazenamento)
@@ -183,6 +189,15 @@ npx playwright test
 - **Nenhuma regra de negócio só no front**: valores, comissão, limite LC 150, censura e estados vêm da API. O front pode avisar antes, o backend decide.
 - Toda tela tem estados de carregando, vazio, erro e sem conexão.
 - Local: Vite com proxy `/api` → `http://localhost:8081` (mesma origem; a 8080 da máquina é do Apache). Produção: build servido no mesmo domínio da API.
+- **CSP**: produção e `vite preview` com a política de `frontend/cabecalhos-seguranca.json` (o Spring manda o mesmo texto; `PoliticasDoNavegadorTest` compara). Nada de `<script>` ou `style=` inline, nem recurso de outro domínio (fonte, imagem, script). O `npm run dev` roda sem CSP: confira no `npm run test:e2e`, que falha com qualquer violação.
+
+### Como fazer uma tela
+- **Onde:** página em `src/paginas/<nome>/` (`Nome.tsx`, `Nome.module.css`, `Nome.test.tsx`; textos provisórios num `conteudo.ts`); componente reaproveitável em `src/componentes/<Nome>/`; rota em `src/rotas.tsx`, dentro da `Moldura` (pular para o conteúdo, cabeçalho, menu de baixo, rodapé e foco no `<main>` na troca de página).
+- **Estilo:** só CSS Modules e variáveis do `src/styles/tokens.css` (o stylelint barra hex e nome de cor). Faixa de largura com a classe global `largura`. Mobile-first a partir de 360 px, media queries `(width >= 720px)`.
+- **Peças prontas:** `Botao` (principal/escuro/contorno/suave/perigo/sucesso; `para` vira link; **um principal por tela**; sobre fundo `--carimbo` use `sobreFundoEscuro`), `CampoSelecao` (rótulo sempre visível, id gerado), `Nota` (`anunciar` só quando aparece depois de uma ação), `StatusDiaria` (estado da API + lado), `Carimbo`, `Chip`, `Avatar`, `Icone` (decorativo, sempre com texto ao lado), `Ilustracao` (com a etiqueta "Ilustração").
+- **Título da aba:** `useTitulo('Nome da página')`. Link para seção do Início: `<Link to="/#secao">` (nunca `<a href>`, que recarrega a página e perde a sessão).
+- **Honestidade:** exemplo é marcado como exemplo; nenhum número de regra (comissão, prazo, limite) fixo no front.
+- **Testes:** TDD com Testing Library; `semViolacoes(container)` (axe) em todo componente e página; fluxo crítico no `e2e/` (360 e 1280 px, sem violação de CSP, sem rolagem lateral).
 
 ## Testes
 - **TDD obrigatório**: teste falhando primeiro, depois a implementação.

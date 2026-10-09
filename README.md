@@ -12,6 +12,7 @@ Marketplace de serviços pagos por diária (pedreiro, pintor, eletricista, jardi
 - JDK 21
 - Docker (para os testes, que sobem um Postgres real com Testcontainers, e para o `docker compose`)
 - Um PostgreSQL 16 ou mais novo: instalado na máquina **ou** o do `docker compose`
+- Node 24 (LTS) e npm, para o front (`frontend/.nvmrc`)
 
 O Maven não precisa ser instalado: use o `./mvnw` da raiz (no Windows, `mvnw.cmd`).
 
@@ -90,6 +91,24 @@ curl -H "Content-Type: application/json" -H "Origin: http://localhost:5173" \
 ```
 
 Os testes sobem um Postgres 16 descartável com Testcontainers; o Docker precisa estar rodando. O relatório de cobertura fica em `target/site/jacoco/index.html`.
+
+## Front (React)
+
+```bash
+cd frontend
+npm install
+npm run dev              # http://localhost:5173 (proxy /api para a aplicação na 8081)
+npm run lint             # eslint + stylelint
+npm test                 # testes de componente (Vitest)
+npm run test:cobertura   # com cobertura (mínimo 80%)
+npm run build            # gera frontend/dist
+npx playwright install chromium   # só na primeira vez
+npm run test:e2e         # Playwright contra o build (vite preview, com a CSP de produção)
+npm run prototipo        # protótipo de referência (docs/prototipo) em http://localhost:4174
+npm run comparar         # capturas protótipo x React em frontend/test-results/comparacao/
+```
+
+O `npm run dev` não aplica a CSP; o `npm run preview` e o E2E aplicam a mesma de produção (`frontend/cabecalhos-seguranca.json`).
 
 ## 5. Recriar o banco local do zero
 
