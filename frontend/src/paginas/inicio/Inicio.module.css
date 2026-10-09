@@ -126,6 +126,33 @@ section[id] {
   letter-spacing: -0.01em;
 }
 
+/* Profissão nova, ainda sem desenho: o mesmo espaço, sem a etiqueta "Ilustração" */
+.semIlustracao {
+  display: block;
+  aspect-ratio: 1 / 1;
+  background: var(--surface-2);
+}
+
+/* Enquanto o catálogo carrega: blocos do mesmo tamanho das categorias (a tela não pula) */
+.esqueleto {
+  display: block;
+  aspect-ratio: 1 / 1.3;
+  border-radius: var(--r);
+  background: var(--surface-2);
+}
+
+.esqueletoLinha {
+  display: block;
+  width: 70%;
+  height: 1.3em;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--surface) 20%, transparent);
+}
+
+.falhaNaBusca {
+  margin-top: 14px;
+}
+
 .categoria:hover .categoriaNome {
   color: var(--carimbo-txt);
 }

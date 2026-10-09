@@ -12,10 +12,12 @@ interface CampoSelecaoProps {
   rotulo: string;
   opcoes: readonly OpcaoDeSelecao[];
   valorInicial?: string;
+  /** Enquanto as opções carregam (ou não puderam ser carregadas). */
+  desabilitado?: boolean;
 }
 
 /** Select nativo (o leitor de tela e o celular já sabem usar) com rótulo sempre visível. */
-export function CampoSelecao({ nome, rotulo, opcoes, valorInicial }: CampoSelecaoProps) {
+export function CampoSelecao({ nome, rotulo, opcoes, valorInicial, desabilitado = false }: CampoSelecaoProps) {
   // Id único por campo: o rótulo nunca liga ao select errado, mesmo com o componente repetido
   const id = useId();
   return (
@@ -24,7 +26,7 @@ export function CampoSelecao({ nome, rotulo, opcoes, valorInicial }: CampoSeleca
         {rotulo}
       </label>
       <div className={estilos.caixa}>
-        <select className={estilos.select} id={id} name={nome} defaultValue={valorInicial}>
+        <select className={estilos.select} id={id} name={nome} defaultValue={valorInicial} disabled={desabilitado}>
           {opcoes.map((opcao) => (
             <option key={opcao.valor} value={opcao.valor}>
               {opcao.texto}

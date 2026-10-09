@@ -15,6 +15,11 @@ export type ProfissaoIlustrada = keyof typeof DESENHOS;
 
 export const PROFISSOES_ILUSTRADAS = Object.keys(DESENHOS) as ProfissaoIlustrada[];
 
+/** A profissão (pelo código da API) tem desenho? Profissão nova aparece sem ilustração. */
+export function temIlustracao(codigo: string): codigo is ProfissaoIlustrada {
+  return Object.hasOwn(DESENHOS, codigo);
+}
+
 interface IlustracaoProps {
   profissao: ProfissaoIlustrada;
   formato?: '4:3' | '1:1';

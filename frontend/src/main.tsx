@@ -6,6 +6,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router';
 
+import { SessaoProvider } from './api/SessaoProvider';
 import { Rotas } from './rotas';
 
 const raiz = document.getElementById('raiz');
@@ -16,7 +17,9 @@ if (!raiz) {
 createRoot(raiz).render(
   <StrictMode>
     <BrowserRouter>
-      <Rotas />
+      <SessaoProvider>
+        <Rotas />
+      </SessaoProvider>
     </BrowserRouter>
   </StrictMode>,
 );
