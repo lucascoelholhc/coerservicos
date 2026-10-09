@@ -26,13 +26,17 @@ import br.com.coe.servicos.usuario.Papel;
  */
 class PoliticasDoNavegadorTest extends IntegracaoTest {
 
+    // Texto exigido literalmente pela tarefa (FE-01): repetido aqui de propósito, para que mudar a
+    // constante e o JSON juntos sem querer ainda quebre este teste.
+
     private static final String CSP = "default-src 'self'; script-src 'self'; style-src 'self'; "
             + "img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; "
             + "base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
     private static final String PERMISSOES = "camera=(), microphone=(), geolocation=(), payment=(), usb=()";
 
-    /** O Maven roda os testes na raiz do projeto. */
-    private static final Path ARQUIVO_DO_FRONT = Path.of("frontend", "cabecalhos-seguranca.json");
+    /** O surefire informa a raiz do projeto em "basedir"; a IDE costuma rodar já na raiz. */
+    private static final Path ARQUIVO_DO_FRONT =
+            Path.of(System.getProperty("basedir", "."), "frontend", "cabecalhos-seguranca.json");
 
     private static void politicas(ResultActions resposta) throws Exception {
         resposta.andExpect(header().string("Content-Security-Policy", CSP))
@@ -40,13 +44,17 @@ class PoliticasDoNavegadorTest extends IntegracaoTest {
     }
 
     @Test
-    @DisplayName("rota pública, rota protegida com login e 401 sem login: CSP e Permissions-Policy exatos")
+    @DisplayName(
+            "rota pública, rota protegida com login, 401 sem login e 403 com papel errado: CSP e Permissions-Policy exatos")
     void emTodaResposta() throws Exception {
         politicas(mockMvc.perform(get("/actuator/health")).andExpect(status().isOk()));
         politicas(mockMvc.perform(
                         get("/api/contas/eu").header("Authorization", bearer(UUID.randomUUID(), Papel.CLIENTE)))
                 .andExpect(status().isNotFound())); // passou do login e chegou ao serviço (conta inexistente)
         politicas(mockMvc.perform(get("/api/contas/eu")).andExpect(status().isUnauthorized()));
+        politicas(mockMvc.perform(get("/api/admin/qualquer-coisa")
+                        .header("Authorization", bearer(UUID.randomUUID(), Papel.CLIENTE)))
+                .andExpect(status().isForbidden()));
     }
 
     @Test
