@@ -272,9 +272,11 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 - **CSP e Permissions-Policy:** o Spring manda os dois em toda resposta (`SegurancaConfig`), com o mesmo texto de `frontend/cabecalhos-seguranca.json`, que o `vite preview` usa (`PoliticasDoNavegadorTest` compara). O `npm run dev` não tem CSP (o HMR precisa de script inline).
 - **Quem emite os cabeçalhos em produção** (Spring ou ALB/CloudFront servindo o build): decidir no AWS-05/AWS-07. Se o HTML sair da borda, a borda aplica o mesmo `cabecalhos-seguranca.json`.
 - **Permissões do aparelho:** câmera, microfone, localização, pagamento e USB fechados. Cada uma só abre quando uma funcionalidade pedir, com a decisão registrada aqui (próxima prevista: `camera=(self)` para a selfie do cadastro do profissional, FE-04). Quando houver upload, o `img-src` troca `data:` pelo host do bucket com URL assinada.
-- **Risco aceito (`npm audit`):** 7 avisos "high", todos de desenvolvimento, na cadeia `braces` 3.0.3 → micromatch → stylelint (ReDoS ao expandir globs no lint local). Não há versão corrigida do `braces` (a 3.0.3 é a última) e o `audit fix` rebaixaria o stylelint para a 7. `npm audit --omit=dev` = 0. Rever quando o stylelint trocar a dependência.
+- **Risco aceito (`npm audit`):** 7 avisos "high", todos de desenvolvimento, na cadeia `braces` 3.0.3 → micromatch → stylelint (ReDoS ao expandir globs no lint local). Não há versão corrigida do `braces` (a 3.0.3 é a última) e o `audit fix` rebaixaria o stylelint para a 7. `npm audit --omit=dev` = 0. **Decisão (09/10):** risco aceito só por ser dependência de desenvolvimento. **Regra a partir de agora:** `npm audit --omit=dev` sem nenhum aviso alto ou crítico (dependência de produção nunca entra como risco aceito). Rever na LOC-15 ou quando sair a correção no stylelint.
 - **Rotas que ainda não existem** (`/buscar`, `/entrar`, `/criar-conta`, `/como-funciona`, `/para-profissionais`) caem em "Página não encontrada" até o FE-03.
 - **Componentes base ainda sem tela** (StatusDiaria, Nota, Chip, carimbo "recusado"): entram nas telas do FE-03 a FE-06.
+- **Lint de acessibilidade:** `eslint-plugin-jsx-a11y-x` (fork da es-tooling) aceito em 09/10, porque o `eslint-plugin-jsx-a11y` oficial só suporta o ESLint até a 9 (fora de suporte). Voltar ao oficial quando ele suportar o ESLint 10.
+- **"Pix ou cartão"** no Início (passo 2 de "Como funciona") segue a RN30 e fica. Conferir o texto quando o gateway for escolhido (PA02).
 - **Protótipo:** `docs/prototipo/` é cópia só de leitura do commit ef7d397; as ilustrações saíram dele uma vez (`frontend/scripts/gerar-ilustracoes.mjs`) e os SVGs ficam no git.
 
 **Pronto quando:** o caminho feliz roda clicando, sem nenhum dado falso no front.
@@ -299,7 +301,7 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 **Qualidade**
 - [ ] LOC-13 `./mvnw verify` e `npm test` verdes, com a cobertura exigida.
 - [ ] LOC-14 Playwright verde em 360 px e desktop.
-- [ ] LOC-15 `/security-scan` sem achado crítico ou alto; OWASP Dependency-Check e `npm audit` sem CVE crítica.
+- [ ] LOC-15 `/security-scan` sem achado crítico ou alto; OWASP Dependency-Check e `npm audit` sem CVE crítica; `npm audit --omit=dev` sem alto nem crítico; rever o risco aceito do `braces` (dev, FE-01).
 - [ ] LOC-16 Logs sem CPF, telefone, e-mail ou senha numa execução completa.
 - [ ] LOC-17 Imagem Docker da aplicação (multi-stage, com o build do React) sobe localmente. É a mesma que vai para a AWS.
 

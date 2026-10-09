@@ -66,7 +66,7 @@ npm run comparar         # protótipo x React lado a lado em frontend/test-resul
 - Feito (dia 7b): CORE-04 (envio assíncrono de SMS e e-mail depois do commit; contador de falhas; confirmar e-mail por link com Mailpit no local; RN61: prova de posse, transferência auditada, marca `contato_pendente` com lista de liberados por anotação, recolocar o contato perdido) e CORE-05 (esqueci, redefinir e trocar senha; link só para e-mail confirmado). Sem migração nova. Pendências e decisões no plano (seção do CORE-04).
 - Feito (fix do dia 7, PR #13): **V15** (só o índice `ix_codigo_sms_usuario_criado (usuario_id, criado_em DESC)`; os de envio por celular e por endereço já existiam, conferidos com EXPLAIN), espera de 60 s por destino e finalidade (teto de 5/h somando), 409 neutro `contato-em-uso`. **CORE-04 e CORE-05 concluídas.** Fila de envio com prioridade e rate limit por IP ficam na CORE-07 (dia 11).
 - Feito (dia 8): **FE-01** (React 19 + TS strict + Vite 8 + React Router 8 em `frontend/`; tokens e Archivo com eixo de largura hospedada no front; moldura com cabeçalho, menu de baixo e rodapé; componentes base; Início estático igual ao protótipo, sem números de regra; CSP e Permissions-Policy no Spring e no `vite preview`; E2E em 360 e 1280 px). Protótipo copiado em `docs/prototipo/` (ef7d397, só leitura). Decisões e pendências no plano (seção 7, FE-01).
-- Próximo: dia 9 (fatia 1), FE-02 (camada `src/api/`) e o endpoint público de regras (comissão e prazo de liberação para os textos do Início).
+- Próximo: dia 9 (fatia 1), **FE-02** (camada `src/api/`) + **DOM-01**, incluindo o endpoint público de regras (comissão e prazo de liberação, para o 12 h e os 10% voltarem ao Início pela API).
 
 ## Estrutura do backend (por domínio, não por camada)
 `usuario` (conta, login, SMS) · `catalogo` (cidades, profissões, serviços) · `profissional` (cadastro, verificação, portfólio, agenda) · `contrato` (contratos e diárias) · `pagamento` (gateway, webhooks, ledger, repasse, reembolso) · `mensagem` (chat + censura) · `avaliacao` · `disputa` · `moderacao` (denúncias) · `admin` · `config` · `compartilhado` (Dinheiro, erros, auditoria, armazenamento)
@@ -177,7 +177,7 @@ npm run comparar         # protótipo x React lado a lado em frontend/test-resul
 - Erros sem stack trace, no formato Problem Details (RFC 9457), mensagens em pt-BR.
 - Headers de segurança e HTTPS em produção.
 - Toda ação do admin e todo movimento de dinheiro gera **auditoria** (`log_auditoria`, só inserção).
-- Dependências verificadas com OWASP Dependency-Check (back) e `npm audit` (front).
+- Dependências verificadas com OWASP Dependency-Check (back) e `npm audit` (front): `npm audit --omit=dev` sem nenhum alto ou crítico; aviso só de dependência de desenvolvimento pode virar risco aceito, registrado no plano.
 
 ## Frontend (React)
 - Pasta `frontend/`: React + TypeScript (strict) + Vite + React Router. Estado global mínimo; dados do servidor via camada `src/api/`.
