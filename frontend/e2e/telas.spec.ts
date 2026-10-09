@@ -2,8 +2,13 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 
 import cabecalhos from '../cabecalhos-seguranca.json' with { type: 'json' };
+import { simularApi } from './apiSimulada';
 
 const NORMAS_WCAG = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
+
+test.beforeEach(async ({ page }) => {
+  await simularApi(page);
+});
 
 /** Guarda toda violação de CSP (evento do navegador e aviso do console) desde o início da página. */
 async function vigiarCsp(pagina: Page): Promise<string[]> {
@@ -131,9 +136,53 @@ test.describe('Início', () => {
 
   test('acessibilidade (axe, WCAG 2.1 AA, com contraste)', async ({ page }) => {
     await page.goto('/');
+    await expect(page.getByRole('link', { name: 'Pintor' })).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
 
     await semViolacoesAxe(page);
+  });
+});
+
+test.describe('Início com a API', () => {
+  test('sucesso: profissões, cidades e regras da API, sem violação de CSP', async ({ page }) => {
+    const violacoes = await vigiarCsp(page);
+
+    await page.goto('/');
+
+    await expect(page.getByRole('link', { name: 'Pintor' })).toBeVisible();
+    await expect(page.getByRole('combobox', { name: 'Em qual cidade?' }).getByRole('option', { name: 'Blumenau' })).toHaveCount(1);
+    await expect(page.getByText('A taxa da COE é de 10%, paga pelo cliente.')).toBeVisible();
+    await expect(page.getByText('Se não responder em 12 h, o valor é liberado', { exact: false })).toBeVisible();
+    await semRolagemLateral(page);
+    expect(violacoes).toEqual([]);
+  });
+
+  test('erro: mensagem em português, "Tentar de novo" e depois os dados; axe também no erro', async ({ page }) => {
+    const trocar = await simularApi(page, { catalogo: 'erro' });
+
+    await page.goto('/');
+    await expect(page.getByRole('alert')).toHaveText('A COE está com um problema agora. Tente de novo daqui a pouco.');
+    await expect(page.getByRole('button', { name: 'Buscar' })).toBeDisabled();
+    await semViolacoesAxe(page);
+
+    trocar({ catalogo: 'ok' });
+    await page.getByRole('button', { name: 'Tentar de novo' }).click();
+
+    await expect(page.getByRole('link', { name: 'Pintor' })).toBeVisible();
+    await expect(page.getByRole('alert')).toHaveCount(0);
+  });
+
+  test('lento: campos desabilitados e frase sem número até a resposta chegar', async ({ page }) => {
+    await simularApi(page, { catalogo: 'lento', regras: 'lento' });
+
+    await page.goto('/');
+    await expect(page.getByRole('button', { name: 'Buscar' })).toBeDisabled();
+    await expect(page.getByRole('combobox', { name: 'Do que você precisa?' })).toBeDisabled();
+    await expect(page.getByText('Se não responder, o valor é liberado ao profissional depois de um prazo.', { exact: false })).toBeVisible();
+
+    await expect(page.getByRole('link', { name: 'Pintor' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Buscar' })).toBeEnabled();
+    await expect(page.getByText('A taxa da COE é de 10%, paga pelo cliente.')).toBeVisible();
   });
 });
 
