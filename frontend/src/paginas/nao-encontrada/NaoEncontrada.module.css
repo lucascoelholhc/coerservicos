@@ -1,0 +1,17 @@
+.pagina {
+  padding-block: 40px;
+}
+
+.cartao {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  padding: 44px 20px;
+  border-radius: var(--r);
+  background: var(--surface);
+  text-align: center;
+}
+
+.icone {
+  color: var(--tinta-3);
+}

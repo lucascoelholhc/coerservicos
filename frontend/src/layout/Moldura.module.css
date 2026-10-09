@@ -1,0 +1,40 @@
+.moldura {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+
+  /* Espaço do menu fixo de baixo (e da barra do iPhone) para o rodapé não ficar escondido */
+  padding-bottom: calc(var(--altura-menu) + env(safe-area-inset-bottom));
+}
+
+.principal {
+  flex: 1;
+  padding-bottom: 40px;
+}
+
+.pular {
+  position: absolute;
+  top: -60px;
+  left: 12px;
+  z-index: 30;
+  padding: 10px 16px;
+  border-radius: var(--r-sm);
+  background: var(--sinal);
+  color: var(--tinta);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.pular:focus {
+  top: 12px;
+}
+
+@media (width >= 900px) {
+  .moldura {
+    padding-bottom: 0;
+  }
+
+  .principal {
+    padding-bottom: 64px;
+  }
+}

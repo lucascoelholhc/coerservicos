@@ -1,0 +1,75 @@
+.cabecalho {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.dentro {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-height: var(--altura-cabecalho);
+}
+
+.topo {
+  display: none;
+}
+
+.topo ul {
+  display: flex;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 9px 12px;
+  border-radius: var(--r-pilula);
+  color: var(--tinta-2);
+  font-size: 0.97rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.link:hover {
+  background: var(--surface-2);
+  color: var(--tinta);
+}
+
+.link[aria-current="page"] {
+  background: var(--carimbo-soft);
+  color: var(--carimbo-txt);
+}
+
+.acoes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* No celular estreito, "Entrar" fica só no menu de baixo */
+@media (width < 560px) {
+  .entrar {
+    display: none;
+  }
+}
+
+@media (width >= 900px) {
+  .topo {
+    display: block;
+  }
+}
+
+@media (900px <= width < 1140px) {
+  .link svg {
+    display: none;
+  }
+}
