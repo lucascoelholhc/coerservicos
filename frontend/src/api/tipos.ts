@@ -42,6 +42,20 @@ export interface Regras {
   versaoTermos: string;
 }
 
+/** GET /api/contas/eu (MinhaContaResponse): celular e e-mail como a API devolve (podem faltar com contato pendente). */
+export interface MinhaConta {
+  id: string;
+  nome: string;
+  papeis: Papel[];
+  email: string | null;
+  celular: string | null;
+  celularConfirmado: boolean;
+  emailConfirmado: boolean;
+  contatoPendente: boolean;
+  /** Código por SMS no login escolhido pela pessoa (para o ADMIN o código é sempre obrigatório). */
+  mfaAtivo: boolean;
+}
+
 /** Resposta do entrar e do renovar (SessaoResponse). */
 export interface SessaoResposta {
   accessToken: string;

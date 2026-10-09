@@ -1,4 +1,4 @@
-import type { Catalogo, Regras, SessaoResposta } from '../api/tipos';
+import type { Catalogo, MinhaConta, Regras, SessaoResposta } from '../api/tipos';
 
 /** Catálogo igual ao do banco local (V3 e V11), na ordem que a API devolve. */
 export const CATALOGO_PADRAO: Catalogo = {
@@ -46,4 +46,16 @@ export const SESSAO_PADRAO: SessaoResposta = {
   accessToken: 'token-de-teste',
   expiraEm: '2026-10-10T12:15:00Z',
   usuario: { id: 'u-ana', nome: 'Ana Souza', papeis: ['CLIENTE'], contatoPendente: false },
+};
+
+export const CONTA_PADRAO: MinhaConta = {
+  id: 'u-ana',
+  nome: 'Ana Souza',
+  papeis: ['CLIENTE'],
+  email: 'ana@exemplo.com',
+  celular: '47900000001',
+  celularConfirmado: false,
+  emailConfirmado: false,
+  contatoPendente: false,
+  mfaAtivo: false,
 };

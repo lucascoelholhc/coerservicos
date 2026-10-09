@@ -164,11 +164,18 @@ async function lerCorpo<T>(resposta: Response): Promise<T> {
   if (!resposta.ok) {
     throw await erroDaResposta(resposta);
   }
-  if (resposta.status === 204) {
+  let texto: string;
+  try {
+    texto = await resposta.text();
+  } catch {
+    throw new ErroDaApi('resposta');
+  }
+  // 202 e 204 da API chegam sem corpo.
+  if (texto === '') {
     return undefined as T;
   }
   try {
-    return (await resposta.json()) as T;
+    return JSON.parse(texto) as T;
   } catch {
     throw new ErroDaApi('resposta');
   }

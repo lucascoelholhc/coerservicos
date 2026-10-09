@@ -55,6 +55,7 @@ describe('sessão em memória', () => {
 
     iniciarSessao(SESSAO);
     terminarVerificacaoSemSessao();
+    iniciarVerificacao();
     expect(situacaoDaSessao()).toBe('logado');
   });
 

@@ -30,7 +30,7 @@ export function situacaoDaSessao(): SituacaoDaSessao {
 
 /** Ao abrir o app, antes da renovação silenciosa. */
 export function iniciarVerificacao(): void {
-  if (situacao === 'visitante' && token === null) {
+  if (situacao === 'visitante') {
     situacao = 'verificando';
     avisar();
   }

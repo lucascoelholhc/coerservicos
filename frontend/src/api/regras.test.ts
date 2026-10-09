@@ -22,10 +22,11 @@ describe('regras públicas', () => {
   });
 
   it.each([
-    [{ comissao: '0.1000', prazoLiberacao: 'PT12H', taxaPagaPor: 'AMBOS' }],
-    [{ comissao: 'dez', prazoLiberacao: 'PT12H', taxaPagaPor: 'CLIENTE' }],
-    [{ comissao: '0.1000', prazoLiberacao: '12 horas', taxaPagaPor: 'CLIENTE' }],
+    [{ comissao: '0.1000', prazoLiberacao: 'PT12H', taxaPagaPor: 'AMBOS', versaoTermos: '1.0' }],
+    [{ comissao: 'dez', prazoLiberacao: 'PT12H', taxaPagaPor: 'CLIENTE', versaoTermos: '1.0' }],
+    [{ comissao: '0.1000', prazoLiberacao: '12 horas', taxaPagaPor: 'CLIENTE', versaoTermos: '1.0' }],
     [{ comissao: '0.1000', taxaPagaPor: 'CLIENTE' }],
+    [{ prazoLiberacao: 'PT12H', taxaPagaPor: 'CLIENTE', versaoTermos: '1.0' }],
     [{ comissao: '0.1000', prazoLiberacao: 'PT12H', taxaPagaPor: 'CLIENTE' }],
   ])('valor desconhecido ou fora do formato vira erro de resposta: %o', async (corpo) => {
     simularFetch(() => json(corpo));

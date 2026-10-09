@@ -290,6 +290,28 @@ describe('cliente da API', () => {
     expect((await erroDe(chamar('/x'))).message).toBe(MENSAGENS.problema);
   });
 
+  it('corpo que falha ao ser lido: erro de resposta', async () => {
+    simularFetch(
+      () =>
+        new Response(
+          new ReadableStream({
+            start(controle) {
+              controle.error(new Error('conexão caiu no meio'));
+            },
+          }),
+          { status: 200 },
+        ),
+    );
+
+    expect((await erroDe(chamar('/x'))).tipo).toBe('resposta');
+  });
+
+  it('202 sem corpo devolve undefined', async () => {
+    simularFetch(() => new Response(null, { status: 202 }));
+
+    await expect(chamar('/x', { metodo: 'POST' })).resolves.toBeUndefined();
+  });
+
   it('200 com corpo que não é JSON: erro de resposta', async () => {
     simularFetch(() => new Response('<html>', { status: 200 }));
 

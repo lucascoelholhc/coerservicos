@@ -1,0 +1,24 @@
+.pagina {
+  padding-block: 28px 40px;
+}
+
+.coluna {
+  display: grid;
+  gap: 14px;
+  max-width: 640px;
+}
+
+.etiqueta {
+  justify-self: start;
+  padding: 2px 10px;
+  border-radius: var(--r-pilula);
+  background: var(--sinal);
+  color: var(--tinta);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.aviso {
+  color: var(--tinta-2);
+  font-weight: 600;
+}

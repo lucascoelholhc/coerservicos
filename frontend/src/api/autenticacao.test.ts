@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { SESSAO_PADRAO } from '../teste/dadosDaApi';
 import { json, simularFetch } from '../teste/fetchSimulado';
-import { entrar, segundoPasso } from './autenticacao';
+import { entrar, sair, sairDeTodos, segundoPasso } from './autenticacao';
 
 describe('autenticação', () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -23,5 +23,17 @@ describe('autenticação', () => {
 
     expect(pedidos[0]).toMatchObject({ url: '/api/auth/segundo-passo', metodo: 'POST' });
     expect(JSON.parse(pedidos[0]?.corpo ?? '{}')).toEqual({ desafioId: 'd-1', codigo: '123456' });
+  });
+
+  it('sair deste aparelho e de todos: POST /api/auth/sair e /api/auth/sair-de-todos', async () => {
+    const { pedidos } = simularFetch(() => new Response(null, { status: 204 }));
+
+    await sair();
+    await sairDeTodos();
+
+    expect(pedidos.map((pedido) => `${pedido.metodo} ${pedido.url}`)).toEqual([
+      'POST /api/auth/sair',
+      'POST /api/auth/sair-de-todos',
+    ]);
   });
 });
