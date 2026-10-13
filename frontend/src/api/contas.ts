@@ -24,3 +24,8 @@ export function buscarMinhaConta(sinal: AbortSignal): Promise<MinhaConta> {
 export async function reenviarConfirmacaoDeEmail(): Promise<void> {
   await chamar<unknown>('/contas/eu/email/confirmacao', { metodo: 'POST' });
 }
+
+/** POST /api/contas/email/confirmar: o token do link vai no corpo (204 ou 422 link-invalido). */
+export async function confirmarEmail(token: string): Promise<void> {
+  await chamar<unknown>('/contas/email/confirmar', { metodo: 'POST', corpo: { token } });
+}

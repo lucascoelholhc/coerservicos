@@ -1,0 +1,40 @@
+.pagina {
+  padding-block: 28px 40px;
+}
+
+.coluna {
+  display: grid;
+  gap: 18px;
+  max-width: 480px;
+  margin-inline: auto;
+}
+
+.topo {
+  display: grid;
+  gap: 6px;
+}
+
+.apagado {
+  color: var(--tinta-2);
+}
+
+.cartao {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+
+.cartao a {
+  color: inherit;
+  font-weight: 700;
+}
+
+.link {
+  justify-self: center;
+  padding-block: 10px;
+  color: var(--carimbo-txt);
+  font-weight: 700;
+}

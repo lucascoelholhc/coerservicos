@@ -7,6 +7,9 @@ import { MinhaConta } from './paginas/conta/MinhaConta';
 import { CriarContaCliente } from './paginas/criar-conta/CriarContaCliente';
 import { EscolhaDeConta } from './paginas/criar-conta/EscolhaDeConta';
 import { Entrar } from './paginas/entrar/Entrar';
+import { ConfirmarEmail } from './paginas/links/ConfirmarEmail';
+import { EsqueciSenha } from './paginas/senha/EsqueciSenha';
+import { RedefinirSenha } from './paginas/senha/RedefinirSenha';
 import { Privacidade, Termos } from './paginas/termos/Rascunhos';
 import { Inicio } from './paginas/inicio/Inicio';
 import { NaoEncontrada } from './paginas/nao-encontrada/NaoEncontrada';
@@ -28,6 +31,9 @@ export function Rotas() {
             </RotaPrivada>
           }
         />
+        <Route path={CAMINHOS.confirmarEmail} element={<ConfirmarEmail />} />
+        <Route path={CAMINHOS.esqueciSenha} element={<EsqueciSenha />} />
+        <Route path={CAMINHOS.redefinirSenha} element={<RedefinirSenha />} />
         <Route path={CAMINHOS.termos} element={<Termos />} />
         <Route path={CAMINHOS.privacidade} element={<Privacidade />} />
         <Route path="*" element={<NaoEncontrada />} />
