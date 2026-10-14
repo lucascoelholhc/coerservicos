@@ -3,6 +3,8 @@ import { Route, Routes } from 'react-router';
 import { CAMINHOS } from './caminhos';
 import { Moldura } from './layout/Moldura';
 import { RotaPrivada } from './layout/RotaPrivada';
+import { CodigoNoLogin } from './paginas/conta/CodigoNoLogin';
+import { ConfirmarCelular } from './paginas/conta/ConfirmarCelular';
 import { MinhaConta } from './paginas/conta/MinhaConta';
 import { CriarContaCliente } from './paginas/criar-conta/CriarContaCliente';
 import { EscolhaDeConta } from './paginas/criar-conta/EscolhaDeConta';
@@ -28,6 +30,22 @@ export function Rotas() {
           element={
             <RotaPrivada>
               <MinhaConta />
+            </RotaPrivada>
+          }
+        />
+        <Route
+          path={CAMINHOS.confirmarCelular}
+          element={
+            <RotaPrivada>
+              <ConfirmarCelular />
+            </RotaPrivada>
+          }
+        />
+        <Route
+          path={CAMINHOS.codigoNoLogin}
+          element={
+            <RotaPrivada>
+              <CodigoNoLogin />
             </RotaPrivada>
           }
         />

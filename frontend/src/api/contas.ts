@@ -1,4 +1,5 @@
 import { chamar } from './cliente';
+import { mensagemDaResposta } from './mensagem';
 import type { MinhaConta } from './tipos';
 
 export interface NovoCliente {
@@ -28,4 +29,26 @@ export async function reenviarConfirmacaoDeEmail(): Promise<void> {
 /** POST /api/contas/email/confirmar: o token do link vai no corpo (204 ou 422 link-invalido). */
 export async function confirmarEmail(token: string): Promise<void> {
   await chamar<unknown>('/contas/email/confirmar', { metodo: 'POST', corpo: { token } });
+}
+
+const CODIGO_ENVIADO = 'Enviamos um código por SMS para o seu celular.';
+
+/** POST /api/contas/eu/celular/codigo (202; 409 celular-ja-confirmado; 429). */
+export async function pedirCodigoDoCelular(): Promise<string> {
+  return mensagemDaResposta(await chamar<unknown>('/contas/eu/celular/codigo', { metodo: 'POST' }), CODIGO_ENVIADO);
+}
+
+/** POST /api/contas/eu/celular/confirmar (204; 422 codigo-invalido). */
+export async function confirmarCelular(codigo: string): Promise<void> {
+  await chamar<unknown>('/contas/eu/celular/confirmar', { metodo: 'POST', corpo: { codigo } });
+}
+
+/** POST /api/contas/eu/mfa/codigo (202; 403 celular-nao-confirmado; 429). */
+export async function pedirCodigoDoMfa(): Promise<string> {
+  return mensagemDaResposta(await chamar<unknown>('/contas/eu/mfa/codigo', { metodo: 'POST' }), CODIGO_ENVIADO);
+}
+
+/** POST /api/contas/eu/mfa: liga ou desliga o código no login (204; 403 mfa-obrigatorio para ADMIN). */
+export async function definirMfa(dados: { ativo: boolean; codigo: string }): Promise<void> {
+  await chamar<unknown>('/contas/eu/mfa', { metodo: 'POST', corpo: dados });
 }

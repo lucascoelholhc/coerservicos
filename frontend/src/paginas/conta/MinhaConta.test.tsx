@@ -176,3 +176,49 @@ describe('/conta (Minha conta)', () => {
     expect(await screen.findByText('Ana Souza')).toBeInTheDocument();
   });
 });
+
+describe('Minha conta: Segurança', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  async function secao() {
+    const titulo = await screen.findByRole('heading', { level: 2, name: 'Segurança' });
+    return within(titulo.closest('section') as HTMLElement);
+  }
+
+  it('celular não confirmado: caminho para confirmar; código no login desligado', async () => {
+    simular();
+    abrir();
+    const seguranca = await secao();
+
+    expect(seguranca.getByRole('link', { name: 'Confirmar celular' })).toHaveAttribute('href', '/conta/confirmar-celular');
+    expect(seguranca.getByRole('link', { name: 'Código no login' })).toHaveAttribute('href', '/conta/codigo-no-login');
+    expect(seguranca.getByText('Não confirmado')).toBeInTheDocument();
+    expect(seguranca.getByText('Desligado')).toBeInTheDocument();
+  });
+
+  it('celular confirmado e código ligado', async () => {
+    simular({ ...CONTA_PADRAO, celularConfirmado: true, mfaAtivo: true });
+    abrir();
+    const seguranca = await secao();
+
+    expect(seguranca.queryByRole('link', { name: 'Confirmar celular' })).not.toBeInTheDocument();
+    expect(seguranca.getByText('Confirmado')).toBeInTheDocument();
+    expect(seguranca.getByText('Ligado')).toBeInTheDocument();
+  });
+
+  it('ADMIN: código no login obrigatório', async () => {
+    simular({ ...CONTA_PADRAO, papeis: ['ADMIN'], celularConfirmado: true, mfaAtivo: false });
+    abrir();
+    const seguranca = await secao();
+
+    expect(seguranca.getByText('Obrigatório')).toBeInTheDocument();
+  });
+
+  it('sem celular na conta: não oferece confirmar', async () => {
+    simular({ ...CONTA_PADRAO, celular: null });
+    abrir();
+    const seguranca = await secao();
+
+    expect(seguranca.queryByRole('link', { name: 'Confirmar celular' })).not.toBeInTheDocument();
+  });
+});

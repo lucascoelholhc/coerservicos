@@ -11,7 +11,7 @@ import { CampoSenha } from '../../componentes/CampoSenha/CampoSenha';
 import { CampoTexto } from '../../componentes/CampoTexto/CampoTexto';
 import { Nota } from '../../componentes/Nota/Nota';
 import { useTitulo } from '../../layout/titulo';
-import estilos from './Senha.module.css';
+import estilos from '../../layout/PaginaDeFormulario.module.css';
 
 type Campo = 'celular' | 'codigo' | 'senha';
 type Erros = Partial<Record<Campo, string>>;

@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import { semRolagemLateral, semViolacoesAxe, vigiarCsp } from './ajudantes';
 import { simularApi, simularConta } from './apiSimulada';
+import { SESSAO_PADRAO } from '../src/teste/dadosDaApi';
 
 test.describe('Conta', () => {
   test('criar conta → minha conta → sair → entrar de novo, sem violação de CSP', async ({ page }) => {
@@ -33,7 +34,7 @@ test.describe('Conta', () => {
     await page.goto('/entrar');
     await page.getByRole('textbox', { name: 'Celular ou e-mail' }).fill('ana@exemplo.com');
     await page.getByLabel('Senha').fill('Casa-Azul-2026');
-    await page.getByRole('button', { name: 'Entrar' }).click();
+    await page.getByRole('button', { name: 'Entrar', exact: true }).click();
 
     await expect(page.getByRole('heading', { level: 1, name: 'Minha conta' })).toBeVisible();
     expect(violacoes).toEqual([]);
@@ -46,12 +47,12 @@ test.describe('Conta', () => {
     await page.goto('/entrar');
     await page.getByRole('textbox', { name: 'Celular ou e-mail' }).fill('admin@exemplo.com');
     await page.getByLabel('Senha').fill('Casa-Azul-2026');
-    await page.getByRole('button', { name: 'Entrar' }).click();
+    await page.getByRole('button', { name: 'Entrar', exact: true }).click();
 
     await expect(page.getByRole('heading', { level: 1, name: 'Digite o código que enviamos por SMS' })).toBeVisible();
     await semViolacoesAxe(page);
     await page.getByRole('textbox', { name: 'Código' }).fill('123456');
-    await page.getByRole('button', { name: 'Entrar' }).click();
+    await page.getByRole('button', { name: 'Entrar', exact: true }).click();
 
     await expect(page.getByRole('heading', { level: 1, name: 'Minha conta' })).toBeVisible();
   });
@@ -123,5 +124,45 @@ test.describe('Links do e-mail', () => {
     await expect(page.getByRole('link', { name: 'Entrar' }).last()).toBeVisible();
     await semViolacoesAxe(page);
     await semRolagemLateral(page);
+  });
+});
+
+test.describe('Código por SMS', () => {
+  test('entrar com código: celular → código → Minha conta → seção Segurança', async ({ page }) => {
+    const violacoes = await vigiarCsp(page);
+    await simularApi(page);
+    await simularConta(page);
+    await page.route('**/api/auth/codigo', (rota) =>
+      rota.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({ mensagem: 'Se o celular tiver conta, enviamos um código por SMS.' }),
+      }),
+    );
+    let corpoDoEntrar: unknown = null;
+    await page.route('**/api/auth/entrar-com-codigo', async (rota) => {
+      corpoDoEntrar = rota.request().postDataJSON();
+      await rota.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(SESSAO_PADRAO) });
+    });
+
+    await page.goto('/entrar');
+    await page.getByRole('button', { name: 'Entrar com código por SMS' }).click();
+    await page.getByRole('textbox', { name: 'Celular' }).fill('47900000001');
+    await page.getByRole('button', { name: 'Mandar código' }).click();
+
+    await expect(page.getByText('Pode pedir outro código em', { exact: false })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Mandar outro código' })).toBeDisabled();
+    await semViolacoesAxe(page);
+    await semRolagemLateral(page);
+    await page.getByRole('textbox', { name: 'Código' }).fill('123456');
+    await page.getByRole('button', { name: 'Entrar', exact: true }).click();
+
+    await expect(page.getByRole('heading', { level: 2, name: 'Segurança' })).toBeVisible();
+    expect(corpoDoEntrar).toEqual({ celular: '47900000001', codigo: '123456' });
+    await page.getByRole('link', { name: 'Código no login' }).click();
+    await expect(page.getByText('Para usar o código no login, confirme seu celular primeiro.')).toBeVisible();
+    await semViolacoesAxe(page);
+    await semRolagemLateral(page);
+    expect(violacoes).toEqual([]);
   });
 });

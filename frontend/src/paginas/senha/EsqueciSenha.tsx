@@ -8,7 +8,7 @@ import { Botao } from '../../componentes/Botao/Botao';
 import { CampoTexto } from '../../componentes/CampoTexto/CampoTexto';
 import { Nota } from '../../componentes/Nota/Nota';
 import { useTitulo } from '../../layout/titulo';
-import estilos from './Senha.module.css';
+import estilos from '../../layout/PaginaDeFormulario.module.css';
 
 const RESPOSTA = 'Se existir uma conta, enviamos um link para o e-mail confirmado ou um código por SMS.';
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 
 import { sair, sairDeTodos } from '../../api/autenticacao';
 import { buscarMinhaConta, reenviarConfirmacaoDeEmail } from '../../api/contas';
@@ -49,6 +49,7 @@ export function MinhaConta() {
             {!conta.dados.emailConfirmado && (
               <ConfirmarEmail aoAtualizar={conta.tentarDeNovo} aoResponder={setRetornoDoEmail} />
             )}
+            <Seguranca conta={conta.dados} />
             <Sair />
           </>
         )}
@@ -77,6 +78,47 @@ function DadosDaConta({ conta }: { conta: Conta }) {
         <dd>{conta.email ?? 'Não informado'}</dd>
       </div>
     </dl>
+  );
+}
+
+function situacaoDoCelular(conta: Conta): string {
+  if (conta.celular === null) {
+    return 'Não informado';
+  }
+  return conta.celularConfirmado ? 'Confirmado' : 'Não confirmado';
+}
+
+function situacaoDoCodigo(conta: Conta): string {
+  if (conta.papeis.includes('ADMIN')) {
+    return 'Obrigatório';
+  }
+  return conta.mfaAtivo ? 'Ligado' : 'Desligado';
+}
+
+/** Celular confirmado e código por SMS no login, com o caminho para cada ajuste. */
+function Seguranca({ conta }: { conta: Conta }) {
+  return (
+    <section className={estilos.secao} aria-labelledby="titulo-seguranca">
+      <h2 id="titulo-seguranca">Segurança</h2>
+      <ul className={estilos.itens}>
+        <li className={estilos.item}>
+          <span>
+            Celular: <b>{situacaoDoCelular(conta)}</b>
+          </span>
+          {conta.celular !== null && !conta.celularConfirmado && (
+            <Botao para={CAMINHOS.confirmarCelular} variante="suave" tamanho="sm">
+              Confirmar celular
+            </Botao>
+          )}
+        </li>
+        <li className={estilos.item}>
+          <Link className={estilos.linkDoItem} to={CAMINHOS.codigoNoLogin}>
+            Código no login
+          </Link>
+          <b>{situacaoDoCodigo(conta)}</b>
+        </li>
+      </ul>
+    </section>
   );
 }
 

@@ -56,3 +56,40 @@
   flex-wrap: wrap;
   gap: 10px;
 }
+
+.secao {
+  display: grid;
+  gap: 10px;
+}
+
+.itens {
+  margin: 0;
+  padding: 4px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  min-height: 56px;
+  padding-block: 6px;
+  border-top: 1px solid var(--line);
+}
+
+.item:first-child {
+  border-top: 0;
+}
+
+.linkDoItem {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--carimbo-txt);
+  font-weight: 700;
+}

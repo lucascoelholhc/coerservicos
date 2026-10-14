@@ -47,7 +47,7 @@ describe('/entrar', () => {
     expect(container.querySelectorAll('[data-variante="principal"]')).toHaveLength(1);
     expect(screen.getByRole('link', { name: 'Esqueci minha senha' })).toHaveAttribute('href', '/esqueci-senha');
     expect(screen.getByRole('link', { name: 'Criar conta' })).toHaveAttribute('href', '/criar-conta');
-    expect(screen.queryByRole('button', { name: 'Entrar com código por SMS' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Entrar com código por SMS' })).toBeInTheDocument();
     expect(document.title).toBe('Entrar · COE Serviços');
     await semViolacoes(container);
   });
@@ -179,5 +179,103 @@ describe('/entrar', () => {
     abrir('', { aviso: 'Senha alterada. Entre com a nova senha.' });
 
     expect(screen.getByRole('status')).toHaveTextContent('Senha alterada. Entre com a nova senha.');
+  });
+});
+
+describe('/entrar com código por SMS', () => {
+  afterEach(() => {
+    encerrarSessao();
+    vi.unstubAllGlobals();
+  });
+
+  const RESPOSTA_DO_PEDIDO = 'Se o celular tiver conta, enviamos um código por SMS.';
+
+  async function pedirCodigo(celular = '(47) 90000-0001') {
+    await userEvent.click(screen.getByRole('button', { name: 'Entrar com código por SMS' }));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Celular' }), celular);
+    await userEvent.click(screen.getByRole('button', { name: 'Mandar código' }));
+  }
+
+  it('celular → código → entra (o pedido tem sempre a mesma resposta)', async () => {
+    const { pedidos } = simularFetch((pedido) =>
+      pedido.url === '/api/auth/codigo' ? json({ mensagem: RESPOSTA_DO_PEDIDO }, 202) : json(SESSAO_PADRAO),
+    );
+    const { container } = abrir();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Entrar com código por SMS' }));
+    expect(screen.getByRole('heading', { level: 1, name: 'Entrar com código por SMS' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Celular' })).toHaveAttribute('autocomplete', 'tel');
+    await userEvent.type(screen.getByRole('textbox', { name: 'Celular' }), '(47) 90000-0001');
+    await userEvent.click(screen.getByRole('button', { name: 'Mandar código' }));
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Digite o código que enviamos por SMS' })).toBeInTheDocument();
+    expect(screen.getByText(RESPOSTA_DO_PEDIDO)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mandar outro código' })).toBeDisabled();
+    await semViolacoes(container);
+    await userEvent.type(screen.getByRole('textbox', { name: 'Código' }), '123456');
+    await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
+
+    expect(await screen.findByText('Fui para /conta')).toBeInTheDocument();
+    expect(pedidos[0]?.url).toBe('/api/auth/codigo');
+    expect(JSON.parse(pedidos[0]?.corpo ?? '{}')).toEqual({ celular: '(47) 90000-0001' });
+    expect(pedidos[1]?.url).toBe('/api/auth/entrar-com-codigo');
+    expect(JSON.parse(pedidos[1]?.corpo ?? '{}')).toEqual({ celular: '(47) 90000-0001', codigo: '123456' });
+    expect(tokenAtual()).toBe('token-de-teste');
+  });
+
+  it('código errado: mensagem da API e continua no código', async () => {
+    simularFetch((pedido) =>
+      pedido.url === '/api/auth/codigo'
+        ? json({ mensagem: RESPOSTA_DO_PEDIDO }, 202)
+        : problema(401, 'login-invalido', 'Celular ou código incorreto.'),
+    );
+    abrir();
+    await pedirCodigo();
+
+    await userEvent.type(await screen.findByRole('textbox', { name: 'Código' }), '000000');
+    await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Celular ou código incorreto.');
+    expect(screen.getByRole('heading', { level: 1, name: 'Digite o código que enviamos por SMS' })).toBeInTheDocument();
+    expect(tokenAtual()).toBeNull();
+  });
+
+  it('429 ao pedir o código: mensagem e continua no celular', async () => {
+    simularFetch(() => problema(429, 'muitas-tentativas', 'x'));
+    abrir();
+    await pedirCodigo();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Muitas tentativas seguidas.');
+    expect(screen.getByRole('heading', { level: 1, name: 'Entrar com código por SMS' })).toBeInTheDocument();
+  });
+
+  it('celular vazio: avisa no campo sem chamar a API', async () => {
+    const { falso } = simularFetch(() => json({}));
+    abrir();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Entrar com código por SMS' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Mandar código' }));
+
+    expect(screen.getByRole('textbox', { name: 'Celular' })).toHaveAccessibleDescription('Informe o celular.');
+    expect(falso).not.toHaveBeenCalled();
+  });
+
+  it('"Entrar com senha" volta para a senha', async () => {
+    abrir();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Entrar com código por SMS' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Entrar com senha' }));
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Entrar' })).toBeInTheDocument();
+  });
+
+  it('o segundo passo do MFA não tem "Mandar outro código" (o desafio vem do login com senha)', async () => {
+    simularFetch(() => problema(403, 'segundo-passo-necessario', 'Digite o código.', { desafioId: 'd-1' }));
+    abrir();
+
+    await preencherEEntrar();
+
+    expect(await screen.findByRole('textbox', { name: 'Código' })).toHaveAttribute('autocomplete', 'one-time-code');
+    expect(screen.queryByRole('button', { name: 'Mandar outro código' })).not.toBeInTheDocument();
   });
 });
