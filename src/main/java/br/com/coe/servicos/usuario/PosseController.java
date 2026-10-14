@@ -54,6 +54,14 @@ class PosseController {
         }
     }
 
+    /** Só o comprovante e o e-mail do link (nada da outra conta); a outra aba confere o e-mail. */
+    record ComprovanteDoEmailResponse(String comprovante, String email) {
+        @Override
+        public String toString() {
+            return "ComprovanteDoEmailResponse[comprovante=***, email=***]";
+        }
+    }
+
     private final ServicoDePosse posse;
 
     PosseController(ServicoDePosse posse) {
@@ -83,7 +91,8 @@ class PosseController {
 
     @PostMapping("/email/confirmar")
     @Publico
-    ComprovanteResponse confirmarEmail(@Valid @RequestBody TokenRequest pedido) {
-        return new ComprovanteResponse(posse.confirmarEmail(pedido.token()));
+    ComprovanteDoEmailResponse confirmarEmail(@Valid @RequestBody TokenRequest pedido) {
+        ServicoDePosse.ComprovanteDoEmail confirmado = posse.confirmarEmail(pedido.token());
+        return new ComprovanteDoEmailResponse(confirmado.comprovante(), confirmado.email());
     }
 }

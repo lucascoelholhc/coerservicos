@@ -31,11 +31,29 @@ export interface CidadeDoCatalogo {
 
 export type TaxaPagaPor = 'CLIENTE' | 'PROFISSIONAL';
 
+export type Papel = 'CLIENTE' | 'PROFISSIONAL' | 'ADMIN';
+
 /** GET /api/publico/regras: comissão como fração ("0.1000") e prazo em ISO-8601 ("PT12H"). */
 export interface Regras {
   comissao: string;
   prazoLiberacao: string;
   taxaPagaPor: TaxaPagaPor;
+  /** Versão dos termos em vigor: o cadastro manda esta versão como aceita. */
+  versaoTermos: string;
+}
+
+/** GET /api/contas/eu (MinhaContaResponse): celular e e-mail como a API devolve (podem faltar com contato pendente). */
+export interface MinhaConta {
+  id: string;
+  nome: string;
+  papeis: Papel[];
+  email: string | null;
+  celular: string | null;
+  celularConfirmado: boolean;
+  emailConfirmado: boolean;
+  contatoPendente: boolean;
+  /** Código por SMS no login escolhido pela pessoa (para o ADMIN o código é sempre obrigatório). */
+  mfaAtivo: boolean;
 }
 
 /** Resposta do entrar e do renovar (SessaoResponse). */

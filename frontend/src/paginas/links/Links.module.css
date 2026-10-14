@@ -1,0 +1,16 @@
+.pagina {
+  padding-block: 28px 40px;
+}
+
+.coluna {
+  display: grid;
+  justify-items: start;
+  gap: 16px;
+  max-width: 560px;
+}
+
+.botoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}

@@ -266,6 +266,20 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 | FE-09 | Testes | Vitest nos componentes; Playwright no caminho feliz em 360 px e desktop |
 | FE-10 | Acessibilidade | axe nas telas principais + teste só com teclado |
 
+**FE-03 (dia 10): decisões e pendências**
+- **Termos de uso e política de privacidade:** hoje `/termos` e `/privacidade` são **rascunho** (etiqueta visível). O texto final é **pendência obrigatória antes do lançamento** (LGPD, RNF18); quem redige: **A DEFINIR**. Ao publicar, subir `VERSAO_TERMOS` na configuração (o cadastro já pede o aceite da versão em vigor).
+- **Sessão no front:** uma renovação silenciosa ao abrir o app (cookie HttpOnly do refresh); enquanto verifica, página privada mostra "Carregando…"; "Sair" leva ao Início (saída voluntária), sessão perdida leva a `/entrar?voltar=`.
+- **`mfaAtivo` em `GET /api/contas/eu`** é a escolha da pessoa; para o ADMIN o código é sempre obrigatório (o front decide pelo papel).
+- **"Quero trabalhar"** usa `CAMINHOS.paraProfissionais` (`/para-profissionais`), a mesma página do Início; não encontrado até o DOM-02.
+- **Posse do e-mail (decidido em 13/10, opção 1):** `POST /api/contas/posse/email/confirmar` devolve `{comprovante, email}` (e-mail normalizado do link; nada da outra conta). A `/provar-email` entrega o comprovante à aba do cadastro pelo `BroadcastChannel('coe-posse')` (resposta em até 1 s) ou continua o cadastro com o e-mail fixo. Comprovante vencido: o 422 `comprovante-invalido` do backend decide (sem relógio no front). Duas abas com o mesmo comprovante: o backend arbitra (comprovante de uso único).
+- **Contato pendente no front (decidido em 13/10):** segue o backend. Liberadas: `/conta`, `/conta/recolocar-contato`, `/conta/trocar-senha`, `/conta/confirmar-celular`; o resto (hoje `/conta/codigo-no-login`) mostra a nota. Reenviar código ou link do contato novo = repetir o `PUT /eu/{celular,email}` (o `/eu/celular/codigo` e o `/eu/email/confirmacao` só servem para o contato já gravado).
+- **Sair (revisão de 13/10):** falha da API não limpa a sessão local (o cookie da renovação continuaria valendo); só a sessão já encerrada no servidor sai.
+- **Pendências das revisões (MEDIUM/LOW, sem CRITICAL nem HIGH abertos):**
+  - Canal da posse sem nonce: uma aba da mesma origem pode responder "recebido" sem pegar o comprovante (só atrapalha o fluxo; exige XSS, que a CSP barra). Um nonce teria de ir no link do e-mail (mudança no backend); decidir depois.
+  - Várias abas abrindo juntas renovam com o mesmo cookie: conferir no backend se o reuso do refresh tem janela de tolerância antes de virar "roubo" (CORE-07 ou revisão da CORE-03).
+  - Refatorar: funções longas (`FormularioDoCliente`, `Entrar`, `NovoEmail`/`NovoCelular` do recolocar) em hooks; trava de envio própria em `Entrar`, `EsqueciSenha`, `RedefinirSenha` e `FormularioDoCliente` → `useEnvioUnico`; `comoErroDaApi` em todo catch; `SENHA_MINIMA` num lugar só; `CampoCodigo` no `/redefinir-senha`; `MandarDeNovo` no "Mandar o link de novo" da posse e de Minha conta; validar a forma da `SessaoResposta` (entrar e renovar); não passar o login digitado em `history.state` no "esqueci".
+  - Testes no StrictMode para `/confirmar-email`, `/provar-email` e `/redefinir-senha`.
+
 **DOM-01 + FE-02 (dia 9): decisões e pendências**
 - **Catálogo público:** `GET /api/publico/catalogo` (áreas com profissões ativas, serviços ativos e cidades ativas por UF e `f_sem_acento(nome) COLLATE "C"`); sem ids internos, faixa de diária, NR-10 ou LC 150. Área não tem coluna `ativa`: aparece se tiver ao menos uma profissão ativa. Três consultas e cache de 60 s com `invalidarCache()` (para o admin, no FE-07). O `icone` sai na resposta, mas o front escolhe a ilustração pelo `codigo` da profissão.
 - **Regras públicas:** `GET /api/publico/regras` = `{comissao: "0.1000", prazoLiberacao: "PT12H", taxaPagaPor: "CLIENTE"}`, de um snapshot do `ConfiguracaoNegocio`; nada mais sai. Frases do Início (09/10): "A taxa da COE é de 10%, paga pelo cliente." ou "..., descontada do valor do profissional."; valor desconhecido não mostra a frase.

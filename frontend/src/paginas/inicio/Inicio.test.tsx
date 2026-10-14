@@ -226,7 +226,7 @@ describe('Início (visitante) com dados da API', () => {
   });
 
   it('trocar a resposta para 15%, 24 h e taxa do profissional muda o texto', async () => {
-    simularApiPublica({ regras: { comissao: '0.1500', prazoLiberacao: 'PT24H', taxaPagaPor: 'PROFISSIONAL' } });
+    simularApiPublica({ regras: { comissao: '0.1500', prazoLiberacao: 'PT24H', taxaPagaPor: 'PROFISSIONAL', versaoTermos: '1.0' } });
     abrirInicio();
 
     expect(await screen.findByText('A taxa da COE é de 15%, descontada do valor do profissional.')).toBeInTheDocument();

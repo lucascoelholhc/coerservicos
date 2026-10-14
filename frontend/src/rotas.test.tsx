@@ -52,7 +52,7 @@ describe('Rotas', () => {
   });
 
   it('com as regras da API, os únicos números de regra são os da resposta', async () => {
-    simularApiPublica({ regras: { comissao: '0.1500', prazoLiberacao: 'PT24H', taxaPagaPor: 'CLIENTE' } });
+    simularApiPublica({ regras: { comissao: '0.1500', prazoLiberacao: 'PT24H', taxaPagaPor: 'CLIENTE', versaoTermos: '1.0' } });
     abrirEm('/');
     await screen.findByText('A taxa da COE é de 15%, paga pelo cliente.');
     const texto = document.body.textContent ?? '';

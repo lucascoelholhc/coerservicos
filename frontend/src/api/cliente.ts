@@ -46,6 +46,11 @@ async function repetirDepoisDeRenovar(caminho: string, opcoes: OpcoesDaChamada, 
   return repetida;
 }
 
+/** Renova agora e lança se não der (ex.: depois de recolocar o contato, para o contatoPendente sair do token). */
+export async function atualizarSessao(): Promise<void> {
+  lancarSeNaoRenovou(await renovarSessao());
+}
+
 function lancarSeNaoRenovou(resultado: ResultadoDaRenovacao): void {
   switch (resultado) {
     case 'renovada':
@@ -164,11 +169,18 @@ async function lerCorpo<T>(resposta: Response): Promise<T> {
   if (!resposta.ok) {
     throw await erroDaResposta(resposta);
   }
-  if (resposta.status === 204) {
+  let texto: string;
+  try {
+    texto = await resposta.text();
+  } catch {
+    throw new ErroDaApi('resposta');
+  }
+  // 202 e 204 da API chegam sem corpo.
+  if (texto === '') {
     return undefined as T;
   }
   try {
-    return (await resposta.json()) as T;
+    return JSON.parse(texto) as T;
   } catch {
     throw new ErroDaApi('resposta');
   }

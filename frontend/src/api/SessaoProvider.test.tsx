@@ -2,8 +2,8 @@ import { act, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { avisarSessaoPerdida, encerrarSessao, iniciarSessao } from './sessao';
-import { SessaoProvider, useSessao } from './SessaoProvider';
+import { avisarSessaoPerdida, encerrarSessao, iniciarSessao, iniciarVerificacao } from './sessao';
+import { SessaoProvider, useSessao, useSituacaoDaSessao } from './SessaoProvider';
 
 function OndeEstou() {
   const local = useLocation();
@@ -67,5 +67,25 @@ describe('SessaoProvider', () => {
     unmount();
 
     expect(() => avisarSessaoPerdida()).not.toThrow();
+  });
+
+  it('useSituacaoDaSessao acompanha verificando, logado e visitante', () => {
+    function Situacao() {
+      return <p>Situação: {useSituacaoDaSessao()}</p>;
+    }
+    render(<Situacao />);
+    expect(screen.getByText('Situação: visitante')).toBeInTheDocument();
+
+    act(() => iniciarVerificacao());
+    expect(screen.getByText('Situação: verificando')).toBeInTheDocument();
+
+    act(() =>
+      iniciarSessao({
+        accessToken: 't',
+        expiraEm: 'x',
+        usuario: { id: 'u1', nome: 'Ana', papeis: ['CLIENTE'], contatoPendente: false },
+      }),
+    );
+    expect(screen.getByText('Situação: logado')).toBeInTheDocument();
   });
 });

@@ -55,9 +55,15 @@
   margin-left: auto;
 }
 
+.saudacao {
+  color: var(--tinta-2);
+  font-weight: 600;
+}
+
 /* No celular estreito, "Entrar" fica só no menu de baixo */
 @media (width < 560px) {
-  .entrar {
+  .entrar,
+  .saudacao {
     display: none;
   }
 }

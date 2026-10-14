@@ -1,0 +1,56 @@
+.campo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 7px;
+}
+
+.rotulo {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.caixa {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.entrada {
+  flex: 1;
+  min-width: 0;
+  min-height: 54px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--tinta);
+}
+
+.entrada:hover {
+  border-color: var(--tinta-3);
+}
+
+.entrada:focus {
+  border-color: var(--carimbo);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--carimbo) 25%, transparent);
+}
+
+.entrada[aria-invalid="true"] {
+  border-color: var(--bad);
+}
+
+.entrada:disabled {
+  background: var(--surface-2);
+  color: var(--tinta-2);
+}
+
+.erro {
+  color: var(--bad-txt);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.dica {
+  color: var(--tinta-2);
+  font-size: 0.92rem;
+}

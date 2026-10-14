@@ -77,9 +77,18 @@ class ServicoDePosse {
         }
     }
 
-    String confirmarEmail(String token) {
+    /** O e-mail do link (já normalizado) volta junto: quem tem o token abriu essa caixa de e-mail. */
+    record ComprovanteDoEmail(String comprovante, String email) {
+        @Override
+        public String toString() {
+            return "ComprovanteDoEmail[comprovante=***, email=***]";
+        }
+    }
+
+    ComprovanteDoEmail confirmarEmail(String token) {
         return tokens.consumir(token, FinalidadeToken.LINK_POSSE)
-                .map(link -> tokens.emitirComprovante(TokenVerificacao.CANAL_EMAIL, link.getDestino()))
+                .map(link -> new ComprovanteDoEmail(
+                        tokens.emitirComprovante(TokenVerificacao.CANAL_EMAIL, link.getDestino()), link.getDestino()))
                 .orElseThrow(
                         () -> new RegraDeNegocioException("link-invalido", "Este link não vale mais. Peça um novo."));
     }

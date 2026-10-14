@@ -276,10 +276,40 @@ describe('cliente da API', () => {
     expect(erro.message).toBe(MENSAGENS.problema);
   });
 
+  it('403 segundo-passo-necessario traz o desafioId (só em memória, para o código por SMS)', async () => {
+    simularFetch(() => problema(403, 'segundo-passo-necessario', 'Digite o código que enviamos por SMS.', { desafioId: 'd-1' }));
+
+    const erro = await erroDe(chamar('/auth/entrar', { metodo: 'POST', corpo: {} }));
+
+    expect(erro).toMatchObject({ status: 403, codigo: 'segundo-passo-necessario', desafioId: 'd-1' });
+  });
+
   it('Problem Details sem detail usa a mensagem genérica', async () => {
     simularFetch(() => json({ type: 'urn:coe:erro:x', status: 422 }, 422, 'application/problem+json'));
 
     expect((await erroDe(chamar('/x'))).message).toBe(MENSAGENS.problema);
+  });
+
+  it('corpo que falha ao ser lido: erro de resposta', async () => {
+    simularFetch(
+      () =>
+        new Response(
+          new ReadableStream({
+            start(controle) {
+              controle.error(new Error('conexão caiu no meio'));
+            },
+          }),
+          { status: 200 },
+        ),
+    );
+
+    expect((await erroDe(chamar('/x'))).tipo).toBe('resposta');
+  });
+
+  it('202 sem corpo devolve undefined', async () => {
+    simularFetch(() => new Response(null, { status: 202 }));
+
+    await expect(chamar('/x', { metodo: 'POST' })).resolves.toBeUndefined();
   });
 
   it('200 com corpo que não é JSON: erro de resposta', async () => {

@@ -1,0 +1,15 @@
+.campo {
+  display: grid;
+  gap: 10px;
+}
+
+.reenviar {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+}
+
+.espera {
+  color: var(--tinta-2);
+  font-size: 0.92rem;
+}

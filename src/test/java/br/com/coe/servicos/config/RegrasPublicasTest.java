@@ -54,8 +54,11 @@ class RegrasPublicasTest extends BancoIntegracaoTest {
     @DisplayName("200 sem token com os valores em vigor: comissão, prazo de liberação (ISO-8601) e quem paga")
     void valoresDoSeed() throws Exception {
         assertThat(regras())
-                .containsExactlyInAnyOrderEntriesOf(
-                        Map.of("comissao", "0.1000", "prazoLiberacao", "PT12H", "taxaPagaPor", "CLIENTE"));
+                .containsExactlyInAnyOrderEntriesOf(Map.of(
+                        "comissao", "0.1000",
+                        "prazoLiberacao", "PT12H",
+                        "taxaPagaPor", "CLIENTE",
+                        "versaoTermos", "1.0"));
     }
 
     @Test
@@ -64,17 +67,21 @@ class RegrasPublicasTest extends BancoIntegracaoTest {
         jdbc.update(NOVO_VALOR, "COMISSAO", "0.125", "decimal");
         jdbc.update(NOVO_VALOR, "AUTO_LIBERA_HORAS", "24", "inteiro");
         jdbc.update(NOVO_VALOR, "TAXA_PAGA_POR", "profissional", "texto");
+        jdbc.update(NOVO_VALOR, "VERSAO_TERMOS", "2.0", "texto");
         configuracao.invalidarCache();
 
         assertThat(regras())
-                .containsExactlyInAnyOrderEntriesOf(
-                        Map.of("comissao", "0.1250", "prazoLiberacao", "PT24H", "taxaPagaPor", "PROFISSIONAL"));
+                .containsExactlyInAnyOrderEntriesOf(Map.of(
+                        "comissao", "0.1250",
+                        "prazoLiberacao", "PT24H",
+                        "taxaPagaPor", "PROFISSIONAL",
+                        "versaoTermos", "2.0"));
     }
 
     @Test
-    @DisplayName("nenhum outro parâmetro sai (prazo de disputa, limite LC 150, versão dos termos...)")
-    void soOsTres() throws Exception {
-        assertThat(regras()).containsOnlyKeys("comissao", "prazoLiberacao", "taxaPagaPor");
+    @DisplayName("só os quatro campos públicos: nenhum outro parâmetro sai (prazo de disputa, limite LC 150...)")
+    void soOsQuatro() throws Exception {
+        assertThat(regras()).containsOnlyKeys("comissao", "prazoLiberacao", "taxaPagaPor", "versaoTermos");
     }
 
     @Test

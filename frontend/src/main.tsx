@@ -6,6 +6,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router';
 
+import { recuperarSessaoAoAbrir } from './api/recuperarSessao';
 import { SessaoProvider } from './api/SessaoProvider';
 import { Rotas } from './rotas';
 
@@ -13,6 +14,8 @@ const raiz = document.getElementById('raiz');
 if (!raiz) {
   throw new Error('Elemento #raiz não encontrado no index.html.');
 }
+
+void recuperarSessaoAoAbrir();
 
 createRoot(raiz).render(
   <StrictMode>
