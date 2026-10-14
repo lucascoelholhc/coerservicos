@@ -73,9 +73,13 @@ public abstract class IntegracaoTest {
     @Autowired
     private org.springframework.jdbc.core.JdbcTemplate jdbcDosLimites;
 
+    @Autowired
+    private br.com.coe.servicos.compartilhado.limite.LimitadorEmMemoria limitadorEmMemoria;
+
     @BeforeEach
     void relogioEConfiguracaoNoEstadoPadrao() {
         jdbcDosLimites.update("DELETE FROM limite_balde");
+        limitadorEmMemoria.limpar();
         sms.aguardarEnvios();
         sms.restaurar();
         email.restaurar();

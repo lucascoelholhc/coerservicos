@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.jdbc.autoconfigure.JdbcConnectionDetails;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -17,6 +18,7 @@ import com.zaxxer.hikari.HikariDataSource;
  */
 @Configuration
 @EnableConfigurationProperties(PropriedadesDeLimites.class)
+@EnableScheduling // limpeza dos baldes vencidos (LimpezaDeBaldes)
 class ConfiguracaoDoLimitador {
 
     @Bean
@@ -31,5 +33,10 @@ class ConfiguracaoDoLimitador {
         config.setConnectionTimeout(propriedades.esperaPorConexao().toMillis());
         config.setInitializationFailTimeout(-1); // banco fora na subida: o limitador responde 503
         return new LimitadorDeTaxa(new HikariDataSource(config), propriedades, clock);
+    }
+
+    @Bean
+    LimitadorEmMemoria limitadorEmMemoria(PropriedadesDeLimites propriedades, Clock clock) {
+        return new LimitadorEmMemoria(propriedades, clock);
     }
 }
