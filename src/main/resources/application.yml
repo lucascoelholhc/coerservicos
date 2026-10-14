@@ -94,11 +94,16 @@ coe:
       envio-usuario: { capacidade: 10, janela: 1h }
       confirmar-usuario: { capacidade: 20, janela: 10m }
   mensageria:
-    # Envio assíncrono de SMS e e-mail depois do commit (decisão de 07/10): fila própria e limitada.
-    # Fila cheia descarta com log mascarado; a resposta da requisição nunca muda.
-    threads: 2
-    threads-maximo: 4
-    fila: 100
+    # Envio assíncrono de SMS e e-mail depois do commit (decisão de 07/10): filas próprias e limitadas.
+    # Fila cheia descarta com log mascarado e devolve a cota da linha (CORE-07); a resposta não muda.
+    prioritaria:     # código de login, MFA, recuperação de senha
+      threads: 2
+      threads-maximo: 4
+      fila: 100
+    normal:          # prova de posse, confirmação de celular e e-mail
+      threads: 1
+      threads-maximo: 2
+      fila: 50
   auth:
     sessao:
       duracao-maxima: 90d   # teto absoluto desde o login (PA03); depois disso, senha de novo

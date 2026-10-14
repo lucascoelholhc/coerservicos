@@ -25,6 +25,9 @@ class DespachoDeMensagensTest {
         throw new AssertionError("não devia mandar e-mail");
     };
 
+    private static final DevolucaoDeCota SEM_DEVOLUCAO = cota -> {};
+    private static final String CELULAR_PRIORITARIO = "47900000102";
+
     private final CountDownLatch liberar = new CountDownLatch(1);
     private final AtomicInteger enviados = new AtomicInteger();
     private DespachoDeMensagens despacho;
@@ -51,7 +54,12 @@ class DespachoDeMensagensTest {
     @Test
     @DisplayName("fila cheia: descarta com log (celular mascarado), sem lançar nada para quem publicou")
     void filaCheiaDescarta(CapturedOutput saida) {
-        despacho = new DespachoDeMensagens(enviadorPreso(), SEM_EMAIL, 1, 1, 1);
+        despacho = new DespachoDeMensagens(
+                enviadorPreso(),
+                SEM_EMAIL,
+                SEM_DEVOLUCAO,
+                new DespachoDeMensagens.Fila(1, 1, 1),
+                new DespachoDeMensagens.Fila(1, 1, 1));
 
         assertThatCode(() -> {
                     for (int i = 0; i < 3; i++) {
@@ -78,9 +86,9 @@ class DespachoDeMensagensTest {
                     throw new IllegalStateException("provedor fora " + celular);
                 },
                 SEM_EMAIL,
-                1,
-                1,
-                10);
+                SEM_DEVOLUCAO,
+                new DespachoDeMensagens.Fila(1, 1, 10),
+                new DespachoDeMensagens.Fila(1, 1, 10));
 
         despacho.aoConfirmar(MensagemPronta.sms(CELULAR, "COE: seu código é 654321."));
 
@@ -102,9 +110,9 @@ class DespachoDeMensagensTest {
                         throw new IllegalStateException("smtp fora " + para);
                     }
                 },
-                1,
-                1,
-                10);
+                SEM_DEVOLUCAO,
+                new DespachoDeMensagens.Fila(1, 1, 10),
+                new DespachoDeMensagens.Fila(1, 1, 10));
 
         despacho.aoConfirmar(MensagemPronta.email("ana.silva@exemplo.com", "Assunto", "link #token=abc"));
         despacho.aoConfirmar(MensagemPronta.email("ana.silva@exemplo.com", "Assunto", "link #token=def"));
@@ -132,12 +140,125 @@ class DespachoDeMensagensTest {
     @Test
     @DisplayName("configuração fora da faixa não sobe")
     void configuracaoInvalida() {
-        assertThatCode(() -> new DespachoDeMensagens(enviadorPreso(), SEM_EMAIL, 0, 1, 1))
+        assertThatCode(() -> new DespachoDeMensagens(
+                        enviadorPreso(),
+                        SEM_EMAIL,
+                        SEM_DEVOLUCAO,
+                        new DespachoDeMensagens.Fila(0, 1, 1),
+                        new DespachoDeMensagens.Fila(0, 1, 1)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("coe.mensageria");
-        assertThatCode(() -> new DespachoDeMensagens(enviadorPreso(), SEM_EMAIL, 2, 1, 1))
+        assertThatCode(() -> new DespachoDeMensagens(
+                        enviadorPreso(),
+                        SEM_EMAIL,
+                        SEM_DEVOLUCAO,
+                        new DespachoDeMensagens.Fila(2, 1, 1),
+                        new DespachoDeMensagens.Fila(2, 1, 1)))
                 .isInstanceOf(IllegalStateException.class);
-        assertThatCode(() -> new DespachoDeMensagens(enviadorPreso(), SEM_EMAIL, 1, 1, 0))
+        assertThatCode(() -> new DespachoDeMensagens(
+                        enviadorPreso(),
+                        SEM_EMAIL,
+                        SEM_DEVOLUCAO,
+                        new DespachoDeMensagens.Fila(1, 1, 0),
+                        new DespachoDeMensagens.Fila(1, 1, 0)))
                 .isInstanceOf(IllegalStateException.class);
+    }
+
+    private static MensagemPronta.Cota cota() {
+        return new MensagemPronta.Cota(MensagemPronta.Origem.CODIGO_SMS, java.util.UUID.randomUUID());
+    }
+
+    private static MensagemPronta normal(MensagemPronta.Cota cota) {
+        return MensagemPronta.sms(CELULAR, "COE: seu código é 123456.", MensagemPronta.Prioridade.NORMAL, cota);
+    }
+
+    @Test
+    @DisplayName("a fila prioritária não espera a normal: com a normal travada, o código de login sai")
+    void prioritariaNaoEsperaANormal() {
+        java.util.List<String> entregues = new java.util.concurrent.CopyOnWriteArrayList<>();
+        EnviadorSms enviador = (celular, texto) -> {
+            if (CELULAR.equals(celular)) {
+                enviadorPreso().enviar(celular, texto);
+            }
+            entregues.add(celular);
+        };
+        despacho = new DespachoDeMensagens(
+                enviador,
+                SEM_EMAIL,
+                SEM_DEVOLUCAO,
+                new DespachoDeMensagens.Fila(1, 1, 10),
+                new DespachoDeMensagens.Fila(1, 1, 10));
+        for (int i = 0; i < 3; i++) {
+            despacho.aoConfirmar(normal(cota()));
+        }
+
+        despacho.aoConfirmar(MensagemPronta.sms(
+                CELULAR_PRIORITARIO, "COE: seu código é 999888.", MensagemPronta.Prioridade.PRIORITARIA, cota()));
+
+        await().atMost(Duration.ofSeconds(2)).until(() -> entregues.contains(CELULAR_PRIORITARIO));
+        assertThat(entregues).doesNotContain(CELULAR);
+    }
+
+    @Test
+    @DisplayName("descarte por fila cheia devolve a cota da linha que gerou a mensagem, e só dela")
+    void descarteDevolveACota() {
+        java.util.List<MensagemPronta.Cota> devolvidas = new java.util.concurrent.CopyOnWriteArrayList<>();
+        despacho = new DespachoDeMensagens(
+                enviadorPreso(),
+                SEM_EMAIL,
+                devolvidas::add,
+                new DespachoDeMensagens.Fila(1, 1, 1),
+                new DespachoDeMensagens.Fila(1, 1, 1));
+        MensagemPronta.Cota rodando = cota();
+        MensagemPronta.Cota naFila = cota();
+        MensagemPronta.Cota descartada = cota();
+
+        despacho.aoConfirmar(normal(rodando));
+        await().atMost(Duration.ofSeconds(2)).until(() -> despacho.pendentes() == 1);
+        despacho.aoConfirmar(normal(naFila));
+        despacho.aoConfirmar(normal(descartada));
+
+        assertThat(devolvidas).containsExactly(descartada);
+    }
+
+    @Test
+    @DisplayName("mensagem sem cota descartada: nada a devolver")
+    void descarteSemCota() {
+        despacho = new DespachoDeMensagens(
+                enviadorPreso(),
+                SEM_EMAIL,
+                cota -> {
+                    throw new AssertionError("não devia devolver");
+                },
+                new DespachoDeMensagens.Fila(1, 1, 1),
+                new DespachoDeMensagens.Fila(1, 1, 1));
+
+        assertThatCode(() -> {
+                    for (int i = 0; i < 3; i++) {
+                        despacho.aoConfirmar(MensagemPronta.sms(CELULAR, "COE: aviso."));
+                    }
+                })
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("erro ao devolver a cota fica no log e não estoura para quem publicou")
+    void erroNaDevolucao(CapturedOutput saida) {
+        despacho = new DespachoDeMensagens(
+                enviadorPreso(),
+                SEM_EMAIL,
+                cota -> {
+                    throw new IllegalStateException("banco fora");
+                },
+                new DespachoDeMensagens.Fila(1, 1, 1),
+                new DespachoDeMensagens.Fila(1, 1, 1));
+
+        assertThatCode(() -> {
+                    for (int i = 0; i < 3; i++) {
+                        despacho.aoConfirmar(normal(cota()));
+                    }
+                })
+                .doesNotThrowAnyException();
+        assertThat(saida.getAll()).contains("Cota não devolvida").doesNotContain(CELULAR);
     }
 }

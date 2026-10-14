@@ -67,10 +67,17 @@ class ServicoDeTokens {
             if (limiteAtingido(endereco, finalidade.valor(), agora)) {
                 return false;
             }
-            gravar(usuarioId, TokenVerificacao.CANAL_EMAIL, endereco, finalidade, hash, agora, validade);
+            java.util.UUID linha =
+                    gravar(usuarioId, TokenVerificacao.CANAL_EMAIL, endereco, finalidade, hash, agora, validade);
             String link = front.link(email.caminhoNoFront(), token);
             eventos.publishEvent(MensagemPronta.email(
-                    endereco, email.assunto(), email.textoComLink().apply(link)));
+                    endereco,
+                    email.assunto(),
+                    email.textoComLink().apply(link),
+                    finalidade == FinalidadeToken.RECUPERAR_SENHA
+                            ? MensagemPronta.Prioridade.PRIORITARIA
+                            : MensagemPronta.Prioridade.NORMAL,
+                    new MensagemPronta.Cota(MensagemPronta.Origem.TOKEN_VERIFICACAO, linha)));
             return true;
         });
         if (!Boolean.TRUE.equals(gravou)) {
@@ -141,7 +148,7 @@ class ServicoDeTokens {
         }));
     }
 
-    private void gravar(
+    private UUID gravar(
             UUID usuarioId,
             String canal,
             String destino,
@@ -151,8 +158,9 @@ class ServicoDeTokens {
             Duration validade) {
         tokens.buscarAtivo(destino, finalidade.valor()).ifPresent(anterior -> anterior.invalidar(agora));
         tokens.flush(); // o anterior sai do índice de ativos antes do INSERT do novo
-        tokens.save(TokenVerificacao.novo(
-                usuarioId, canal, destino, finalidade.valor(), hash, agora, agora.plus(validade)));
+        return tokens.save(TokenVerificacao.novo(
+                        usuarioId, canal, destino, finalidade.valor(), hash, agora, agora.plus(validade)))
+                .getId();
     }
 
     /** Espera de 60 s por endereço e finalidade; teto de 5 por hora somando as finalidades (07/10). */

@@ -190,7 +190,7 @@ class ServicoDeCodigoSms {
             }
             codigos.buscarAtivo(celular, finalidade.valor()).ifPresent(anterior -> anterior.invalidar(agora));
             codigos.flush(); // o anterior sai do índice de ativos antes do INSERT do novo
-            codigos.save(CodigoSms.novo(
+            CodigoSms novo = codigos.save(CodigoSms.novo(
                     usuarioId,
                     celular,
                     finalidade.valor(),
@@ -200,7 +200,10 @@ class ServicoDeCodigoSms {
                     agora.plus(VALIDADE),
                     ip));
             eventos.publishEvent(MensagemPronta.sms(
-                    celular, "COE: seu código é " + codigo + ". Vale por 5 minutos. Não passe para ninguém."));
+                    celular,
+                    "COE: seu código é " + codigo + ". Vale por 5 minutos. Não passe para ninguém.",
+                    prioridade(finalidade),
+                    new MensagemPronta.Cota(MensagemPronta.Origem.CODIGO_SMS, novo.getId())));
             return true;
         });
         if (!Boolean.TRUE.equals(gravou)) {
@@ -215,6 +218,14 @@ class ServicoDeCodigoSms {
     private boolean limiteAtingido(String celular, String finalidade, Instant agora) {
         return codigos.contarEnviosDaFinalidadeDesde(celular, finalidade, agora.minus(INTERVALO_ENTRE_ENVIOS)) > 0
                 || codigos.contarEnviosDesde(celular, agora.minus(UMA_HORA)) >= MAXIMO_ENVIOS_POR_HORA;
+    }
+
+    /** Fila de envio (CORE-07): entrar, MFA e recuperar a senha não esperam a posse nem as confirmações. */
+    static MensagemPronta.Prioridade prioridade(FinalidadeSms finalidade) {
+        return switch (finalidade) {
+            case LOGIN, MFA, CONFIGURAR_MFA, RECUPERAR_SENHA -> MensagemPronta.Prioridade.PRIORITARIA;
+            case VERIFICAR_CELULAR, TROCAR_CELULAR, COMPROVAR_POSSE -> MensagemPronta.Prioridade.NORMAL;
+        };
     }
 
     /** Quanto falta para o celular poder receber outro código da finalidade (Retry-After do 429). */
