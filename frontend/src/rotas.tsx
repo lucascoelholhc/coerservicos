@@ -11,6 +11,7 @@ import { CriarContaCliente } from './paginas/criar-conta/CriarContaCliente';
 import { EscolhaDeConta } from './paginas/criar-conta/EscolhaDeConta';
 import { Entrar } from './paginas/entrar/Entrar';
 import { ConfirmarEmail } from './paginas/links/ConfirmarEmail';
+import { ProvarEmail } from './paginas/links/ProvarEmail';
 import { EsqueciSenha } from './paginas/senha/EsqueciSenha';
 import { RedefinirSenha } from './paginas/senha/RedefinirSenha';
 import { Privacidade, Termos } from './paginas/termos/Rascunhos';
@@ -59,6 +60,7 @@ export function Rotas() {
           }
         />
         <Route path={CAMINHOS.confirmarEmail} element={<ConfirmarEmail />} />
+        <Route path={CAMINHOS.provarEmail} element={<ProvarEmail />} />
         <Route path={CAMINHOS.esqueciSenha} element={<EsqueciSenha />} />
         <Route path={CAMINHOS.redefinirSenha} element={<RedefinirSenha />} />
         <Route path={CAMINHOS.termos} element={<Termos />} />

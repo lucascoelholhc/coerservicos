@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { semViolacoes } from '../../teste/axe';
 import { CampoTexto } from './CampoTexto';
@@ -33,5 +33,14 @@ describe('CampoTexto', () => {
     expect(campo).toHaveAccessibleDescription('Informe seu nome. Como você quer ser chamado.');
     expect(screen.getByText('Informe seu nome.')).toBeVisible();
     await semViolacoes(container);
+  });
+
+  it('somente leitura: o valor aparece, dá para focar e copiar, mas não muda', async () => {
+    const aoMudar = vi.fn();
+    render(<CampoTexto nome="email" rotulo="E-mail" valor="ana@exemplo.com" aoMudar={aoMudar} somenteLeitura />);
+    const campo = screen.getByRole('textbox', { name: 'E-mail' });
+
+    expect(campo).toHaveAttribute('readonly');
+    expect(campo).not.toBeDisabled();
   });
 });

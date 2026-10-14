@@ -197,3 +197,70 @@ test.describe('Trocar senha', () => {
     expect(violacoes).toEqual([]);
   });
 });
+
+test.describe('Prova de posse do e-mail (RN61)', () => {
+  test('duas abas: o link abre a /provar-email e a aba do cadastro recebe o comprovante e termina', async ({
+    context,
+    page,
+  }) => {
+    const violacoes = await vigiarCsp(page);
+    await simularApi(page);
+    await simularConta(page);
+    const cadastros: unknown[] = [];
+    await page.route('**/api/contas/cliente', async (rota) => {
+      cadastros.push(rota.request().postDataJSON());
+      if (cadastros.length === 1) {
+        await rota.fulfill({
+          status: 409,
+          contentType: 'application/problem+json',
+          body: JSON.stringify({
+            type: 'urn:coe:erro:contato-em-uso',
+            title: 'Erro',
+            status: 409,
+            detail: 'Esse contato já está em uso. Se ele for seu, confirme que é seu para usar nesta conta.',
+            campo: 'email',
+          }),
+        });
+        return;
+      }
+      await rota.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ id: 'u-ana', nome: 'Ana Souza' }) });
+    });
+    await context.route('**/api/contas/posse/email', (rota) =>
+      rota.fulfill({ status: 202, contentType: 'application/json', body: JSON.stringify({ mensagem: 'Enviamos.' }) }),
+    );
+    await context.route('**/api/contas/posse/email/confirmar', (rota) =>
+      rota.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ comprovante: 'comp-e2e', email: 'ana@exemplo.com' }),
+      }),
+    );
+
+    await page.goto('/criar-conta/cliente');
+    await page.getByRole('textbox', { name: 'Seu nome' }).fill('Ana Souza');
+    await page.getByRole('textbox', { name: 'Celular' }).fill('47900000001');
+    await page.getByRole('textbox', { name: 'E-mail' }).fill('ana@exemplo.com');
+    await page.getByRole('textbox', { name: 'Seu CEP' }).fill('89010000');
+    await page.getByLabel('Crie uma senha').fill('Casa-Azul-2026');
+    await page.getByRole('checkbox', { name: /Li e aceito/ }).check();
+    await page.getByRole('button', { name: 'Criar conta' }).click();
+    await page.getByRole('button', { name: 'Esse e-mail é meu' }).click();
+    await expect(page.getByText('Enviamos um link para ana@exemplo.com', { exact: false })).toBeVisible();
+    await semViolacoesAxe(page);
+    await semRolagemLateral(page);
+
+    const outraAba = await context.newPage();
+    const violacoesDaOutra = await vigiarCsp(outraAba);
+    await simularApi(outraAba);
+    await outraAba.goto('/provar-email#token=tok-e2e');
+
+    await expect(outraAba.getByText('Pronto. Volte para a aba do cadastro para terminar.')).toBeVisible();
+    await expect(outraAba).toHaveURL('/provar-email');
+    await semViolacoesAxe(outraAba);
+    await semRolagemLateral(outraAba);
+    await expect(page.getByRole('heading', { level: 1, name: 'Minha conta' })).toBeVisible();
+    expect(cadastros[1]).toMatchObject({ email: 'ana@exemplo.com', comprovanteEmail: 'comp-e2e' });
+    expect(violacoes).toEqual([]);
+    expect(violacoesDaOutra).toEqual([]);
+  });
+});

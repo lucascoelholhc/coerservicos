@@ -16,6 +16,8 @@ export interface CampoTextoProps {
   /** Erro deste campo (da API ou do aviso antes de enviar), ao lado do campo. */
   erro?: string;
   desabilitado?: boolean;
+  /** Mostra o valor sem deixar mudar (ainda dá para focar, ler e copiar). */
+  somenteLeitura?: boolean;
   /** Algo ao lado do campo (ex.: "Mostrar senha"). */
   acessorio?: ReactNode;
   ref?: Ref<HTMLInputElement>;
@@ -34,6 +36,7 @@ export function CampoTexto({
   dica,
   erro,
   desabilitado = false,
+  somenteLeitura = false,
   acessorio,
   ref,
 }: CampoTextoProps) {
@@ -59,6 +62,7 @@ export function CampoTexto({
           inputMode={inputMode}
           maxLength={maxLength}
           disabled={desabilitado}
+          readOnly={somenteLeitura}
           aria-invalid={erro ? true : undefined}
           aria-describedby={descricao || undefined}
         />

@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 
+import { ouvirComprovanteDoEmail } from '../../api/canalDaPosse';
 import { comoErroDaApi, type ErroDaApi } from '../../api/erros';
 import { confirmarPosseDoCelular, pedirPosseDoCelular, pedirPosseDoEmail } from '../../api/posse';
 import { Botao } from '../../componentes/Botao/Botao';
@@ -67,7 +68,7 @@ export function PosseNoCadastro({ campo, valor, aoComprovar, aoCancelar }: Posse
       {campo === 'celular' ? (
         <PeloCelular celular={valor} aoComprovar={aoComprovar} />
       ) : (
-        <PeloEmail email={valor} />
+        <PeloEmail email={valor} aoComprovar={aoComprovar} />
       )}
       <Botao variante="suave" onClick={aoCancelar}>
         Cancelar
@@ -134,8 +135,16 @@ function PeloCelular({ celular, aoComprovar }: { celular: string; aoComprovar: (
   );
 }
 
-function PeloEmail({ email }: { email: string }) {
+function PeloEmail({ email, aoComprovar }: { email: string; aoComprovar: (comprovante: string) => void }) {
   const { envio, tentarDeNovo } = useEnvioAoAbrir(() => pedirPosseDoEmail(email));
+  const aoComprovarAtual = useRef(aoComprovar);
+
+  useEffect(() => {
+    aoComprovarAtual.current = aoComprovar;
+  });
+
+  // O comprovante chega da /provar-email, aberta pelo link em outra aba (só o deste e-mail é aceito).
+  useEffect(() => ouvirComprovanteDoEmail(email, (comprovante) => aoComprovarAtual.current(comprovante)), [email]);
   const [retorno, setRetorno] = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null);
 
   async function mandarDeNovo() {

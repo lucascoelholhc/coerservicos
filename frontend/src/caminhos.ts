@@ -12,6 +12,7 @@ export const CAMINHOS = {
   esqueciSenha: '/esqueci-senha',
   redefinirSenha: '/redefinir-senha',
   confirmarEmail: '/confirmar-email',
+  provarEmail: '/provar-email',
   termos: '/termos',
   privacidade: '/privacidade',
   comoFunciona: '/como-funciona',

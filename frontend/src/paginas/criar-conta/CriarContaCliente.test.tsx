@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { entregarComprovanteDoEmail } from '../../api/canalDaPosse';
 import { encerrarSessao, tokenAtual } from '../../api/sessao';
 import { semViolacoes } from '../../teste/axe';
 import { REGRAS_PADRAO, SESSAO_PADRAO } from '../../teste/dadosDaApi';
@@ -369,6 +370,33 @@ describe('cadastro: provar que o contato é meu (RN61)', () => {
     const cadastros = pedidos.filter((pedido) => pedido.url === '/api/contas/cliente');
     expect(JSON.parse(cadastros[1]?.corpo ?? '{}')).toMatchObject({ comprovanteCelular: 'comp-cel' });
     expect(JSON.parse(cadastros[2]?.corpo ?? '{}')).not.toHaveProperty('comprovanteCelular');
+  });
+
+  it('e-mail: a outra aba entrega o comprovante e o cadastro termina sozinho', async () => {
+    const { pedidos } = simularPosse([
+      () => problema(409, 'contato-em-uso', EM_USO, { campo: 'email' }),
+      () => json({ id: 'u-ana', nome: 'Ana Souza' }, 201),
+    ]);
+    await chegarNoConflito();
+    await userEvent.click(screen.getByRole('button', { name: 'Esse e-mail é meu' }));
+    await screen.findByText(/Enviamos um link para ana@exemplo.com/);
+
+    await expect(entregarComprovanteDoEmail('ANA@exemplo.com', 'comp-email')).resolves.toBe(true);
+
+    expect(await screen.findByText(/Fui para \/conta/)).toBeInTheDocument();
+    const cadastros = pedidos.filter((pedido) => pedido.url === '/api/contas/cliente');
+    expect(JSON.parse(cadastros[1]?.corpo ?? '{}')).toMatchObject({ comprovanteEmail: 'comp-email' });
+  });
+
+  it('e-mail: comprovante de outro e-mail não termina o cadastro', async () => {
+    const { pedidos } = simularPosse([() => problema(409, 'contato-em-uso', EM_USO, { campo: 'email' })]);
+    await chegarNoConflito();
+    await userEvent.click(screen.getByRole('button', { name: 'Esse e-mail é meu' }));
+    await screen.findByText(/Enviamos um link para ana@exemplo.com/);
+
+    await expect(entregarComprovanteDoEmail('outra@exemplo.com', 'comp-outra')).resolves.toBe(false);
+
+    expect(pedidos.filter((pedido) => pedido.url === '/api/contas/cliente')).toHaveLength(1);
   });
 
   it('"Cancelar" volta para o aviso do conflito', async () => {
