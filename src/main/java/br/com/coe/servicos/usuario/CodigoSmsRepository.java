@@ -1,6 +1,7 @@
 package br.com.coe.servicos.usuario;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import jakarta.persistence.LockModeType;
@@ -17,16 +18,27 @@ interface CodigoSmsRepository extends JpaRepository<CodigoSms, UUID> {
     Integer travar(String chave);
 
     @Query(
-            value = "SELECT count(*) FROM codigo_sms WHERE celular = :celular AND criado_em > :desde",
+            value = "SELECT count(*) FROM codigo_sms WHERE celular = :celular AND criado_em > :desde"
+                    + " AND descartado_em IS NULL",
             nativeQuery = true)
     long contarEnviosDesde(String celular, Instant desde);
 
     /** Envios da finalidade (espera de 60 s por destino e finalidade). */
     @Query(
             value = "SELECT count(*) FROM codigo_sms WHERE celular = :celular AND finalidade = :finalidade"
-                    + " AND criado_em > :desde",
+                    + " AND criado_em > :desde AND descartado_em IS NULL",
             nativeQuery = true)
     long contarEnviosDaFinalidadeDesde(String celular, String finalidade, Instant desde);
+
+    /** O envio mais novo da finalidade desde o instante (Retry-After da espera de 60 s). */
+    @Query("SELECT max(c.criadoEm) FROM CodigoSms c WHERE c.celular = :celular AND c.finalidade = :finalidade"
+            + " AND c.criadoEm > :desde AND c.descartadoEm IS NULL")
+    Optional<Instant> ultimoEnvioDaFinalidadeDesde(String celular, String finalidade, Instant desde);
+
+    /** Os envios desde o instante, do mais novo ao mais velho (Retry-After do teto por hora). */
+    @Query("SELECT c.criadoEm FROM CodigoSms c WHERE c.celular = :celular AND c.criadoEm > :desde"
+            + " AND c.descartadoEm IS NULL ORDER BY c.criadoEm DESC")
+    List<Instant> enviosDesde(String celular, Instant desde);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT c FROM CodigoSms c WHERE c.celular = :celular AND c.finalidade = :finalidade"

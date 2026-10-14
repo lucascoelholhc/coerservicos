@@ -17,7 +17,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.com.coe.servicos.compartilhado.erro.ConflitoException;
 import br.com.coe.servicos.compartilhado.erro.NaoAutenticadoException;
+import br.com.coe.servicos.compartilhado.limite.LimitadoPorUsuario;
 import br.com.coe.servicos.compartilhado.seguranca.LiberadoComContatoPendente;
 import br.com.coe.servicos.compartilhado.seguranca.Publico;
 
@@ -67,6 +69,7 @@ class AutenticacaoController {
 
     /** Logado; o cookie (Path=/api/auth) diz qual sessão manter. */
     @PostMapping("/senha/trocar")
+    @LimitadoPorUsuario("trocar-senha-usuario")
     @PreAuthorize("isAuthenticated()")
     ResponseEntity<Void> trocarASenha(
             @Valid @RequestBody TrocarSenhaRequest pedido,
@@ -119,11 +122,16 @@ class AutenticacaoController {
         if (resultado instanceof ServicoDeSessao.Renovada renovada) {
             return responder(renovada.usuario(), renovada.refresh());
         }
-        boolean apagarCookie = ((ServicoDeSessao.Recusada) resultado).apagarCookie();
+        if (!((ServicoDeSessao.Recusada) resultado).apagarCookie()) {
+            // Corrida benigna (outra aba renovou há menos de 30 s): o cookie novo já está no navegador.
+            // 409 sem mexer no cookie; o front tenta de novo uma vez (CORE-07).
+            throw new ConflitoException(
+                    "renovacao-em-andamento", "Outra aba acabou de renovar a sessão. Tente de novo.", null);
+        }
         throw new NaoAutenticadoException(
                 "sessao-expirada",
                 "Sua sessão terminou. Entre de novo.",
-                apagarCookie ? Map.of(HttpHeaders.SET_COOKIE, cookie.apagar()) : Map.of());
+                Map.of(HttpHeaders.SET_COOKIE, cookie.apagar()));
     }
 
     @PostMapping("/sair")

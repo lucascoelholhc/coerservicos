@@ -28,3 +28,6 @@ coe:
   seguranca:
     origens-somente-https: true   # COE_ORIGENS_PERMITIDAS com o domínio da COE (A DEFINIR), só https
     hsts: true                    # HTTPS terminado no ALB; forward-headers native marca a requisição como segura
+    # A aplicação não sobe se o DB_USER for superusuário, dono do schema ou de alguma tabela, ou fora do
+    # coe_app (ConferenciaDoLoginDoBanco). Local e test: desligada.
+    conferir-login-do-banco: true

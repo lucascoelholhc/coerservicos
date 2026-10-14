@@ -85,10 +85,27 @@ public class TratadorDeErros extends ResponseEntityExceptionHandler {
         return problema;
     }
 
+    /** 429 sempre com Retry-After (segundos até a próxima tentativa valer), CORE-07. */
     @ExceptionHandler(MuitasTentativasException.class)
-    ProblemDetail muitasTentativas(MuitasTentativasException erro) {
+    ResponseEntity<ProblemDetail> muitasTentativas(MuitasTentativasException erro) {
         LOG.info("Limite de pedidos atingido");
-        return problema(HttpStatus.TOO_MANY_REQUESTS, "muitas-tentativas", "Muitas tentativas", erro.getMessage());
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, Long.toString(erro.esperaEmSegundos()))
+                .body(problema(
+                        HttpStatus.TOO_MANY_REQUESTS, "muitas-tentativas", "Muitas tentativas", erro.getMessage()));
+    }
+
+    /** Dependência essencial fora do ar (ex.: limitador de taxa sem banco): recusa, nunca segue sem ela. */
+    @ExceptionHandler(ServicoInstavelException.class)
+    ResponseEntity<ProblemDetail> servicoInstavel(ServicoInstavelException erro) {
+        LOG.error("Serviço instável: {}", erro.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .header(HttpHeaders.RETRY_AFTER, "5")
+                .body(problema(
+                        HttpStatus.SERVICE_UNAVAILABLE,
+                        "servico-instavel",
+                        "Serviço instável",
+                        "O serviço está instável. Tente de novo em instantes."));
     }
 
     /** A linha mudou entre a leitura e a gravação (@Version): 409, a pessoa tenta de novo. */

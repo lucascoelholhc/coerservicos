@@ -2,6 +2,7 @@ package br.com.coe.servicos.usuario;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -153,13 +154,15 @@ class ConfirmarEmailTest extends IntegracaoTest {
         pedirLink(conta).andExpect(status().isAccepted());
         pedirLink(conta)
                 .andExpect(status().isTooManyRequests())
-                .andExpect(jsonPath("$.type").value("urn:coe:erro:muitas-tentativas"));
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:muitas-tentativas"))
+                .andExpect(header().string("Retry-After", "60"));
         for (int i = 0; i < 4; i++) {
             relogio.avancar(Duration.ofSeconds(61));
             pedirLink(conta).andExpect(status().isAccepted());
         }
         relogio.avancar(Duration.ofSeconds(61));
-        pedirLink(conta).andExpect(status().isTooManyRequests());
+        // teto de 5 por hora: o 1º envio (há 305 s) sai da janela em 3600 - 305 = 3295 s
+        pedirLink(conta).andExpect(status().isTooManyRequests()).andExpect(header().string("Retry-After", "3295"));
         assertThat(email.para(conta.email())).hasSize(5);
     }
 

@@ -131,7 +131,9 @@ class ServicoDeCelularEMfa {
 
     private void enviar(Usuario usuario, String celular, FinalidadeSms finalidade, String ip) {
         if (!codigos.enviar(usuario.getId(), celular, finalidade, ip)) {
-            throw new MuitasTentativasException("Você pediu muitos códigos. Aguarde um pouco e tente de novo.");
+            throw new MuitasTentativasException(
+                    "Você pediu muitos códigos. Aguarde um pouco e tente de novo.",
+                    codigos.esperaParaEnviar(celular, finalidade));
         }
     }
 

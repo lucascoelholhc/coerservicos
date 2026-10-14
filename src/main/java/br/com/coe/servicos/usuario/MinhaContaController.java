@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.com.coe.servicos.compartilhado.limite.LimitadoPorUsuario;
 import br.com.coe.servicos.compartilhado.seguranca.LiberadoComContatoPendente;
 import br.com.coe.servicos.compartilhado.seguranca.Publico;
 
@@ -34,6 +35,7 @@ class MinhaContaController {
     }
 
     @PostMapping("/eu/email/confirmacao")
+    @LimitadoPorUsuario("envio-usuario")
     @PreAuthorize("isAuthenticated()")
     @LiberadoComContatoPendente
     ResponseEntity<MensagemResponse> pedirConfirmacaoDoEmail() {
@@ -54,6 +56,7 @@ class MinhaContaController {
 
     /** RN61: e-mail novo (campo vazio); só manda o link, a confirmação grava. */
     @PutMapping("/eu/email")
+    @LimitadoPorUsuario("contato-usuario")
     @PreAuthorize("isAuthenticated()")
     @LiberadoComContatoPendente
     ResponseEntity<MensagemResponse> cadastrarEmail(@Valid @RequestBody NovoEmailRequest pedido) {
@@ -63,6 +66,7 @@ class MinhaContaController {
 
     /** RN61: celular novo (campo vazio); só manda o código, a confirmação grava. */
     @PutMapping("/eu/celular")
+    @LimitadoPorUsuario("contato-usuario")
     @PreAuthorize("isAuthenticated()")
     @LiberadoComContatoPendente
     ResponseEntity<MensagemResponse> cadastrarCelular(
@@ -79,6 +83,7 @@ class MinhaContaController {
     }
 
     @PostMapping("/eu/celular/codigo")
+    @LimitadoPorUsuario("envio-usuario")
     @PreAuthorize("isAuthenticated()")
     @LiberadoComContatoPendente
     ResponseEntity<MensagemResponse> pedirCodigoDoCelular(HttpServletRequest requisicao) {
@@ -87,6 +92,7 @@ class MinhaContaController {
     }
 
     @PostMapping("/eu/celular/confirmar")
+    @LimitadoPorUsuario("confirmar-usuario")
     @PreAuthorize("isAuthenticated()")
     @LiberadoComContatoPendente
     ResponseEntity<Void> confirmarCelular(@Valid @RequestBody CodigoRequest pedido) {
@@ -95,6 +101,7 @@ class MinhaContaController {
     }
 
     @PostMapping("/eu/mfa/codigo")
+    @LimitadoPorUsuario("envio-usuario")
     @PreAuthorize("isAuthenticated()")
     ResponseEntity<MensagemResponse> pedirCodigoDoMfa(HttpServletRequest requisicao) {
         celularEMfa.pedirCodigoDeMfa(requisicao.getRemoteAddr());
@@ -102,6 +109,7 @@ class MinhaContaController {
     }
 
     @PostMapping("/eu/mfa")
+    @LimitadoPorUsuario("confirmar-usuario")
     @PreAuthorize("isAuthenticated()")
     ResponseEntity<Void> definirMfa(@Valid @RequestBody ConfigurarMfaRequest pedido) {
         celularEMfa.definirMfa(pedido.ativo(), pedido.codigo());

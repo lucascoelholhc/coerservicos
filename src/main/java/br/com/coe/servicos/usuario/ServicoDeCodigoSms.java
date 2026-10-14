@@ -39,6 +39,7 @@ class ServicoDeCodigoSms {
     static final int MAXIMO_ENVIOS_POR_HORA = 5;
 
     private static final Duration UMA_HORA = Duration.ofHours(1);
+    private static final Duration UM_SEGUNDO = Duration.ofSeconds(1);
     private static final int CODIGOS_POSSIVEIS = 1_000_000;
     private static final SecureRandom ALEATORIO = new SecureRandom();
     private static final Logger LOG = LoggerFactory.getLogger(ServicoDeCodigoSms.class);
@@ -189,7 +190,7 @@ class ServicoDeCodigoSms {
             }
             codigos.buscarAtivo(celular, finalidade.valor()).ifPresent(anterior -> anterior.invalidar(agora));
             codigos.flush(); // o anterior sai do índice de ativos antes do INSERT do novo
-            codigos.save(CodigoSms.novo(
+            CodigoSms novo = codigos.save(CodigoSms.novo(
                     usuarioId,
                     celular,
                     finalidade.valor(),
@@ -199,7 +200,10 @@ class ServicoDeCodigoSms {
                     agora.plus(VALIDADE),
                     ip));
             eventos.publishEvent(MensagemPronta.sms(
-                    celular, "COE: seu código é " + codigo + ". Vale por 5 minutos. Não passe para ninguém."));
+                    celular,
+                    "COE: seu código é " + codigo + ". Vale por 5 minutos. Não passe para ninguém.",
+                    prioridade(finalidade),
+                    new MensagemPronta.Cota(MensagemPronta.Origem.CODIGO_SMS, novo.getId())));
             return true;
         });
         if (!Boolean.TRUE.equals(gravou)) {
@@ -214,6 +218,34 @@ class ServicoDeCodigoSms {
     private boolean limiteAtingido(String celular, String finalidade, Instant agora) {
         return codigos.contarEnviosDaFinalidadeDesde(celular, finalidade, agora.minus(INTERVALO_ENTRE_ENVIOS)) > 0
                 || codigos.contarEnviosDesde(celular, agora.minus(UMA_HORA)) >= MAXIMO_ENVIOS_POR_HORA;
+    }
+
+    /** Fila de envio (CORE-07): entrar, MFA e recuperar a senha não esperam a posse nem as confirmações. */
+    static MensagemPronta.Prioridade prioridade(FinalidadeSms finalidade) {
+        return switch (finalidade) {
+            case LOGIN, MFA, CONFIGURAR_MFA, RECUPERAR_SENHA -> MensagemPronta.Prioridade.PRIORITARIA;
+            case VERIFICAR_CELULAR, TROCAR_CELULAR, COMPROVAR_POSSE -> MensagemPronta.Prioridade.NORMAL;
+        };
+    }
+
+    /** Quanto falta para o celular poder receber outro código da finalidade (Retry-After do 429). */
+    Duration esperaParaEnviar(String celular, FinalidadeSms finalidade) {
+        Instant agora = clock.instant();
+        return EsperaDeEnvio.calcular(
+                agora,
+                codigos.ultimoEnvioDaFinalidadeDesde(celular, finalidade.valor(), agora.minus(INTERVALO_ENTRE_ENVIOS)),
+                codigos.enviosDesde(celular, agora.minus(UMA_HORA)),
+                INTERVALO_ENTRE_ENVIOS,
+                MAXIMO_ENVIOS_POR_HORA);
+    }
+
+    /** Quanto falta para o bloqueio por códigos errados da conta acabar (Retry-After do 429). */
+    Duration esperaDoBloqueio(UUID usuarioId) {
+        Instant agora = clock.instant();
+        Duration espera = codigos.ultimoErroDaConta(usuarioId, agora.minus(janelaDeFalhas))
+                .map(ultimo -> Duration.between(agora, ultimo.plus(duracaoDoBloqueio)))
+                .orElse(Duration.ZERO);
+        return espera.compareTo(UM_SEGUNDO) < 0 ? UM_SEGUNDO : espera;
     }
 
     private boolean tentar(CodigoSms codigoSms, String codigo) {

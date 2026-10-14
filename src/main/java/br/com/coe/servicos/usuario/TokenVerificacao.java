@@ -55,6 +55,10 @@ public class TokenVerificacao implements Persistable<UUID> {
     @Column(name = "invalidado_em")
     private Instant invalidadoEm;
 
+    /** Só leitura: marcado pela DevolucaoDeCotaNoBanco quando a mensagem é descartada (CORE-07). */
+    @Column(name = "descartado_em", insertable = false, updatable = false)
+    private Instant descartadoEm;
+
     @Transient
     private boolean novo = true;
 

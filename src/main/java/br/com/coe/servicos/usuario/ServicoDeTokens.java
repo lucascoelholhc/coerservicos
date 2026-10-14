@@ -67,10 +67,17 @@ class ServicoDeTokens {
             if (limiteAtingido(endereco, finalidade.valor(), agora)) {
                 return false;
             }
-            gravar(usuarioId, TokenVerificacao.CANAL_EMAIL, endereco, finalidade, hash, agora, validade);
+            java.util.UUID linha =
+                    gravar(usuarioId, TokenVerificacao.CANAL_EMAIL, endereco, finalidade, hash, agora, validade);
             String link = front.link(email.caminhoNoFront(), token);
             eventos.publishEvent(MensagemPronta.email(
-                    endereco, email.assunto(), email.textoComLink().apply(link)));
+                    endereco,
+                    email.assunto(),
+                    email.textoComLink().apply(link),
+                    finalidade == FinalidadeToken.RECUPERAR_SENHA
+                            ? MensagemPronta.Prioridade.PRIORITARIA
+                            : MensagemPronta.Prioridade.NORMAL,
+                    new MensagemPronta.Cota(MensagemPronta.Origem.TOKEN_VERIFICACAO, linha)));
             return true;
         });
         if (!Boolean.TRUE.equals(gravou)) {
@@ -141,7 +148,7 @@ class ServicoDeTokens {
         }));
     }
 
-    private void gravar(
+    private UUID gravar(
             UUID usuarioId,
             String canal,
             String destino,
@@ -151,13 +158,25 @@ class ServicoDeTokens {
             Duration validade) {
         tokens.buscarAtivo(destino, finalidade.valor()).ifPresent(anterior -> anterior.invalidar(agora));
         tokens.flush(); // o anterior sai do índice de ativos antes do INSERT do novo
-        tokens.save(TokenVerificacao.novo(
-                usuarioId, canal, destino, finalidade.valor(), hash, agora, agora.plus(validade)));
+        return tokens.save(TokenVerificacao.novo(
+                        usuarioId, canal, destino, finalidade.valor(), hash, agora, agora.plus(validade)))
+                .getId();
     }
 
     /** Espera de 60 s por endereço e finalidade; teto de 5 por hora somando as finalidades (07/10). */
     private boolean limiteAtingido(String endereco, String finalidade, Instant agora) {
         return tokens.contarEmailsDaFinalidadeDesde(endereco, finalidade, agora.minus(INTERVALO_ENTRE_ENVIOS)) > 0
                 || tokens.contarEmailsDesde(endereco, agora.minus(UMA_HORA)) >= MAXIMO_ENVIOS_POR_HORA;
+    }
+
+    /** Quanto falta para o endereço poder receber outro e-mail da finalidade (Retry-After do 429). */
+    Duration esperaParaEnviar(String endereco, FinalidadeToken finalidade) {
+        Instant agora = clock.instant();
+        return EsperaDeEnvio.calcular(
+                agora,
+                tokens.ultimoEmailDaFinalidadeDesde(endereco, finalidade.valor(), agora.minus(INTERVALO_ENTRE_ENVIOS)),
+                tokens.emailsDesde(endereco, agora.minus(UMA_HORA)),
+                INTERVALO_ENTRE_ENVIOS,
+                MAXIMO_ENVIOS_POR_HORA);
     }
 }

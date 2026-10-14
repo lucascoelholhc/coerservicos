@@ -2,6 +2,7 @@ package br.com.coe.servicos.usuario;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -230,10 +231,12 @@ class BloqueioPorFalhasTest extends IntegracaoTest {
 
         segundoPasso(desafio, certo)
                 .andExpect(status().isTooManyRequests())
-                .andExpect(jsonPath("$.type").value("urn:coe:erro:muitas-tentativas"));
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:muitas-tentativas"))
+                .andExpect(header().string("Retry-After", "3600")); // bloqueio de 1 h desde o 10º erro
         relogio.avancar(ENTRE_ENVIOS);
         entrarComSenha(conta)
                 .andExpect(status().isTooManyRequests())
-                .andExpect(jsonPath("$.type").value("urn:coe:erro:muitas-tentativas"));
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:muitas-tentativas"))
+                .andExpect(header().string("Retry-After", String.valueOf(3600 - ENTRE_ENVIOS.toSeconds())));
     }
 }

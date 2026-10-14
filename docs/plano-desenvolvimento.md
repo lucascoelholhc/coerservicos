@@ -220,6 +220,16 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 - O interceptor de contato pendente faz uma consulta por chave em toda requisição autenticada não liberada; cache curto se virar gargalo.
 - `/api/auth/entrar` continua sem exigir Origin (decisão do dia 6); com o MFA, um POST de outro site com a senha certa dispara um SMS. Risco baixo (exige a senha), registrado.
 
+**CORE-07 + CORE-11 (dia 11): decisões de 14/10**
+- **Contadores:** Postgres (Bucket4j 8.14, `SELECT … FOR UPDATE`, tabela `limite_balde` UNLOGGED da V16) nos endpoints sensíveis e nos limites globais; memória da instância (Bucket4j + Caffeine) nos GETs públicos e no teto geral por IP em `/api/**`. Chave sem dado pessoal em claro (login, celular e e-mail por HMAC; IPv6 por /64). Valores no `application.yml` por perfil (`coe.limites.*`), não na tabela `configuracao` (são técnicos).
+- **Números aprovados** (por IP salvo indicação): `/api/**` 300/min; `GET /api/publico/*` 60/min; `entrar` 30/10 min, login + IP **8/15 min**, login (qualquer IP) 20/h (atingir é auditado); `segundo-passo` 20/10 min; `codigo` e `senha/esqueci` 10/h; `entrar-com-codigo` 20/10 min e 10/10 min por celular; `renovar` 60/min; `senha/redefinir` 20/h; `senha/trocar` 5/15 min por usuário; `contas/cliente` **30/h** e global 500/h; posse (enviar) 10/h e global 300/h somado com as confirmações; posse (confirmar) 20/10 min; `PUT /eu/{celular,email}` 5/h por usuário; `/eu/*/codigo` e `/eu/email/confirmacao` 10/h por usuário; `/eu/*/confirmar` e `/eu/mfa` 20/10 min por usuário; `/contas/email/confirmar` 20/10 min. Os limites por destino (60 s, 5/h, bloqueio por 10 erros) continuam.
+- **Os números serão revistos com dados reais depois do lançamento** (NAT de operadora e cadastro presencial no mesmo Wi-Fi motivaram o 30/h do cadastro e o 8/15 min do login + IP).
+- **429** com `Retry-After` em todos os limites, inclusive os por destino que já existiam (60 s e 5/h). Corpo acima de 64 KB em `/api/**` = 413 `corpo-grande-demais` (uploads da CORE-09 terão o deles).
+- **Abas abrindo juntas:** a corrida benigna do refresh (reuso em até 30 s) passa de 401 a 409 `renovacao-em-andamento`, sem apagar o cookie; o front tenta de novo uma vez depois de 300 ms, com o cookie já rotacionado.
+- **Fila de envio:** prioritária (login por código, MFA, recuperação de senha) e normal (prova de posse, confirmação de contato). Mensagem descartada por fila cheia marca `descartado_em` (V16) na linha que a gerou e sai das contagens: a cota volta.
+- **SMS falso do local** continua escrevendo o código, num logger próprio fora da máscara; só no perfil local (o teste de que ele não sobe no prod continua).
+- **Revisão do banco da V16 (sem CRITICAL), entra nas etapas seguintes:** (H1) o `FOR UPDATE` de uma chave global serializa as requisições e, numa inundação, pode esgotar o pool de conexões: baldes por IP antes do global, chave global dividida em N linhas sorteadas (limite/N cada), `SET LOCAL lock_timeout` curto na transação do limitador e, se estourar, 429 (fail-closed) nas regras sensíveis, com teste de concorrência; (M3) o descarte usa `invalidado_em = coalesce(invalidado_em, agora)` e `AND usado_em IS NULL`, tratando zero linhas afetadas; (L5) só descarta a linha que acabou de gerar a mensagem. Efeito aceito: se o código novo é descartado, o anterior já foi invalidado e a pessoa fica sem código válido até pedir outro (a cota devolvida permite pedir na hora).
+
 **Casos de teste obrigatórios do CORE-03 e CORE-04** (PA03):
 - Token de acesso expirado (Clock adiantado 15 min) é recusado com 401; renovação devolve um novo par
 - Refresh usado duas vezes: a segunda é recusada e **todos** os tokens daquele login são revogados
@@ -355,6 +365,8 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 | AWS-10 | Produção | Mesma infra com outras variáveis; aceite repetido em homologação |
 
 Tudo em código (Terraform ou AWS CDK), nada configurado à mão no console.
+
+**Conexões com o RDS (CORE-07, 14/10):** cada instância abre o pool da aplicação (Hikari, padrão 10) **mais 5 do limitador de taxa** (`coe.limites.conexoes`, pool próprio para não esgotar o da aplicação). No AWS-03/AWS-05, dimensionar o `max_connections` do RDS para (pool da aplicação + 5) × número máximo de instâncias do auto scaling, com folga para o Flyway e a administração, ou pôr o **RDS Proxy** na frente. Os dois pools usam o login da aplicação (membro de `coe_app`), nunca o dono do schema.
 
 ## 10. Decisões que travam tarefas
 | Ponto | Precisa estar decidido antes de | Proposta |

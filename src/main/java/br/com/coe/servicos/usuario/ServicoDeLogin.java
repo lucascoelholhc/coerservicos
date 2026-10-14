@@ -1,6 +1,7 @@
 package br.com.coe.servicos.usuario;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -10,9 +11,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import br.com.coe.servicos.compartilhado.auditoria.RegistroDeAuditoria;
 import br.com.coe.servicos.compartilhado.erro.AcaoProibidaException;
 import br.com.coe.servicos.compartilhado.erro.MuitasTentativasException;
 import br.com.coe.servicos.compartilhado.erro.NaoAutenticadoException;
+import br.com.coe.servicos.compartilhado.limite.Balde;
+import br.com.coe.servicos.compartilhado.limite.ChaveDeIp;
+import br.com.coe.servicos.compartilhado.limite.LimitadorDeTaxa;
 
 /**
  * Login com celular ou e-mail + senha (CORE-03; RF01, RN58, PA03), segundo passo por SMS (MFA,
@@ -34,13 +39,22 @@ class ServicoDeLogin {
     private final PasswordEncoder codificador;
     private final ServicoDeSessao sessoes;
     private final ServicoDeCodigoSms codigos;
+    private final LimitadorDeTaxa limitador;
+    private final ChaveDeLimite chaveDeLimite;
+    private final RegistroDeAuditoria auditoria;
     private final String hashFicticio;
 
     ServicoDeLogin(
             UsuarioRepository usuarios,
             PasswordEncoder codificador,
             ServicoDeSessao sessoes,
-            ServicoDeCodigoSms codigos) {
+            ServicoDeCodigoSms codigos,
+            LimitadorDeTaxa limitador,
+            ChaveDeLimite chaveDeLimite,
+            RegistroDeAuditoria auditoria) {
+        this.limitador = limitador;
+        this.chaveDeLimite = chaveDeLimite;
+        this.auditoria = auditoria;
         this.usuarios = usuarios;
         this.codificador = codificador;
         this.sessoes = sessoes;
@@ -50,6 +64,7 @@ class ServicoDeLogin {
 
     LoginAceito entrar(LoginRequest pedido, String ip, String userAgent) {
         Optional<Usuario> encontrado = buscar(pedido.login());
+        limitarTentativaDeSenha(pedido.login(), encontrado, ip);
         boolean senhaConfere = conferir(encontrado, pedido.senha());
         Usuario usuario = encontrado
                 .filter(conta -> senhaConfere)
@@ -72,8 +87,10 @@ class ServicoDeLogin {
 
     /** Segundo passo: o desafio do 403 + o código do SMS. Qualquer falha dá o 401 genérico. */
     LoginAceito segundoPasso(SegundoPassoRequest pedido, String ip, String userAgent) {
-        if (codigos.donoDoDesafio(pedido.desafioId()).filter(codigos::bloqueado).isPresent()) {
-            throw muitosCodigos(); // a senha já foi provada: pode saber do bloqueio
+        Optional<UUID> bloqueado = codigos.donoDoDesafio(pedido.desafioId()).filter(codigos::bloqueado);
+        if (bloqueado.isPresent()) {
+            // a senha já foi provada: pode saber do bloqueio
+            throw muitosCodigos(codigos.esperaDoBloqueio(bloqueado.get()));
         }
         Usuario usuario = codigos.conferirDesafio(pedido.desafioId(), pedido.codigo())
                 .flatMap(usuarios::findById)
@@ -90,6 +107,7 @@ class ServicoDeLogin {
 
     /** Entrar só com o código SMS: celular confirmado, nunca ADMIN nem quem ligou o MFA. */
     LoginAceito entrarComCodigo(EntrarComCodigoRequest pedido, String ip, String userAgent) {
+        limitador.consumir(Balde.porChave("entrar-com-codigo-celular", chaveDeLimite.doCelular(pedido.celular())));
         Usuario usuario = buscarQuemEntraComCodigo(pedido.celular())
                 .filter(conta -> codigos.conferir(conta.getCelular(), FinalidadeSms.LOGIN, pedido.codigo()))
                 .orElseThrow(() -> codigoRecusado("login por código"));
@@ -110,11 +128,11 @@ class ServicoDeLogin {
                     "celular-nao-confirmado", "Seu celular ainda não foi confirmado. Fale com a equipe da COE.");
         }
         if (codigos.bloqueado(usuario.getId())) {
-            return muitosCodigos();
+            return muitosCodigos(codigos.esperaDoBloqueio(usuario.getId()));
         }
         Optional<String> desafio = codigos.emitirDesafio(usuario.getId(), usuario.getCelular(), ip);
         if (desafio.isEmpty()) {
-            return muitosCodigos();
+            return muitosCodigos(codigos.esperaParaEnviar(usuario.getCelular(), FinalidadeSms.MFA));
         }
         LOG.info("Login aguardando o segundo passo: {}", usuario.getId());
         return new AcaoProibidaException(
@@ -134,8 +152,8 @@ class ServicoDeLogin {
                 .filter(conta -> !codigos.bloqueado(conta.getId())); // bloqueado responde igual a sempre
     }
 
-    private static MuitasTentativasException muitosCodigos() {
-        return new MuitasTentativasException("Você pediu muitos códigos. Aguarde um pouco e tente de novo.");
+    private static MuitasTentativasException muitosCodigos(Duration espera) {
+        return new MuitasTentativasException("Você pediu muitos códigos. Aguarde um pouco e tente de novo.", espera);
     }
 
     private static boolean podeEntrar(Usuario usuario) {
@@ -145,6 +163,28 @@ class ServicoDeLogin {
     private static NaoAutenticadoException codigoRecusado(String etapa) {
         LOG.info("Código recusado ({})", etapa);
         return new NaoAutenticadoException("login-invalido", "Código incorreto ou vencido.");
+    }
+
+    /**
+     * Antes do BCrypt (CORE-07): login + IP (força bruta de um lugar) e o teto do login vindo de qualquer
+     * IP. O teto pode ser usado para travar o login por senha de alguém por até 1 h (o código por SMS e o
+     * "esqueci a senha" continuam): por isso a vez que esvazia o balde é auditada, uma vez por janela.
+     */
+    private void limitarTentativaDeSenha(String login, Optional<Usuario> encontrado, String ip) {
+        String chave = chaveDeLimite.doLogin(login);
+        limitador.consumir(Balde.porChave("entrar-login-ip", chave + ":" + ChaveDeIp.de(ip)));
+        if (limitador.consumirUm(Balde.porChave("entrar-login", chave)) == 0) {
+            LOG.warn(
+                    "Teto de tentativas de senha atingido: {}",
+                    encontrado.map(Usuario::getId).orElse(null));
+            auditoria.registrarDoSistema(
+                    "limite.teto-login",
+                    "usuario",
+                    encontrado.map(Usuario::getId).orElse(null),
+                    Map.of(),
+                    Map.of("regra", "entrar-login"),
+                    ip);
+        }
     }
 
     private Optional<Usuario> buscar(String login) {

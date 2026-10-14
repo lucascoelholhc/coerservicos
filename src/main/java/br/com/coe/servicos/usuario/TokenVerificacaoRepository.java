@@ -1,6 +1,7 @@
 package br.com.coe.servicos.usuario;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import jakarta.persistence.LockModeType;
@@ -18,13 +19,24 @@ interface TokenVerificacaoRepository extends JpaRepository<TokenVerificacao, UUI
 
     /** E-mails enviados ao endereço desde o instante (comprovante não é enviado, não conta). */
     @Query("SELECT count(t) FROM TokenVerificacao t WHERE t.destino = :destino AND t.canal = 'email'"
-            + " AND t.finalidade <> 'comprovante_posse' AND t.criadoEm > :desde")
+            + " AND t.finalidade <> 'comprovante_posse' AND t.criadoEm > :desde AND t.descartadoEm IS NULL")
     long contarEmailsDesde(String destino, Instant desde);
 
     /** E-mails da finalidade (espera de 60 s por destino e finalidade). */
     @Query("SELECT count(t) FROM TokenVerificacao t WHERE t.destino = :destino AND t.canal = 'email'"
-            + " AND t.finalidade = :finalidade AND t.criadoEm > :desde")
+            + " AND t.finalidade = :finalidade AND t.criadoEm > :desde AND t.descartadoEm IS NULL")
     long contarEmailsDaFinalidadeDesde(String destino, String finalidade, Instant desde);
+
+    /** O e-mail mais novo da finalidade desde o instante (Retry-After da espera de 60 s). */
+    @Query("SELECT max(t.criadoEm) FROM TokenVerificacao t WHERE t.destino = :destino AND t.canal = 'email'"
+            + " AND t.finalidade = :finalidade AND t.criadoEm > :desde AND t.descartadoEm IS NULL")
+    Optional<Instant> ultimoEmailDaFinalidadeDesde(String destino, String finalidade, Instant desde);
+
+    /** Os e-mails desde o instante, do mais novo ao mais velho (Retry-After do teto por hora). */
+    @Query("SELECT t.criadoEm FROM TokenVerificacao t WHERE t.destino = :destino AND t.canal = 'email'"
+            + " AND t.finalidade <> 'comprovante_posse' AND t.criadoEm > :desde AND t.descartadoEm IS NULL"
+            + " ORDER BY t.criadoEm DESC")
+    List<Instant> emailsDesde(String destino, Instant desde);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT t FROM TokenVerificacao t WHERE t.destino = :destino AND t.finalidade = :finalidade"

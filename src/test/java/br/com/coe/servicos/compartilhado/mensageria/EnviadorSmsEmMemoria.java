@@ -26,6 +26,8 @@ public class EnviadorSmsEmMemoria implements EnviadorSms {
     private final IntSupplier pendentes;
     private final AtomicInteger falhasProgramadas = new AtomicInteger();
     private volatile Duration atraso = Duration.ZERO;
+    private volatile java.util.function.Predicate<String> presos = celular -> false;
+    private volatile java.util.concurrent.CountDownLatch soltura = new java.util.concurrent.CountDownLatch(0);
 
     public EnviadorSmsEmMemoria(IntSupplier pendentes) {
         this.pendentes = pendentes;
@@ -35,6 +37,13 @@ public class EnviadorSmsEmMemoria implements EnviadorSms {
     public void enviar(String celular, String texto) {
         if (falhasProgramadas.getAndUpdate(n -> Math.max(0, n - 1)) > 0) {
             throw new IllegalStateException("provedor de SMS fora do ar (teste)");
+        }
+        if (presos.test(celular)) {
+            try {
+                soltura.await(ESPERA_MAXIMA.toSeconds() * 2, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (InterruptedException interrompido) {
+                Thread.currentThread().interrupt();
+            }
         }
         if (!atraso.isZero()) {
             try {
@@ -56,8 +65,34 @@ public class EnviadorSmsEmMemoria implements EnviadorSms {
         falhasProgramadas.incrementAndGet();
     }
 
+    /** Provedor travado para esses celulares até {@link #soltar()} (enche a fila de envio no teste). */
+    public void prender(java.util.function.Predicate<String> celulares) {
+        soltura = new java.util.concurrent.CountDownLatch(1);
+        presos = celulares;
+    }
+
+    /** Solta os envios presos. */
+    public void soltar() {
+        presos = celular -> false;
+        soltura.countDown();
+    }
+
+    /** Espera (no máximo 5 s) chegar um SMS para o celular, sem esperar a fila inteira esvaziar. */
+    public Optional<String> aguardarCodigo(String celular) {
+        await().atMost(ESPERA_MAXIMA)
+                .pollInterval(Duration.ofMillis(10))
+                .until(() -> enviados.stream().anyMatch(sms -> sms.celular().equals(celular)));
+        Matcher achou = CODIGO.matcher(enviados.stream()
+                .filter(sms -> sms.celular().equals(celular))
+                .reduce((primeiro, ultimo) -> ultimo)
+                .orElseThrow()
+                .texto());
+        return achou.find() ? Optional.of(achou.group(1)) : Optional.empty();
+    }
+
     /** Volta ao normal (chamado antes de cada teste). */
     public void restaurar() {
+        soltar();
         atraso = Duration.ZERO;
         falhasProgramadas.set(0);
     }

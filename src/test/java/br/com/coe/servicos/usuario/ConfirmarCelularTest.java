@@ -2,6 +2,7 @@ package br.com.coe.servicos.usuario;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -97,7 +98,12 @@ class ConfirmarCelularTest extends IntegracaoTest {
 
         mockMvc.perform(post("/api/contas/eu/celular/codigo").header("Authorization", bearer))
                 .andExpect(status().isTooManyRequests())
-                .andExpect(jsonPath("$.type").value("urn:coe:erro:muitas-tentativas"));
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:muitas-tentativas"))
+                .andExpect(header().string("Retry-After", "60"));
+        relogio.avancar(Duration.ofSeconds(20));
+        mockMvc.perform(post("/api/contas/eu/celular/codigo").header("Authorization", bearer))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().string("Retry-After", "40"));
     }
 
     @Test
