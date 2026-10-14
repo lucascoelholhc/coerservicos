@@ -32,6 +32,7 @@ public class DespachoDeMensagens implements DisposableBean {
     private static final Logger LOG = LoggerFactory.getLogger(DespachoDeMensagens.class);
     private static final long OCIOSA_SEGUNDOS = 60;
     private static final long ESPERA_NO_DESLIGAMENTO_SEGUNDOS = 5;
+    private static final int CAPACIDADE_DAS_DEVOLUCOES = 1_000;
 
     /** Tamanho de uma fila: threads fixas, threads no pico (só quando a fila enche) e capacidade. */
     public record Fila(int threads, int threadsMaximo, int capacidade) {
@@ -50,6 +51,13 @@ public class DespachoDeMensagens implements DisposableBean {
     private final DevolucaoDeCota devolucao;
     private final ThreadPoolExecutor prioritaria;
     private final ThreadPoolExecutor normal;
+    /**
+     * A devolução da cota usa o banco numa transação nova. Fora da thread da requisição: dentro do
+     * AFTER_COMMIT ela seguraria uma segunda conexão do pool, e numa inundação (quando há descarte) o
+     * pool inteiro travaria. Uma thread só, fila limitada; a devolução é idempotente.
+     */
+    private final ThreadPoolExecutor devolucoes;
+
     private final AtomicInteger pendentes = new AtomicInteger();
 
     @Autowired
@@ -78,6 +86,7 @@ public class DespachoDeMensagens implements DisposableBean {
         this.devolucao = devolucao;
         this.prioritaria = executor("envio-prioritario-", prioritaria);
         this.normal = executor("envio-", normal);
+        this.devolucoes = executor("devolucao-de-cota-", new Fila(1, 1, CAPACIDADE_DAS_DEVOLUCOES));
     }
 
     private static ThreadPoolExecutor executor(String prefixo, Fila fila) {
@@ -118,14 +127,27 @@ public class DespachoDeMensagens implements DisposableBean {
         if (mensagem.cota() == null) {
             return;
         }
+        pendentes.incrementAndGet();
         try {
-            devolucao.devolver(mensagem.cota());
-        } catch (RuntimeException erro) {
+            devolucoes.execute(() -> {
+                try {
+                    devolucao.devolver(mensagem.cota());
+                } catch (RuntimeException erro) {
+                    LOG.error(
+                            "Cota não devolvida ({} para {}): {}",
+                            mensagem.canal(),
+                            mensagem.destinoMascarado(),
+                            erro.getClass().getSimpleName());
+                } finally {
+                    pendentes.decrementAndGet();
+                }
+            });
+        } catch (RejectedExecutionException cheia) {
+            pendentes.decrementAndGet();
             LOG.error(
-                    "Cota não devolvida ({} para {}): {}",
+                    "Cota não devolvida (fila de devoluções cheia): {} para {}",
                     mensagem.canal(),
-                    mensagem.destinoMascarado(),
-                    erro.getClass().getSimpleName());
+                    mensagem.destinoMascarado());
         }
     }
 
@@ -161,17 +183,21 @@ public class DespachoDeMensagens implements DisposableBean {
     public void destroy() {
         prioritaria.shutdown();
         normal.shutdown();
+        devolucoes.shutdown();
         try {
             boolean terminou = prioritaria.awaitTermination(ESPERA_NO_DESLIGAMENTO_SEGUNDOS, TimeUnit.SECONDS)
-                    & normal.awaitTermination(ESPERA_NO_DESLIGAMENTO_SEGUNDOS, TimeUnit.SECONDS);
+                    & normal.awaitTermination(ESPERA_NO_DESLIGAMENTO_SEGUNDOS, TimeUnit.SECONDS)
+                    & devolucoes.awaitTermination(ESPERA_NO_DESLIGAMENTO_SEGUNDOS, TimeUnit.SECONDS);
             if (!terminou) {
                 LOG.warn("Desligando com {} mensagem(ns) ainda na fila de envio", pendentes.get());
                 prioritaria.shutdownNow();
                 normal.shutdownNow();
+                devolucoes.shutdownNow();
             }
         } catch (InterruptedException interrompido) {
             prioritaria.shutdownNow();
             normal.shutdownNow();
+            devolucoes.shutdownNow();
             Thread.currentThread().interrupt();
         }
     }

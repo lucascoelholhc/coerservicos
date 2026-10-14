@@ -218,7 +218,29 @@ class DespachoDeMensagensTest {
         despacho.aoConfirmar(normal(naFila));
         despacho.aoConfirmar(normal(descartada));
 
+        await().atMost(Duration.ofSeconds(2)).until(() -> !devolvidas.isEmpty());
         assertThat(devolvidas).containsExactly(descartada);
+    }
+
+    @Test
+    @DisplayName("a devolução da cota roda fora da thread de quem publicou (sem segurar 2 conexões do pool)")
+    void devolucaoForaDaThreadDaRequisicao() {
+        java.util.concurrent.atomic.AtomicReference<String> threadDaDevolucao =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        despacho = new DespachoDeMensagens(
+                enviadorPreso(),
+                SEM_EMAIL,
+                cota -> threadDaDevolucao.set(Thread.currentThread().getName()),
+                new DespachoDeMensagens.Fila(1, 1, 1),
+                new DespachoDeMensagens.Fila(1, 1, 1));
+        String threadDeQuemPublica = Thread.currentThread().getName();
+
+        for (int i = 0; i < 3; i++) {
+            despacho.aoConfirmar(normal(cota()));
+        }
+
+        await().atMost(Duration.ofSeconds(2)).until(() -> threadDaDevolucao.get() != null);
+        assertThat(threadDaDevolucao.get()).isNotEqualTo(threadDeQuemPublica).startsWith("devolucao-de-cota");
     }
 
     @Test
@@ -259,6 +281,7 @@ class DespachoDeMensagensTest {
                     }
                 })
                 .doesNotThrowAnyException();
-        assertThat(saida.getAll()).contains("Cota não devolvida").doesNotContain(CELULAR);
+        await().atMost(Duration.ofSeconds(2)).until(() -> saida.getAll().contains("Cota não devolvida"));
+        assertThat(saida.getAll()).doesNotContain(CELULAR);
     }
 }
