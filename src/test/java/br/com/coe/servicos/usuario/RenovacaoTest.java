@@ -128,15 +128,16 @@ class RenovacaoTest extends IntegracaoTest {
     }
 
     @Test
-    @DisplayName("reuso até 30 s depois (duas abas): 401 sem revogar a família")
+    @DisplayName("reuso até 30 s depois (duas abas): 409 renovacao-em-andamento, sem apagar o cookie nem revogar")
     void reusoBenigno() throws Exception {
         Conta conta = contas.criar(Papel.CLIENTE);
         String refresh = entrar(conta);
-        String sucessor = renovarComSucesso(refresh);
+        String sucessor = renovarComSucesso(refresh); // a aba 1 renovou e o navegador guardou o cookie novo
         relogio.avancar(Duration.ofSeconds(10));
 
-        MockHttpServletResponse resposta = renovar(refresh)
-                .andExpect(status().isUnauthorized())
+        MockHttpServletResponse resposta = renovar(refresh) // a aba 2 saiu com o cookie antigo
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:renovacao-em-andamento"))
                 .andReturn()
                 .getResponse();
 
@@ -144,7 +145,10 @@ class RenovacaoTest extends IntegracaoTest {
                 .as("não pode apagar o cookie novo que a outra aba acabou de receber")
                 .isNull();
         assertThat(revogadosDaFamilia(conta, "reuso")).isZero();
-        renovarComSucesso(sucessor);
+        // a nova tentativa da aba 2 sai com o cookie já rotacionado: as duas abas ficam com sessão
+        String daAba2 = renovarComSucesso(sucessor);
+        assertThat(daAba2).isNotEqualTo(sucessor);
+        assertThat(revogadosDaFamilia(conta, "reuso")).isZero();
     }
 
     @Test
@@ -304,7 +308,7 @@ class RenovacaoTest extends IntegracaoTest {
     }
 
     @Test
-    @DisplayName("duas renovações ao mesmo tempo: uma passa, a outra recebe 401 e a família continua")
+    @DisplayName("duas renovações ao mesmo tempo: uma passa, a outra recebe 409 (tenta de novo) e a família continua")
     void concorrencia() throws Exception {
         Conta conta = contas.criar(Papel.CLIENTE);
         String refresh = entrar(conta);
@@ -324,9 +328,9 @@ class RenovacaoTest extends IntegracaoTest {
         }
         executor.shutdown();
 
-        assertThat(respostas).extracting(MockHttpServletResponse::getStatus).containsExactlyInAnyOrder(200, 401);
+        assertThat(respostas).extracting(MockHttpServletResponse::getStatus).containsExactlyInAnyOrder(200, 409);
         assertThat(respostas)
-                .filteredOn(resposta -> resposta.getStatus() == 401)
+                .filteredOn(resposta -> resposta.getStatus() == 409)
                 .allSatisfy(
                         perdedor -> assertThat(perdedor.getHeader("Set-Cookie")).isNull());
         assertThat(revogadosDaFamilia(conta, "reuso")).isZero();

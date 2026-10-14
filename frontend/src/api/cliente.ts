@@ -76,23 +76,39 @@ export function renovarSessao(tempoLimiteMs = TEMPO_LIMITE_MS): Promise<Resultad
   return renovacaoEmAndamento;
 }
 
+/** Outra aba acabou de renovar (409): o cookie novo já está no navegador. Espera e tenta de novo, uma vez. */
+const ESPERA_RENOVACAO_EM_ANDAMENTO_MS = 300;
+
+function postarRenovacao(sinal: AbortSignal): Promise<Response> {
+  return fetch('/api/auth/renovar', {
+    method: 'POST',
+    headers: { Accept: 'application/json' },
+    credentials: 'same-origin',
+    signal: sinal,
+  });
+}
+
+function esperar(ms: number): Promise<void> {
+  return new Promise((pronto) => setTimeout(pronto, ms));
+}
+
 async function pedirRenovacao(tempoLimiteMs: number): Promise<ResultadoDaRenovacao> {
   const geracaoNoInicio = geracaoDaSessao();
   const { sinal, soltar } = sinalComLimite(tempoLimiteMs);
   let resposta: Response;
   try {
-    resposta = await fetch('/api/auth/renovar', {
-      method: 'POST',
-      headers: { Accept: 'application/json' },
-      credentials: 'same-origin',
-      signal: sinal,
-    });
+    resposta = await postarRenovacao(sinal);
+    if (resposta.status === 409) {
+      // Uma nova tentativa só, nunca um laço; 409 de novo = sem sessão nesta aba (sem aviso de erro).
+      await esperar(ESPERA_RENOVACAO_EM_ANDAMENTO_MS);
+      resposta = await postarRenovacao(sinal);
+    }
   } catch (falha) {
     return erroDaFalha(falha).tipo === 'tempo' ? 'tempo' : 'sem-conexao';
   } finally {
     soltar();
   }
-  if (resposta.status === 401 || resposta.status === 403) {
+  if (resposta.status === 401 || resposta.status === 403 || resposta.status === 409) {
     return 'recusada';
   }
   if (!resposta.ok) {
