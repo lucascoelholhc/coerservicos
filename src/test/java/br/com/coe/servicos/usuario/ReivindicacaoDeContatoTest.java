@@ -111,6 +111,38 @@ class ReivindicacaoDeContatoTest extends IntegracaoTest {
                 "$.comprovante");
     }
 
+    @Test
+    @DisplayName("confirmar a posse do e-mail devolve só o comprovante e o e-mail normalizado do link")
+    void confirmarPosseDoEmailDevolveComprovanteEEmail() throws Exception {
+        Conta antiga = contas.criar(Papel.CLIENTE);
+        mockMvc.perform(post("/api/contas/posse/email")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"  " + antiga.email().toUpperCase() + " \"}"))
+                .andExpect(status().isAccepted());
+        String token = email.ultimoToken(antiga.email()).orElseThrow();
+
+        String corpo = mockMvc.perform(post("/api/contas/posse/email/confirmar")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"" + token + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value(antiga.email()))
+                .andExpect(jsonPath("$.comprovante").isString())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        java.util.Map<String, Object> campos = JsonPath.read(corpo, "$");
+        assertThat(campos).containsOnlyKeys("comprovante", "email");
+    }
+
+    @Test
+    @DisplayName("a resposta da posse do e-mail não mostra comprovante nem e-mail no toString")
+    void respostaDaPosseDoEmailMascarada() {
+        String texto = new PosseController.ComprovanteDoEmailResponse("segredo-123", "ana@exemplo.com").toString();
+
+        assertThat(texto).doesNotContain("segredo-123").doesNotContain("ana@exemplo.com");
+    }
+
     private ResultActions entrarComSenha(String login) throws Exception {
         return mockMvc.perform(post("/api/auth/entrar")
                 .contentType(MediaType.APPLICATION_JSON)
