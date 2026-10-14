@@ -48,7 +48,7 @@ export function MinhaConta() {
           <>
             {conta.dados.contatoPendente && <AvisoDeContatoPendente />}
             <DadosDaConta conta={conta.dados} />
-            {!conta.dados.emailConfirmado && (
+            {conta.dados.email !== null && !conta.dados.emailConfirmado && (
               <ConfirmarEmail aoAtualizar={conta.tentarDeNovo} aoResponder={setRetornoDoEmail} />
             )}
             <Seguranca conta={conta.dados} />

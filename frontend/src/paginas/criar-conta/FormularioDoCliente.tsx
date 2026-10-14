@@ -167,7 +167,7 @@ export function FormularioDoCliente({ emailFixo, comprovanteEmail }: FormularioD
       setEnviando(false);
       return;
     }
-    await entrarDepoisDeCriar();
+    await entrarDepoisDeCriar(provas);
   }
 
   function aoComprovar(campo: CampoDeContato, comprovante: string) {
@@ -177,12 +177,14 @@ export function FormularioDoCliente({ emailFixo, comprovanteEmail }: FormularioD
     void cadastrar(provas);
   }
 
-  async function entrarDepoisDeCriar() {
+  async function entrarDepoisDeCriar(provas: Comprovantes) {
     const { celular, senha } = valores;
     setValores((anteriores) => ({ ...anteriores, senha: '' }));
     try {
       iniciarSessao(await entrar({ login: celular, senha }));
-      void navegar(CAMINHOS.conta, { replace: true, state: { aviso: AVISO_DO_EMAIL } });
+      // Com o e-mail provado (RN61) ele já nasce confirmado e nenhum link é mandado.
+      const estado = provas.email === undefined ? { aviso: AVISO_DO_EMAIL } : undefined;
+      void navegar(CAMINHOS.conta, { replace: true, state: estado });
     } catch {
       void navegar(CAMINHOS.entrar, {
         replace: true,

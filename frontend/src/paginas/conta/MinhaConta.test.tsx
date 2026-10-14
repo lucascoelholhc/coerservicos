@@ -252,6 +252,15 @@ describe('Minha conta: contato pendente', () => {
     expect(screen.getByRole('link', { name: 'Recolocar contato' })).toHaveAttribute('href', '/conta/recolocar-contato');
   });
 
+  it('sem e-mail na conta: não pede para confirmar o e-mail', async () => {
+    simular({ ...CONTA_PADRAO, email: null, emailConfirmado: false, contatoPendente: true });
+    abrir();
+
+    await screen.findByRole('heading', { level: 2, name: 'Segurança' });
+    expect(screen.queryByText('Confirme seu e-mail para conseguir recuperar a senha.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Mandar o link de novo' })).not.toBeInTheDocument();
+  });
+
   it('sem pendência: sem a nota', async () => {
     simular();
     abrir();

@@ -386,6 +386,8 @@ describe('cadastro: provar que o contato é meu (RN61)', () => {
     expect(await screen.findByText(/Fui para \/conta/)).toBeInTheDocument();
     const cadastros = pedidos.filter((pedido) => pedido.url === '/api/contas/cliente');
     expect(JSON.parse(cadastros[1]?.corpo ?? '{}')).toMatchObject({ comprovanteEmail: 'comp-email' });
+    // O e-mail provado já está confirmado: nenhum link foi mandado, então não há aviso de link.
+    expect(screen.queryByText(/Enviamos um link para o seu e-mail/)).not.toBeInTheDocument();
   });
 
   it('e-mail: comprovante de outro e-mail não termina o cadastro', async () => {
