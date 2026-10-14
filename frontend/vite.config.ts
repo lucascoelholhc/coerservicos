@@ -41,6 +41,7 @@ export default defineConfig({
         'src/componentes/StatusDiaria/**': { lines: 100, functions: 100, branches: 100, statements: 100 },
         'src/api/**': { lines: 100, functions: 100, branches: 100, statements: 100 },
         'src/componentes/CampoCodigo/**': { lines: 100, functions: 100, branches: 100, statements: 100 },
+        'src/paginas/criar-conta/PosseNoCadastro.tsx': { lines: 100, functions: 100, branches: 100, statements: 100 },
       },
     },
   },

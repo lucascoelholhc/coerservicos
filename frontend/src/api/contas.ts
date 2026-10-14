@@ -9,6 +9,9 @@ export interface NovoCliente {
   cep: string;
   senha: string;
   versaoTermosAceita: string;
+  /** RN61: comprovante da prova de posse (só em memória), quando o contato estava em outra conta. */
+  comprovanteCelular?: string;
+  comprovanteEmail?: string;
 }
 
 /** POST /api/contas/cliente: cria a conta (não faz login; quem chama entra em seguida). */

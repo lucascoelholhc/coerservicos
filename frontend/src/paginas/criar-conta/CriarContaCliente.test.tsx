@@ -250,3 +250,134 @@ describe('/criar-conta/cliente', () => {
     await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Criar conta' })).toBeEnabled());
   });
 });
+
+describe('cadastro: provar que o contato é meu (RN61)', () => {
+  afterEach(() => {
+    encerrarSessao();
+    vi.unstubAllGlobals();
+  });
+
+  const EM_USO = 'Esse contato já está em uso. Se ele for seu, confirme que é seu para usar nesta conta.';
+
+  /** Regras, entrar e posse; o cadastro responde em sequência (uma resposta por envio). */
+  function simularPosse(cadastros: Responder[]) {
+    let envios = 0;
+    return simularFetch((pedido) => {
+      switch (pedido.url) {
+        case '/api/publico/regras':
+          return json(REGRAS_PADRAO);
+        case '/api/contas/cliente': {
+          const responder = cadastros[Math.min(envios, cadastros.length - 1)] as Responder;
+          envios += 1;
+          return responder(pedido);
+        }
+        case '/api/auth/entrar':
+          return json(SESSAO_PADRAO);
+        case '/api/contas/posse/celular/confirmar':
+          return json({ comprovante: 'comp-cel' });
+        default:
+          return json({ mensagem: 'Enviamos a confirmação.' }, 202);
+      }
+    });
+  }
+
+  async function chegarNoConflito() {
+    abrir();
+    await screen.findByRole('button', { name: 'Criar conta' });
+    await preencher();
+    await criar();
+    return screen.findByRole('alert');
+  }
+
+  async function provarCelular() {
+    await userEvent.click(await screen.findByRole('button', { name: 'Esse celular é meu' }));
+    await userEvent.type(await screen.findByRole('textbox', { name: 'Código' }), '123456');
+    await userEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
+  }
+
+  it('409 no celular: "Esse celular é meu" → código → cadastro reenviado com o comprovante, sem redigitar', async () => {
+    const { pedidos } = simularPosse([
+      () => problema(409, 'contato-em-uso', EM_USO, { campo: 'celular' }),
+      () => json({ id: 'u-ana', nome: 'Ana Souza' }, 201),
+    ]);
+
+    const aviso = await chegarNoConflito();
+    expect(within(aviso).getByRole('link', { name: 'Entrar' })).toBeInTheDocument();
+    expect(within(aviso).getByRole('link', { name: 'Esqueci minha senha' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Esse e-mail é meu' })).not.toBeInTheDocument();
+    await provarCelular();
+
+    expect(await screen.findByText(/Fui para \/conta/)).toBeInTheDocument();
+    const cadastros = pedidos.filter((pedido) => pedido.url === '/api/contas/cliente');
+    expect(cadastros).toHaveLength(2);
+    expect(JSON.parse(cadastros[1]?.corpo ?? '{}')).toEqual({
+      ...JSON.parse(cadastros[0]?.corpo ?? '{}'),
+      comprovanteCelular: 'comp-cel',
+    });
+    expect(pedidos.find((pedido) => pedido.url === '/api/contas/posse/celular')?.corpo).toBe(
+      JSON.stringify({ celular: '47900000001' }),
+    );
+  });
+
+  it('409 no e-mail: "Esse e-mail é meu" manda o link e espera a confirmação', async () => {
+    const { pedidos } = simularPosse([() => problema(409, 'contato-em-uso', EM_USO, { campo: 'email' })]);
+
+    await chegarNoConflito();
+    expect(screen.queryByRole('button', { name: 'Esse celular é meu' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Esse e-mail é meu' }));
+
+    expect(await screen.findByText(/Enviamos um link para ana@exemplo.com/)).toBeInTheDocument();
+    expect(pedidos.find((pedido) => pedido.url === '/api/contas/posse/email')?.corpo).toBe(
+      JSON.stringify({ email: 'ana@exemplo.com' }),
+    );
+  });
+
+  it('comprovante vencido (422 comprovante-invalido): mensagem clara e a prova recomeça', async () => {
+    const { pedidos } = simularPosse([
+      () => problema(409, 'contato-em-uso', EM_USO, { campo: 'celular' }),
+      () => problema(422, 'comprovante-invalido', 'A confirmação deste contato venceu ou não vale. Confirme de novo.'),
+      () => json({ id: 'u-ana', nome: 'Ana Souza' }, 201),
+    ]);
+
+    await chegarNoConflito();
+    await provarCelular();
+
+    expect(await screen.findByText('A confirmação deste contato venceu ou não vale. Confirme de novo.')).toBeInTheDocument();
+    await provarCelular();
+
+    expect(await screen.findByText(/Fui para \/conta/)).toBeInTheDocument();
+    const cadastros = pedidos.filter((pedido) => pedido.url === '/api/contas/cliente');
+    expect(JSON.parse(cadastros[2]?.corpo ?? '{}')).toMatchObject({ comprovanteCelular: 'comp-cel' });
+  });
+
+  it('mudar o celular depois de provar descarta o comprovante', async () => {
+    const { pedidos } = simularPosse([
+      () => problema(409, 'contato-em-uso', EM_USO, { campo: 'celular' }),
+      () => problema(409, 'contato-em-uso', EM_USO, { campo: 'email' }),
+      () => json({ id: 'u-ana', nome: 'Ana Souza' }, 201),
+    ]);
+
+    await chegarNoConflito();
+    await provarCelular();
+    await screen.findByRole('button', { name: 'Esse e-mail é meu' });
+    const celular = screen.getByRole('textbox', { name: 'Celular' });
+    await userEvent.clear(celular);
+    await userEvent.type(celular, '47900000002');
+    await criar();
+
+    await screen.findByText(/Fui para \/conta/);
+    const cadastros = pedidos.filter((pedido) => pedido.url === '/api/contas/cliente');
+    expect(JSON.parse(cadastros[1]?.corpo ?? '{}')).toMatchObject({ comprovanteCelular: 'comp-cel' });
+    expect(JSON.parse(cadastros[2]?.corpo ?? '{}')).not.toHaveProperty('comprovanteCelular');
+  });
+
+  it('"Cancelar" volta para o aviso do conflito', async () => {
+    simularPosse([() => problema(409, 'contato-em-uso', EM_USO, { campo: 'email' })]);
+
+    await chegarNoConflito();
+    await userEvent.click(screen.getByRole('button', { name: 'Esse e-mail é meu' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancelar' }));
+
+    expect(screen.getByRole('button', { name: 'Esse e-mail é meu' })).toBeInTheDocument();
+  });
+});

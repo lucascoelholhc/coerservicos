@@ -15,6 +15,7 @@ import { FalhaAoCarregar } from '../../componentes/FalhaAoCarregar/FalhaAoCarreg
 import { Nota } from '../../componentes/Nota/Nota';
 import { useTitulo } from '../../layout/titulo';
 import estilos from './CriarConta.module.css';
+import { PosseNoCadastro, type CampoDeContato } from './PosseNoCadastro';
 
 type Campo = 'nome' | 'celular' | 'email' | 'cep' | 'senha' | 'aceite';
 type Erros = Partial<Record<Campo, string>>;
@@ -23,6 +24,26 @@ type Erros = Partial<Record<Campo, string>>;
 const ORDEM: readonly Campo[] = ['nome', 'celular', 'email', 'cep', 'senha', 'aceite'];
 const SENHA_MINIMA = 8;
 const AVISO_DO_EMAIL = 'Enviamos um link para o seu e-mail. Confirme para conseguir recuperar a senha.';
+
+/** Comprovantes da prova de posse (RN61): só nesta tela, em memória. */
+type Comprovantes = Partial<Record<CampoDeContato, string>>;
+type Conflito = { mensagem: string; campo: CampoDeContato | null };
+
+function campoDeContato(campos: Readonly<Record<string, string>>): CampoDeContato | null {
+  return (['celular', 'email'] as const).find((campo) => campo in campos) ?? null;
+}
+
+function campoComComprovante(comprovantes: Comprovantes): CampoDeContato | null {
+  return (['celular', 'email'] as const).find((campo) => comprovantes[campo] !== undefined) ?? null;
+}
+
+function semOComprovante(comprovantes: Comprovantes, campo: CampoDeContato): Comprovantes {
+  return campo === 'celular' ? { email: comprovantes.email } : { celular: comprovantes.celular };
+}
+
+function corpoDosComprovantes(comprovantes: Comprovantes) {
+  return { comprovanteCelular: comprovantes.celular, comprovanteEmail: comprovantes.email };
+}
 
 /** Como a API chama cada campo (o aceite dos termos vem como versaoTermosAceita). */
 function campoDaApi(nome: string): Campo | undefined {
@@ -44,7 +65,9 @@ export function CriarContaCliente() {
   const [valores, setValores] = useState({ nome: '', celular: '', email: '', cep: '', senha: '' });
   const [aceite, setAceite] = useState(false);
   const [erros, setErros] = useState<Erros>({});
-  const [conflito, setConflito] = useState<string | null>(null);
+  const [conflito, setConflito] = useState<Conflito | null>(null);
+  const [posse, setPosse] = useState<CampoDeContato | null>(null);
+  const [comprovantes, setComprovantes] = useState<Comprovantes>({});
   const [erroGeral, setErroGeral] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const emEnvio = useRef(false);
@@ -66,7 +89,13 @@ export function CriarContaCliente() {
   }, [foco]);
 
   function mudar(campo: keyof typeof valores) {
-    return (valor: string) => setValores((anteriores) => ({ ...anteriores, [campo]: valor }));
+    return (valor: string) => {
+      setValores((anteriores) => ({ ...anteriores, [campo]: valor }));
+      // O comprovante vale para o contato provado; mudou o contato, ele não serve mais.
+      if (campo === 'celular' || campo === 'email') {
+        setComprovantes((anteriores) => semOComprovante(anteriores, campo));
+      }
+    };
   }
 
   function mostrarErros(novos: Erros) {
@@ -102,7 +131,7 @@ export function CriarContaCliente() {
 
   async function enviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
-    if (emEnvio.current || regras.situacao !== 'pronto') {
+    if (emEnvio.current || posse !== null) {
       return;
     }
     setConflito(null);
@@ -112,18 +141,34 @@ export function CriarContaCliente() {
       mostrarErros(avisos);
       return;
     }
+    await cadastrar(comprovantes);
+  }
+
+  async function cadastrar(provas: Comprovantes) {
+    if (regras.situacao !== 'pronto') {
+      return;
+    }
     emEnvio.current = true;
     setEnviando(true);
     setErros({});
+    setConflito(null);
+    setErroGeral(null);
     try {
-      await criarCliente({ ...valores, versaoTermosAceita: regras.dados.versaoTermos });
+      await criarCliente({ ...valores, versaoTermosAceita: regras.dados.versaoTermos, ...corpoDosComprovantes(provas) });
     } catch (falha) {
-      tratarErroDoCadastro(falha instanceof ErroDaApi ? falha : new ErroDaApi('servidor'));
+      tratarErroDoCadastro(falha instanceof ErroDaApi ? falha : new ErroDaApi('servidor'), provas);
       emEnvio.current = false;
       setEnviando(false);
       return;
     }
     await entrarDepoisDeCriar();
+  }
+
+  function aoComprovar(campo: CampoDeContato, comprovante: string) {
+    const provas = { ...comprovantes, [campo]: comprovante };
+    setComprovantes(provas);
+    setPosse(null);
+    void cadastrar(provas);
   }
 
   async function entrarDepoisDeCriar() {
@@ -140,7 +185,7 @@ export function CriarContaCliente() {
     }
   }
 
-  function tratarErroDoCadastro(erro: ErroDaApi) {
+  function tratarErroDoCadastro(erro: ErroDaApi, provas: Comprovantes) {
     if (erro.codigo === 'termos-desatualizados') {
       setAceite(false);
       regras.tentarDeNovo();
@@ -154,15 +199,21 @@ export function CriarContaCliente() {
         porCampo[campo] = mensagem;
       }
     }
+    if (erro.codigo === 'comprovante-invalido') {
+      // Venceu (30 min) ou não vale: descarta e oferece provar de novo o contato que tinha comprovante.
+      setComprovantes({});
+      setConflito({ mensagem: erro.message, campo: campoComComprovante(provas) });
+      return;
+    }
     if (erro.codigo === 'contato-em-uso') {
-      setConflito(erro.message);
+      setConflito({ mensagem: erro.message, campo: campoDeContato(erro.campos) });
     } else if (Object.keys(porCampo).length === 0) {
       setErroGeral(erro.message);
     }
     mostrarErros(porCampo);
   }
 
-  const podeEnviar = regras.situacao === 'pronto' && !enviando;
+  const podeEnviar = regras.situacao === 'pronto' && !enviando && posse === null;
 
   return (
     <section className={`largura ${estilos.pagina}`}>
@@ -249,13 +300,18 @@ export function CriarContaCliente() {
             )}
           </div>
           {regras.situacao === 'erro' && <FalhaAoCarregar erro={regras.erro} aoTentarDeNovo={regras.tentarDeNovo} />}
-          {conflito && (
+          {conflito && posse === null && (
             <Nota tipo="erro" anunciar>
-              <p>{conflito}</p>
+              <p>{conflito.mensagem}</p>
               <p className={estilos.links}>
                 <Link to={CAMINHOS.entrar}>Entrar</Link>
                 <Link to={CAMINHOS.esqueciSenha}>Esqueci minha senha</Link>
               </p>
+              {conflito.campo && (
+                <Botao variante="contorno" onClick={() => setPosse(conflito.campo)}>
+                  {conflito.campo === 'celular' ? 'Esse celular é meu' : 'Esse e-mail é meu'}
+                </Botao>
+              )}
             </Nota>
           )}
           {erroGeral && (
@@ -267,6 +323,14 @@ export function CriarContaCliente() {
             {enviando ? 'Criando sua conta…' : 'Criar conta'}
           </Botao>
         </form>
+        {posse && (
+          <PosseNoCadastro
+            campo={posse}
+            valor={valores[posse]}
+            aoComprovar={(comprovante) => aoComprovar(posse, comprovante)}
+            aoCancelar={() => setPosse(null)}
+          />
+        )}
         <p className={estilos.rodape}>
           Quer oferecer seus serviços? <Link to={CAMINHOS.paraProfissionais}>Cadastro de profissional</Link>
         </p>

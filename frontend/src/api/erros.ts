@@ -51,6 +51,11 @@ export class ErroDaApi extends Error {
   }
 }
 
+/** Qualquer falha vira ErroDaApi: o cliente já lança ErroDaApi; o resto vira "servidor" (nunca o erro cru). */
+export function comoErroDaApi(falha: unknown): ErroDaApi {
+  return falha instanceof ErroDaApi ? falha : new ErroDaApi('servidor');
+}
+
 /** Resposta não OK: 429 e 5xx com mensagem própria; o resto lê o Problem Details (RFC 9457). */
 export async function erroDaResposta(resposta: Response): Promise<ErroDaApi> {
   const status = resposta.status;
