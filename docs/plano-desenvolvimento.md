@@ -366,6 +366,8 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 
 Tudo em código (Terraform ou AWS CDK), nada configurado à mão no console.
 
+**Conexões com o RDS (CORE-07, 14/10):** cada instância abre o pool da aplicação (Hikari, padrão 10) **mais 5 do limitador de taxa** (`coe.limites.conexoes`, pool próprio para não esgotar o da aplicação). No AWS-03/AWS-05, dimensionar o `max_connections` do RDS para (pool da aplicação + 5) × número máximo de instâncias do auto scaling, com folga para o Flyway e a administração, ou pôr o **RDS Proxy** na frente. Os dois pools usam o login da aplicação (membro de `coe_app`), nunca o dono do schema.
+
 ## 10. Decisões que travam tarefas
 | Ponto | Precisa estar decidido antes de | Proposta |
 |---|---|---|

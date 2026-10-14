@@ -252,6 +252,14 @@ class LimitadorDeTaxaTest extends IntegracaoTest {
     class Configuracao {
 
         @Test
+        @DisplayName("o pool do limitador conecta com o login da aplicação (spring.datasource), não com o do Flyway")
+        void mesmoLoginDaAplicacao() throws SQLException {
+            assertThat(limitador.usuarioConectado())
+                    .isEqualTo(jdbc.queryForObject("SELECT current_user", String.class))
+                    .isEqualTo(banco.getUsername());
+        }
+
+        @Test
         @DisplayName("capacidade zero impede a subida")
         void capacidadeZero() {
             assertThatThrownBy(() -> new PropriedadesDeLimites.Regra(0, Duration.ofMinutes(1), 1))

@@ -117,6 +117,16 @@ public class LimitadorDeTaxa implements AutoCloseable {
         return baldes.removeExpired(lote);
     }
 
+    /** Só para o teste: o login com que o pool do limitador conecta (o mesmo da aplicação). */
+    String usuarioConectado() throws java.sql.SQLException {
+        try (java.sql.Connection conexao = pool.getConnection();
+                java.sql.Statement consulta = conexao.createStatement();
+                java.sql.ResultSet resultado = consulta.executeQuery("SELECT current_user")) {
+            resultado.next();
+            return resultado.getString(1);
+        }
+    }
+
     @Override
     public void close() throws Exception {
         if (pool instanceof AutoCloseable fechavel) {

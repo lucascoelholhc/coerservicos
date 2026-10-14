@@ -48,6 +48,37 @@ class MigracaoV16Test extends BancoIntegracaoTest {
         }
 
         @Test
+        @DisplayName("a aplicação não tem TRUNCATE na tabela dos baldes")
+        void semTruncate() {
+            fixtures.agirComoAplicacao();
+
+            PSQLException erro = erroDoBanco(() -> jdbc.execute("TRUNCATE limite_balde"));
+
+            assertThat(erro.getSQLState()).isEqualTo(INSUFFICIENT_PRIVILEGE);
+        }
+
+        @Test
+        @DisplayName("a aplicação não altera a estrutura da tabela dos baldes (não é dona)")
+        void semDdl() {
+            fixtures.agirComoAplicacao();
+
+            PSQLException erro = erroDoBanco(() -> jdbc.execute("ALTER TABLE limite_balde ADD COLUMN extra int"));
+
+            assertThat(erro.getSQLState()).isEqualTo(INSUFFICIENT_PRIVILEGE);
+        }
+
+        @Test
+        @DisplayName("privilégios do coe_app na tabela: exatamente SELECT, INSERT, UPDATE e DELETE")
+        void privilegiosExatos() {
+            assertThat(jdbc.queryForList(
+                            "SELECT privilege_type FROM information_schema.role_table_grants"
+                                    + " WHERE grantee = 'coe_app' AND table_name = 'limite_balde'"
+                                    + " ORDER BY privilege_type",
+                            String.class))
+                    .containsExactly("DELETE", "INSERT", "SELECT", "UPDATE");
+        }
+
+        @Test
         @DisplayName("chave vazia é recusada")
         void chaveVazia() {
             PSQLException erro = erroDoBanco(() -> jdbc.update("INSERT INTO limite_balde (chave) VALUES ('')"));
