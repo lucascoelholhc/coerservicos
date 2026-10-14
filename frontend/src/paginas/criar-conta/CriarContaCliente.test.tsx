@@ -399,6 +399,18 @@ describe('cadastro: provar que o contato é meu (RN61)', () => {
     expect(pedidos.filter((pedido) => pedido.url === '/api/contas/cliente')).toHaveLength(1);
   });
 
+  it('com o painel da posse aberto, celular e e-mail ficam somente leitura (o comprovante é do valor provado)', async () => {
+    simularPosse([() => problema(409, 'contato-em-uso', EM_USO, { campo: 'email' })]);
+    await chegarNoConflito();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Esse e-mail é meu' }));
+    expect(screen.getByRole('textbox', { name: 'E-mail' })).toHaveAttribute('readonly');
+    expect(screen.getByRole('textbox', { name: 'Celular' })).toHaveAttribute('readonly');
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancelar' }));
+    expect(screen.getByRole('textbox', { name: 'E-mail' })).not.toHaveAttribute('readonly');
+  });
+
   it('"Cancelar" volta para o aviso do conflito', async () => {
     simularPosse([() => problema(409, 'contato-em-uso', EM_USO, { campo: 'email' })]);
 

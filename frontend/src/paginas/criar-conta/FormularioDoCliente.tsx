@@ -242,6 +242,7 @@ export function FormularioDoCliente({ emailFixo, comprovanteEmail }: FormularioD
           valor={valores.celular}
           aoMudar={mudar('celular')}
           autoComplete="tel"
+          somenteLeitura={posse !== null}
           erro={erros.celular}
         />
         <CampoTexto
@@ -253,7 +254,7 @@ export function FormularioDoCliente({ emailFixo, comprovanteEmail }: FormularioD
           valor={valores.email}
           aoMudar={mudar('email')}
           autoComplete="email"
-          somenteLeitura={emailFixo !== undefined}
+          somenteLeitura={emailFixo !== undefined || posse !== null}
           erro={erros.email}
         />
         <CampoTexto

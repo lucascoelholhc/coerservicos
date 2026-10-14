@@ -5,7 +5,7 @@ import java.util.UUID;
 
 /**
  * Os dados do próprio usuário (GET /api/contas/eu): nada de hash de senha nem status interno.
- * {@code contatoPendente} (RN61) é o mesmo cálculo do login, sempre lido do banco. {@code mfaAtivo} é a
+ * {@code contatoPendente} (RN61) é o mesmo cálculo do login, a partir da conta carregada agora. {@code mfaAtivo} é a
  * escolha da pessoa (código por SMS no login); para o ADMIN o código é sempre obrigatório, mesmo com
  * {@code mfaAtivo = false} (o front mostra "obrigatório" pelo papel).
  */
@@ -31,5 +31,11 @@ public record MinhaContaResponse(
                 usuario.isEmailConfirmado(),
                 usuario.isContatoPendente(),
                 usuario.isMfaSmsAtivo());
+    }
+
+    /** Sem dados pessoais (nome, e-mail, celular) em log. */
+    @Override
+    public String toString() {
+        return "MinhaContaResponse[id=" + id + ", papeis=" + papeis + "]";
     }
 }

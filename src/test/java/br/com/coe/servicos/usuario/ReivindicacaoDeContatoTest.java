@@ -125,7 +125,7 @@ class ReivindicacaoDeContatoTest extends IntegracaoTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"token\":\"" + token + "\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.email").value(antiga.email()))
+                .andExpect(jsonPath("$.email").value(antiga.email().strip().toLowerCase()))
                 .andExpect(jsonPath("$.comprovante").isString())
                 .andReturn()
                 .getResponse()

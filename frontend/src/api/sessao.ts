@@ -48,6 +48,8 @@ export function terminarVerificacaoSemSessao(): void {
 
 export function iniciarSessao(sessao: SessaoResposta): void {
   saidaVoluntaria = false;
+  // Nova geração: uma renovação que ainda estava no ar (ex.: a de abrir o app) não troca esta sessão.
+  geracao += 1;
   situacao = 'logado';
   token = sessao.accessToken;
   usuario = sessao.usuario;

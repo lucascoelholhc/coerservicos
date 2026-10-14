@@ -134,4 +134,24 @@ class MinhaContaTest extends IntegracaoTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.type").value("urn:coe:erro:nao-encontrado"));
     }
+
+    @Test
+    void toStringNaoMostraDadosPessoais() {
+        String texto = new MinhaContaResponse(
+                        java.util.UUID.randomUUID(),
+                        "Ana Souza",
+                        java.util.List.of(Papel.CLIENTE),
+                        "ana@exemplo.com",
+                        "47900000001",
+                        true,
+                        true,
+                        false,
+                        false)
+                .toString();
+
+        org.assertj.core.api.Assertions.assertThat(texto)
+                .doesNotContain("ana@exemplo.com")
+                .doesNotContain("47900000001")
+                .doesNotContain("Ana Souza");
+    }
 }

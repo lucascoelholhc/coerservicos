@@ -149,15 +149,30 @@ describe('/conta (Minha conta)', () => {
     expect(tokenAtual()).toBe('token-de-teste');
   });
 
-  it('"Sair de todos os aparelhos": POST sair-de-todos; mesmo se a API falhar, a sessão local é limpa', async () => {
+  it('"Sair de todos os aparelhos": falha da API não finge que saiu (o cookie continuaria valendo)', async () => {
     const { pedidos } = simular(CONTA_PADRAO, { '/api/auth/sair-de-todos': () => problema(500, 'x', 'x') });
     abrir();
 
     await userEvent.click(await screen.findByRole('button', { name: 'Sair de todos os aparelhos' }));
     await userEvent.click(screen.getByRole('button', { name: 'Sim, sair de todos' }));
 
-    expect(await screen.findByText('Fui para /')).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível sair agora.');
     expect(pedidos.some((pedido) => pedido.url === '/api/auth/sair-de-todos')).toBe(true);
+    expect(tokenAtual()).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Sim, sair de todos' })).toBeEnabled();
+  });
+
+  it('sessão já encerrada no servidor (401 e renovação recusada): limpa a sessão local e vai para o Início', async () => {
+    simular(CONTA_PADRAO, {
+      '/api/auth/sair': () => problema(401, 'sessao-expirada', 'Entre de novo.'),
+      '/api/auth/renovar': () => problema(401, 'sessao-expirada', 'Entre de novo.'),
+    });
+    abrir();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Sair' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Sim, sair' }));
+
+    expect(await screen.findByText('Fui para /')).toBeInTheDocument();
     expect(tokenAtual()).toBeNull();
   });
 

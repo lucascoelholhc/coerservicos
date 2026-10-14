@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router';
 
 import { sair, sairDeTodos } from '../../api/autenticacao';
 import { buscarMinhaConta, reenviarConfirmacaoDeEmail } from '../../api/contas';
-import { ErroDaApi } from '../../api/erros';
+import { comoErroDaApi, ErroDaApi } from '../../api/erros';
 import { encerrarSessao } from '../../api/sessao';
 import type { MinhaConta as Conta, Papel } from '../../api/tipos';
 import { useRecurso } from '../../api/useRecurso';
@@ -168,13 +168,22 @@ function Sair() {
   const navegar = useNavigate();
   const [pergunta, setPergunta] = useState<'este' | 'todos' | null>(null);
   const [saindo, setSaindo] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
 
   async function confirmar() {
     setSaindo(true);
+    setErro(null);
     try {
       await (pergunta === 'todos' ? sairDeTodos() : sair());
-    } catch {
-      // Mesmo sem resposta da API, a sessão deste aparelho sai: o token só existia na memória.
+    } catch (falha) {
+      const problema = comoErroDaApi(falha);
+      // Sem a confirmação do servidor, o cookie da renovação continuaria valendo (um F5 voltaria a
+      // entrar): não finge que saiu. Só a sessão já encerrada no servidor sai daqui também.
+      if (problema.tipo !== 'sessao') {
+        setErro(`Não foi possível sair agora. ${problema.message}`);
+        setSaindo(false);
+        return;
+      }
     }
     // Saída voluntária: a página privada leva ao Início (o mesmo destino daqui), não a /entrar.
     encerrarSessao({ voluntaria: true });
@@ -188,6 +197,11 @@ function Sair() {
         <p id="pergunta-sair" className={estilos.pergunta}>
           {titulo}
         </p>
+        {erro && (
+          <Nota tipo="erro" anunciar>
+            {erro}
+          </Nota>
+        )}
         <div className={estilos.botoes}>
           <Botao variante="perigo" onClick={confirmar} desabilitado={saindo}>
             {pergunta === 'todos' ? 'Sim, sair de todos' : 'Sim, sair'}
