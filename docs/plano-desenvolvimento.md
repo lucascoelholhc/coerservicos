@@ -198,6 +198,7 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 - **DOM-02**: profissional sem celular confirmado não vai para análise nem aparece na busca (trava no cadastro do profissional, RN08).
 - **DOM-08**: quando existir o filtro de `contato-pendente` (RN61, dia 7b), "Cheguei", "Terminei o dia" e "aprovar diária" entram na **lista de liberados**: a marca bloqueia começar coisas novas (contratar, chat, editar perfil, cadastro de profissional), nunca a execução do que já foi pago (um profissional que perdeu um e-mail não confirmado não pode ficar travado numa diária paga).
 - **Expurgo LGPD** de `codigo_sms` e `token_verificacao` (guardam celular e e-mail): job com o dono do schema (o `coe_app` não tem DELETE), apagando linhas com mais de 30 a 90 dias (prazo a definir com o expurgo geral).
+- **IP na `log_auditoria` é dado pessoal (CORE-11, 14/10)**: precisa de prazo de guarda. Sugestão: **6 meses para o IP** (depois, o job do dono do schema zera a coluna `ip`; a `log_auditoria` é só de inserção para o `coe_app`); o resto da linha segue a regra geral de guarda da auditoria. **A DEFINIR** com quem cuida do jurídico. O IP já é gravado agrupado (IPv6 por /64, como no rate limit).
 - **Anonimização (RN60)** deve zerar também `celular_verificado_em`, `email_verificado_em` e `mfa_sms_ativo`.
 - Envios de e-mail (7b) contados por endereço em `token_verificacao`; os de SMS em `codigo_sms`.
 - **Decisões do plano do 7b (07/10):**
@@ -365,6 +366,8 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 | AWS-10 | Produção | Mesma infra com outras variáveis; aceite repetido em homologação |
 
 Tudo em código (Terraform ou AWS CDK), nada configurado à mão no console.
+
+**Correlação com o ALB (CORE-11, 14/10):** o ALB manda `X-Amzn-Trace-Id`. Gravar esse valor no MDC ao lado do nosso id (`requisicao`), sem aceitar `X-Request-Id` de fora, para cruzar o log da aplicação com o log de acesso do ALB. Validar o formato antes de gravar (só `Root=1-…`, tamanho limitado).
 
 **Conexões com o RDS (CORE-07, 14/10):** cada instância abre o pool da aplicação (Hikari, padrão 10) **mais 5 do limitador de taxa** (`coe.limites.conexoes`, pool próprio para não esgotar o da aplicação). No AWS-03/AWS-05, dimensionar o `max_connections` do RDS para (pool da aplicação + 5) × número máximo de instâncias do auto scaling, com folga para o Flyway e a administração, ou pôr o **RDS Proxy** na frente. Os dois pools usam o login da aplicação (membro de `coe_app`), nunca o dono do schema.
 
