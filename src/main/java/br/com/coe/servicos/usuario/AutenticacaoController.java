@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.com.coe.servicos.compartilhado.erro.NaoAutenticadoException;
+import br.com.coe.servicos.compartilhado.limite.LimitadoPorUsuario;
 import br.com.coe.servicos.compartilhado.seguranca.LiberadoComContatoPendente;
 import br.com.coe.servicos.compartilhado.seguranca.Publico;
 
@@ -67,6 +68,7 @@ class AutenticacaoController {
 
     /** Logado; o cookie (Path=/api/auth) diz qual sessão manter. */
     @PostMapping("/senha/trocar")
+    @LimitadoPorUsuario("trocar-senha-usuario")
     @PreAuthorize("isAuthenticated()")
     ResponseEntity<Void> trocarASenha(
             @Valid @RequestBody TrocarSenhaRequest pedido,

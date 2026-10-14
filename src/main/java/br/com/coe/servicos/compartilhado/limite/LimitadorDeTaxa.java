@@ -64,7 +64,12 @@ public class LimitadorDeTaxa implements AutoCloseable {
         }
     }
 
-    private void cobrar(Balde balde) {
+    /** Cobra um pedido do balde e devolve quantos ainda restam na janela (0 = este esvaziou o balde). */
+    public long consumirUm(Balde balde) {
+        return cobrar(balde);
+    }
+
+    private long cobrar(Balde balde) {
         PropriedadesDeLimites.Regra regra = propriedades.regra(balde.regra());
         String chave;
         long capacidade;
@@ -87,6 +92,7 @@ public class LimitadorDeTaxa implements AutoCloseable {
             LOG.info("Limite atingido: {}", balde.regra());
             throw new MuitasTentativasException(MENSAGEM, Duration.ofNanos(resultado.getNanosToWaitForRefill()));
         }
+        return resultado.getRemainingTokens();
     }
 
     private RuntimeException traduzir(String regra, RuntimeException falha) {
