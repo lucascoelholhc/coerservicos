@@ -53,6 +53,18 @@ final class RegrasDeArquitetura {
             .beAnnotatedWith(Publico.class)
             .because("negar por padrão: todo endpoint tem @PreAuthorize ou @Publico (CORE-06)");
 
+    /**
+     * Nunca o corpo da requisição no log (CORE-11): controller não tem logger. Quem loga é o serviço, com
+     * ids e dados já mascarados; o controller só repassa o pedido.
+     */
+    static final ArchRule CONTROLLER_SEM_LOG = noClasses()
+            .that()
+            .areAnnotatedWith(RestController.class)
+            .should()
+            .dependOnClassesThat()
+            .haveFullyQualifiedName("org.slf4j.Logger")
+            .because("o corpo da requisição nunca vai para o log: quem loga é o serviço (CORE-11)");
+
     private RegrasDeArquitetura() {}
 
     private static boolean leORelogioDoSistema(AccessTarget alvo) {

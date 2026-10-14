@@ -8,6 +8,14 @@ spring:
   jpa:
     show-sql: false
 
+logging:
+  structured:
+    # Log em JSON (ECS) só no prod; a máscara de dado pessoal entra pelo customizador (CORE-11).
+    format:
+      console: ecs
+    json:
+      customizer: br.com.coe.servicos.compartilhado.log.MascaraNoJsonDoLog
+
 management:
   endpoints:
     web:

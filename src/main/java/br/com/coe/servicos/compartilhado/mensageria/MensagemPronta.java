@@ -3,6 +3,8 @@ package br.com.coe.servicos.compartilhado.mensageria;
 import java.util.Objects;
 import java.util.UUID;
 
+import br.com.coe.servicos.compartilhado.log.Mascara;
+
 /**
  * Mensagem com segredo (código, link) pronta para sair depois do commit. Existe só em memória:
  * código e link nunca são gravados em texto no banco (decisão de 07/10). A prioridade escolhe a fila

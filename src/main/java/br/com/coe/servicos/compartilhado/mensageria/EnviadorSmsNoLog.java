@@ -5,6 +5,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
+import br.com.coe.servicos.compartilhado.log.Mascara;
+
 /**
  * SMS falso do perfil local: escreve o texto (com o código) no log, com o celular mascarado. É assim
  * que o ADMIN do seed entra no local. Só existe no perfil {@code local}.
@@ -13,7 +15,7 @@ import org.springframework.stereotype.Component;
 @Profile("local")
 public class EnviadorSmsNoLog implements EnviadorSms {
 
-    private static final Logger LOG = LoggerFactory.getLogger(EnviadorSmsNoLog.class);
+    private static final Logger LOG = LoggerFactory.getLogger("coe.sms-falso");
 
     @Override
     public void enviar(String celular, String texto) {
