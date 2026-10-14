@@ -1,0 +1,12 @@
+.tela {
+  display: grid;
+  gap: 16px;
+  max-width: 560px;
+  padding-block: 28px 40px;
+}
+
+.aviso {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+}

@@ -7,6 +7,8 @@ import type { Papel } from '../api/tipos';
 import { caminhoDeEntrar } from '../api/voltar';
 import { CAMINHOS } from '../caminhos';
 import { SemAcesso } from '../paginas/sem-acesso/SemAcesso';
+import { TelaDeContatoPendente } from './ContatoPendente';
+import { liberadaComContatoPendente } from './liberadasComContatoPendente';
 import estilos from './RotaPrivada.module.css';
 
 interface RotaPrivadaProps {
@@ -18,6 +20,7 @@ interface RotaPrivadaProps {
 /**
  * Página só para quem entrou. Enquanto o app verifica a sessão (logo depois de abrir), mostra
  * "Carregando…" e nunca pisca a tela de entrar; sem sessão, leva a /entrar?voltar=<onde estava>.
+ * Com contato pendente (RN61), fora das telas liberadas mostra o caminho para recolocar o contato.
  */
 export function RotaPrivada({ papeis, children }: RotaPrivadaProps) {
   const situacao = useSituacaoDaSessao();
@@ -39,6 +42,10 @@ export function RotaPrivada({ papeis, children }: RotaPrivadaProps) {
   }
   if (papeis && !papeis.some((papel) => usuario.papeis.includes(papel))) {
     return <SemAcesso />;
+  }
+  // RN61: com contato pendente, só as telas que o backend libera (negar por padrão).
+  if (usuario.contatoPendente && !liberadaComContatoPendente(local.pathname)) {
+    return <TelaDeContatoPendente />;
   }
   return children;
 }

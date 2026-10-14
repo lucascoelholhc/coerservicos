@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { renovarSessao } from '../../api/cliente';
 import { confirmarEmail, reenviarConfirmacaoDeEmail } from '../../api/contas';
 import { ErroDaApi } from '../../api/erros';
+import { usuarioAtual } from '../../api/sessao';
 import { useSessao } from '../../api/SessaoProvider';
 import { lerTokenDoFragmento, limparFragmento } from '../../api/tokenDoFragmento';
 import { CAMINHOS } from '../../caminhos';
@@ -32,6 +34,10 @@ export function ConfirmarEmail() {
   async function enviar(valor: string) {
     try {
       await confirmarEmail(valor);
+      if (usuarioAtual()) {
+        // O contato pendente (RN61) sai do token sem precisar sair e entrar.
+        await renovarSessao();
+      }
       setEstado({ tipo: 'confirmado' });
     } catch (falha) {
       const erro = comoErroDaApi(falha);

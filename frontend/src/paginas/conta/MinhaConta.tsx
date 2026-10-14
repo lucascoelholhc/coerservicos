@@ -11,6 +11,7 @@ import { CAMINHOS } from '../../caminhos';
 import { Botao } from '../../componentes/Botao/Botao';
 import { FalhaAoCarregar } from '../../componentes/FalhaAoCarregar/FalhaAoCarregar';
 import { Nota } from '../../componentes/Nota/Nota';
+import { AvisoDeContatoPendente } from '../../layout/ContatoPendente';
 import { useTitulo } from '../../layout/titulo';
 import estilos from './MinhaConta.module.css';
 
@@ -45,6 +46,7 @@ export function MinhaConta() {
         {conta.situacao === 'erro' && <FalhaAoCarregar erro={conta.erro} aoTentarDeNovo={conta.tentarDeNovo} />}
         {(conta.situacao === 'pronto' || conta.situacao === 'vazio') && (
           <>
+            {conta.dados.contatoPendente && <AvisoDeContatoPendente />}
             <DadosDaConta conta={conta.dados} />
             {!conta.dados.emailConfirmado && (
               <ConfirmarEmail aoAtualizar={conta.tentarDeNovo} aoResponder={setRetornoDoEmail} />

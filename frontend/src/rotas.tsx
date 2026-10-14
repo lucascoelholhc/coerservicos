@@ -6,6 +6,7 @@ import { RotaPrivada } from './layout/RotaPrivada';
 import { CodigoNoLogin } from './paginas/conta/CodigoNoLogin';
 import { ConfirmarCelular } from './paginas/conta/ConfirmarCelular';
 import { MinhaConta } from './paginas/conta/MinhaConta';
+import { RecolocarContato } from './paginas/conta/RecolocarContato';
 import { TrocarSenha } from './paginas/conta/TrocarSenha';
 import { CriarContaCliente } from './paginas/criar-conta/CriarContaCliente';
 import { EscolhaDeConta } from './paginas/criar-conta/EscolhaDeConta';
@@ -56,6 +57,14 @@ export function Rotas() {
           element={
             <RotaPrivada>
               <TrocarSenha />
+            </RotaPrivada>
+          }
+        />
+        <Route
+          path={CAMINHOS.recolocarContato}
+          element={
+            <RotaPrivada>
+              <RecolocarContato />
             </RotaPrivada>
           }
         />

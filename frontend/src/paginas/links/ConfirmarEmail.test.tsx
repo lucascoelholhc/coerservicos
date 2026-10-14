@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { encerrarSessao, iniciarSessao } from '../../api/sessao';
 import { semViolacoes } from '../../teste/axe';
 import { SESSAO_PADRAO } from '../../teste/dadosDaApi';
-import { problema, simularFetch } from '../../teste/fetchSimulado';
+import { json, problema, simularFetch } from '../../teste/fetchSimulado';
 import { ConfirmarEmail } from './ConfirmarEmail';
 
 function abrir(endereco = '/confirmar-email#token=abc123') {
@@ -98,5 +98,24 @@ describe('/confirmar-email', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: 'Este link não vale mais' })).toBeInTheDocument();
     expect(falso).not.toHaveBeenCalled();
+  });
+
+  it('logado: depois de confirmar, renova a sessão (o contato pendente some sem sair e entrar)', async () => {
+    iniciarSessao({ ...SESSAO_PADRAO, usuario: { ...SESSAO_PADRAO.usuario, contatoPendente: true } });
+    const { pedidos } = simularFetch((pedido) =>
+      pedido.url === '/api/auth/renovar' ? json(SESSAO_PADRAO) : new Response(null, { status: 204 }),
+    );
+    abrir();
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'E-mail confirmado' })).toBeInTheDocument();
+    await vi.waitFor(() => expect(pedidos.some((pedido) => pedido.url === '/api/auth/renovar')).toBe(true));
+  });
+
+  it('visitante: confirma sem tentar renovar', async () => {
+    const { pedidos } = simularFetch(() => new Response(null, { status: 204 }));
+    abrir();
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'E-mail confirmado' })).toBeInTheDocument();
+    expect(pedidos.map((pedido) => pedido.url)).toEqual(['/api/contas/email/confirmar']);
   });
 });

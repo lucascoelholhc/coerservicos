@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import { semRolagemLateral, semViolacoesAxe, vigiarCsp } from './ajudantes';
 import { simularApi, simularConta } from './apiSimulada';
-import { SESSAO_PADRAO } from '../src/teste/dadosDaApi';
+import { CONTA_PADRAO, SESSAO_PADRAO } from '../src/teste/dadosDaApi';
 
 test.describe('Conta', () => {
   test('criar conta → minha conta → sair → entrar de novo, sem violação de CSP', async ({ page }) => {
@@ -262,5 +262,54 @@ test.describe('Prova de posse do e-mail (RN61)', () => {
     expect(cadastros[1]).toMatchObject({ email: 'ana@exemplo.com', comprovanteEmail: 'comp-e2e' });
     expect(violacoes).toEqual([]);
     expect(violacoesDaOutra).toEqual([]);
+  });
+});
+
+test.describe('Contato pendente (RN61)', () => {
+  test('MFA bloqueada; recoloca o celular, a sessão renova e Minha conta volta ao normal', async ({ page }) => {
+    const violacoes = await vigiarCsp(page);
+    await simularApi(page);
+    await simularConta(page);
+    const json = (corpo: unknown, status = 200) => ({ status, contentType: 'application/json', body: JSON.stringify(corpo) });
+    let confirmado = false;
+    const pendente = { ...SESSAO_PADRAO, usuario: { ...SESSAO_PADRAO.usuario, contatoPendente: true } };
+    await page.route('**/api/auth/entrar', (rota) => rota.fulfill(json(pendente)));
+    await page.route('**/api/auth/renovar', (rota) =>
+      confirmado
+        ? rota.fulfill(json(SESSAO_PADRAO))
+        : rota.fulfill({ status: 401, contentType: 'application/problem+json', body: JSON.stringify({ type: 'urn:coe:erro:sessao-expirada', status: 401, detail: 'Entre de novo.' }) }),
+    );
+    await page.route('**/api/contas/eu', (rota) =>
+      rota.fulfill(json(confirmado ? CONTA_PADRAO : { ...CONTA_PADRAO, celular: null, contatoPendente: true })),
+    );
+    await page.route('**/api/contas/eu/celular', (rota) => rota.fulfill(json({ mensagem: 'Enviamos um código por SMS para o seu celular.' }, 202)));
+    await page.route('**/api/contas/eu/celular/confirmar', async (rota) => {
+      confirmado = true;
+      await rota.fulfill({ status: 204 });
+    });
+
+    await page.goto('/entrar');
+    await page.getByRole('textbox', { name: 'Celular ou e-mail' }).fill('ana@exemplo.com');
+    await page.getByLabel('Senha').fill('Casa-Azul-2026');
+    await page.getByRole('button', { name: 'Entrar', exact: true }).click();
+    await expect(page.getByText('Cadastre e confirme um novo celular ou e-mail para continuar usando a COE.')).toBeVisible();
+
+    await page.getByRole('link', { name: 'Código no login' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Falta um contato na sua conta' })).toBeVisible();
+    await semViolacoesAxe(page);
+    await semRolagemLateral(page);
+    await page.getByRole('link', { name: 'Recolocar contato' }).click();
+
+    await page.getByRole('textbox', { name: 'Novo celular' }).fill('47900000009');
+    await page.getByRole('button', { name: 'Mandar código' }).click();
+    await page.getByRole('textbox', { name: 'Código' }).fill('123456');
+    await semViolacoesAxe(page);
+    await semRolagemLateral(page);
+    await page.getByRole('button', { name: 'Confirmar' }).click();
+
+    await expect(page.getByText('Contato confirmado. Sua conta voltou ao normal.')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Minha conta' })).toBeVisible();
+    await expect(page.getByText('Cadastre e confirme um novo celular ou e-mail para continuar usando a COE.')).toHaveCount(0);
+    expect(violacoes).toEqual([]);
   });
 });

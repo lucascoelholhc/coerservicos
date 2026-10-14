@@ -223,3 +223,25 @@ describe('Minha conta: Segurança', () => {
     expect(seguranca.queryByRole('link', { name: 'Confirmar celular' })).not.toBeInTheDocument();
   });
 });
+
+describe('Minha conta: contato pendente', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('com contato pendente: nota no topo com o caminho para recolocar', async () => {
+    simular({ ...CONTA_PADRAO, email: null, contatoPendente: true });
+    abrir();
+
+    expect(
+      await screen.findByText('Cadastre e confirme um novo celular ou e-mail para continuar usando a COE.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Recolocar contato' })).toHaveAttribute('href', '/conta/recolocar-contato');
+  });
+
+  it('sem pendência: sem a nota', async () => {
+    simular();
+    abrir();
+
+    await screen.findByRole('heading', { level: 2, name: 'Segurança' });
+    expect(screen.queryByRole('link', { name: 'Recolocar contato' })).not.toBeInTheDocument();
+  });
+});

@@ -55,3 +55,14 @@ export async function pedirCodigoDoMfa(): Promise<string> {
 export async function definirMfa(dados: { ativo: boolean; codigo: string }): Promise<void> {
   await chamar<unknown>('/contas/eu/mfa', { metodo: 'POST', corpo: dados });
 }
+
+/** PUT /api/contas/eu/email (RN61, só com o campo vazio): manda o link; a confirmação grava (202). */
+export async function cadastrarEmailNovo(email: string): Promise<string> {
+  const resposta = await chamar<unknown>('/contas/eu/email', { metodo: 'PUT', corpo: { email } });
+  return mensagemDaResposta(resposta, 'Enviamos um link para o seu e-mail.');
+}
+
+/** PUT /api/contas/eu/celular (RN61, só com o campo vazio): manda o código; a confirmação grava (202). */
+export async function cadastrarCelularNovo(celular: string): Promise<string> {
+  return mensagemDaResposta(await chamar<unknown>('/contas/eu/celular', { metodo: 'PUT', corpo: { celular } }), CODIGO_ENVIADO);
+}
