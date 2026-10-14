@@ -69,8 +69,13 @@ public abstract class IntegracaoTest {
                         .valor();
     }
 
+    /** Baldes do rate limit (CORE-07) zerados antes de cada teste: um teste não gasta o limite do outro. */
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcDosLimites;
+
     @BeforeEach
     void relogioEConfiguracaoNoEstadoPadrao() {
+        jdbcDosLimites.update("DELETE FROM limite_balde");
         sms.aguardarEnvios();
         sms.restaurar();
         email.restaurar();

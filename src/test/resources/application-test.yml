@@ -14,6 +14,14 @@ coe:
     chave-codigos: Wm9QbFdGd0x6ZlZ3d2xjR2Y2bVNqN0F1a0Y2cTZhS2k=
   front:
     url-base: http://localhost:5173
+  limites:
+    conexoes: 4
+    regras:
+      # Só para os testes do LimitadorDeTaxa (CORE-07)
+      teste-ip: { capacidade: 3, janela: 1m }
+      teste-global: { capacidade: 40, janela: 1h, fatias: 4 }
+      teste-ordem-ip: { capacidade: 2, janela: 1h }
+      teste-ordem-global: { capacidade: 10, janela: 1h }
   jwt:
     kid-atual: teste-2
     chaves: teste-2:64cxK3KGrXaWz4l8l3eTpGwHnDHY9ust4wiQ1nC8+OM=,teste-1:wW+XYKypOvCgAc5BG5mlGksqdNbUDiXtlPMh4p43hxE=
