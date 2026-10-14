@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import br.com.coe.servicos.compartilhado.auditoria.RegistroDeAuditoria;
 import br.com.coe.servicos.compartilhado.erro.ConflitoException;
 import br.com.coe.servicos.compartilhado.erro.RegraDeNegocioException;
 import br.com.coe.servicos.usuario.validacao.SenhaPermitidaValidador;
@@ -58,6 +60,7 @@ class ServicoDeSenha {
     private final PasswordEncoder codificador;
     private final TransactionTemplate transacao;
     private final Clock clock;
+    private final RegistroDeAuditoria auditoria;
 
     @SuppressWarnings("java:S107") // os três fluxos da senha tocam conta, códigos, links e sessões
     ServicoDeSenha(
@@ -70,7 +73,9 @@ class ServicoDeSenha {
             ContaDeQuemChama contaDeQuemChama,
             PasswordEncoder codificador,
             PlatformTransactionManager transacoes,
-            Clock clock) {
+            Clock clock,
+            RegistroDeAuditoria auditoria) {
+        this.auditoria = auditoria;
         this.usuarios = usuarios;
         this.tokens = tokens;
         this.codigos = codigos;
@@ -135,7 +140,7 @@ class ServicoDeSenha {
                 status.setRollbackOnly();
                 return false;
             }
-            gravarSenhaNova(conta.getId(), hash);
+            gravarSenhaNova(conta.getId(), hash, "email");
             return true;
         });
         if (!Boolean.TRUE.equals(trocou)) {
@@ -167,7 +172,7 @@ class ServicoDeSenha {
                     .filter(atual -> celular.equals(atual.getCelular()))
                     .isPresent();
             if (aindaVale) {
-                gravarSenhaNova(conta.getId(), hash);
+                gravarSenhaNova(conta.getId(), hash, "sms");
             }
             return aindaVale;
         });
@@ -177,12 +182,21 @@ class ServicoDeSenha {
     }
 
     /** Senha nova: nenhum outro link ou código de senha vale e todas as sessões caem. */
-    private void gravarSenhaNova(UUID usuarioId, String hash) {
+    private void gravarSenhaNova(UUID usuarioId, String hash, String via) {
         Instant agora = clock.instant();
         usuarios.redefinirSenhaHash(usuarioId, hash);
         links.invalidarAtivosDaConta(usuarioId, FinalidadeToken.RECUPERAR_SENHA.valor(), agora);
         codigosSms.invalidarAtivosDaConta(usuarioId, FinalidadeSms.RECUPERAR_SENHA.valor(), agora);
         sessoes.revogarDoUsuario(usuarioId, agora, MOTIVO);
+        auditoria.registrar(
+                usuarioId,
+                usuarios.findById(usuarioId).map(Usuario::papelPrincipal).orElse(null),
+                "senha.redefinir",
+                "usuario",
+                usuarioId,
+                Map.of(),
+                Map.of("via", via),
+                null);
         LOG.info("Senha redefinida, todas as sessões encerradas: {}", usuarioId);
     }
 
@@ -214,6 +228,15 @@ class ServicoDeSenha {
             }
             links.invalidarAtivosDaConta(conta.getId(), FinalidadeToken.RECUPERAR_SENHA.valor(), agora);
             codigosSms.invalidarAtivosDaConta(conta.getId(), FinalidadeSms.RECUPERAR_SENHA.valor(), agora);
+            auditoria.registrar(
+                    conta.getId(),
+                    conta.papelPrincipal(),
+                    "senha.trocar",
+                    "usuario",
+                    conta.getId(),
+                    Map.of(),
+                    Map.of("outrasSessoes", "revogadas"),
+                    null);
         });
         LOG.info("Senha trocada, outras sessões encerradas: {}", conta.getId());
     }

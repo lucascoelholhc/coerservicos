@@ -91,6 +91,14 @@ public class Usuario {
         return nome;
     }
 
+    /** O papel mais alto da conta, para a auditoria: ADMIN, depois PROFISSIONAL, depois CLIENTE. */
+    String papelPrincipal() {
+        if (papeis.contains(Papel.ADMIN)) {
+            return Papel.ADMIN.name();
+        }
+        return papeis.contains(Papel.PROFISSIONAL) ? Papel.PROFISSIONAL.name() : Papel.CLIENTE.name();
+    }
+
     public Set<Papel> getPapeis() {
         return Set.copyOf(papeis);
     }

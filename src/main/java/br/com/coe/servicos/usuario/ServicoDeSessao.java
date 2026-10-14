@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -13,6 +14,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+
+import br.com.coe.servicos.compartilhado.auditoria.RegistroDeAuditoria;
 
 /**
  * Sessões por aparelho (PA03): refresh de 30 dias, renovado a cada uso; reuso depois de 30 s
@@ -46,6 +49,7 @@ class ServicoDeSessao {
     private final UsuarioRepository usuarios;
     private final TransactionTemplate transacao;
     private final Clock clock;
+    private final RegistroDeAuditoria auditoria;
     private final Duration duracaoMaxima;
 
     ServicoDeSessao(
@@ -53,7 +57,9 @@ class ServicoDeSessao {
             UsuarioRepository usuarios,
             PlatformTransactionManager transacoes,
             Clock clock,
-            @Value("${coe.auth.sessao.duracao-maxima}") Duration duracaoMaxima) {
+            @Value("${coe.auth.sessao.duracao-maxima}") Duration duracaoMaxima,
+            RegistroDeAuditoria auditoria) {
+        this.auditoria = auditoria;
         this.tokens = tokens;
         this.usuarios = usuarios;
         this.transacao = new TransactionTemplate(transacoes);
@@ -118,6 +124,13 @@ class ServicoDeSessao {
                 return CORRIDA_BENIGNA;
             }
             tokens.revogarFamilia(atual.getFamiliaId(), agora, "reuso");
+            auditoria.registrarDoSistema(
+                    "sessao.reuso-refresh",
+                    "usuario",
+                    atual.getUsuarioId(),
+                    Map.of(),
+                    Map.of("familia", "revogada"),
+                    ip);
             LOG.warn("Refresh reutilizado, sessão do aparelho revogada: {}", atual.getUsuarioId());
             return RECUSADA;
         }
@@ -173,7 +186,18 @@ class ServicoDeSessao {
      * aceita, anotada no plano).
      */
     void sairDeTodos(UUID usuarioId) {
-        transacao.executeWithoutResult(status -> tokens.revogarDoUsuario(usuarioId, agora(), "sair_todos"));
+        transacao.executeWithoutResult(status -> {
+            tokens.revogarDoUsuario(usuarioId, agora(), "sair_todos");
+            auditoria.registrar(
+                    usuarioId,
+                    usuarios.findById(usuarioId).map(Usuario::papelPrincipal).orElse(null),
+                    "sessao.sair-de-todos",
+                    "usuario",
+                    usuarioId,
+                    Map.of(),
+                    Map.of(),
+                    null);
+        });
     }
 
     private Instant agora() {

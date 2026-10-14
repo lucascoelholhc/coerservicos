@@ -20,6 +20,11 @@ public final class ChaveDeIp {
 
     private ChaveDeIp() {}
 
+    /** A chave que reúne os endereços não reconhecidos (não vale como IP para gravar). */
+    public static boolean desconhecido(String chave) {
+        return DESCONHECIDO.equals(chave);
+    }
+
     public static String de(String ip) {
         if (ip == null || !FORMATO_DE_IP.matcher(ip).matches()) {
             return DESCONHECIDO;

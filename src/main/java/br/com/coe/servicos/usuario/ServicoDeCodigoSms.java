@@ -5,6 +5,7 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import br.com.coe.servicos.compartilhado.auditoria.RegistroDeAuditoria;
 import br.com.coe.servicos.compartilhado.mensageria.Mascara;
 import br.com.coe.servicos.compartilhado.mensageria.MensagemPronta;
 import br.com.coe.servicos.config.ChaveDeCodigos;
@@ -49,6 +51,7 @@ class ServicoDeCodigoSms {
     private final ApplicationEventPublisher eventos;
     private final TransactionTemplate transacao;
     private final Clock clock;
+    private final RegistroDeAuditoria auditoria;
     private final int falhasParaBloqueio;
     private final Duration janelaDeFalhas;
     private final Duration duracaoDoBloqueio;
@@ -62,7 +65,9 @@ class ServicoDeCodigoSms {
             Clock clock,
             @Value("${coe.seguranca.codigos.falhas-para-bloqueio:10}") int falhasParaBloqueio,
             @Value("${coe.seguranca.codigos.janela-falhas:24h}") Duration janelaDeFalhas,
-            @Value("${coe.seguranca.codigos.duracao-bloqueio:1h}") Duration duracaoDoBloqueio) {
+            @Value("${coe.seguranca.codigos.duracao-bloqueio:1h}") Duration duracaoDoBloqueio,
+            RegistroDeAuditoria auditoria) {
+        this.auditoria = auditoria;
         if (falhasParaBloqueio < 1 || !janelaDeFalhas.isPositive() || !duracaoDoBloqueio.isPositive()) {
             throw new IllegalStateException(
                     "coe.seguranca.codigos inválido: falhas-para-bloqueio >= 1 e janela e" + " bloqueio positivos");
@@ -259,7 +264,27 @@ class ServicoDeCodigoSms {
             return true;
         }
         codigoSms.registrarErro(agora, MAXIMO_TENTATIVAS);
+        registrarSeBloqueou(codigoSms.getUsuarioId(), agora);
         return false;
+    }
+
+    /** Auditoria do bloqueio por códigos errados: uma vez, no erro que atinge o limite (CORE-11). */
+    private void registrarSeBloqueou(UUID usuarioId, Instant agora) {
+        if (usuarioId == null) {
+            return; // prova de posse: o bloqueio é do número, sem conta (fica só no log)
+        }
+        codigos.flush();
+        long erros = codigos.somarErrosDaConta(usuarioId, agora.minus(janelaDeFalhas))
+                .longValue();
+        if (erros == falhasParaBloqueio) {
+            auditoria.registrarDoSistema(
+                    "conta.bloqueio-codigos",
+                    "usuario",
+                    usuarioId,
+                    Map.of(),
+                    Map.of("duracao", duracaoDoBloqueio.toString()),
+                    null);
+        }
     }
 
     private byte[] hmac(String celular, String finalidade, String codigo) {

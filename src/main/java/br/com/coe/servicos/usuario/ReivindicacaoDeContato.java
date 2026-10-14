@@ -14,7 +14,6 @@ import org.springframework.stereotype.Component;
 import br.com.coe.servicos.compartilhado.auditoria.RegistroDeAuditoria;
 import br.com.coe.servicos.compartilhado.erro.ConflitoException;
 import br.com.coe.servicos.compartilhado.erro.RegraDeNegocioException;
-import br.com.coe.servicos.compartilhado.mensageria.Mascara;
 
 /**
  * RN61, dentro da transação do cadastro: usa os comprovantes de posse e tira o dado da conta
@@ -111,12 +110,12 @@ class ReivindicacaoDeContato {
         if (antigoDoCelular != null) {
             antigoDoCelular.perderCelular();
             codigos.invalidarAtivosDoCelular(celular, agora);
-            encerrar(antigoDoCelular, "celular", Mascara.celular(celular), novaConta, ip, agora);
+            encerrar(antigoDoCelular, "celular", novaConta, ip, agora);
         }
         if (antigoDoEmail != null) {
             antigoDoEmail.perderEmail();
             links.invalidarAtivosDoDestino(email, agora);
-            encerrar(antigoDoEmail, "email", Mascara.email(email), novaConta, ip, agora);
+            encerrar(antigoDoEmail, "email", novaConta, ip, agora);
         }
         return new Resultado(celularComprovado, emailComprovado, agora);
     }
@@ -152,15 +151,15 @@ class ReivindicacaoDeContato {
         }
     }
 
-    private void encerrar(Usuario antiga, String canal, String mascarado, UUID novaConta, String ip, Instant agora) {
+    private void encerrar(Usuario antiga, String canal, UUID novaConta, String ip, Instant agora) {
         usuarios.saveAndFlush(antiga); // libera o dado antes do INSERT da conta nova
         sessoes.revogarDoUsuario(antiga.getId(), agora, "contato_transferido");
         auditoria.registrarDoSistema(
                 "contato.transferir",
                 "usuario",
                 antiga.getId(),
-                Map.of(canal, mascarado),
-                Map.of(canal, "removido", "paraConta", novaConta.toString()),
+                Map.of("canal", canal),
+                Map.of("canal", canal, "removido", true, "paraConta", novaConta.toString()),
                 ip);
         LOG.info("Contato ({}) transferido da conta {} para a conta {}", canal, antiga.getId(), novaConta);
     }

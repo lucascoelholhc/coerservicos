@@ -20,7 +20,8 @@ class ServicoDeSessaoTest {
                 mock(UsuarioRepository.class),
                 mock(PlatformTransactionManager.class),
                 Clock.systemUTC(),
-                teto);
+                teto,
+                mock(br.com.coe.servicos.compartilhado.auditoria.RegistroDeAuditoria.class));
     }
 
     @ParameterizedTest(name = "recusa {0}")

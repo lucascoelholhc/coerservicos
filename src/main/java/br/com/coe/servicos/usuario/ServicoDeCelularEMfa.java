@@ -1,6 +1,7 @@
 package br.com.coe.servicos.usuario;
 
 import java.time.Clock;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import br.com.coe.servicos.compartilhado.auditoria.RegistroDeAuditoria;
 import br.com.coe.servicos.compartilhado.erro.AcaoProibidaException;
 import br.com.coe.servicos.compartilhado.erro.ConflitoException;
 import br.com.coe.servicos.compartilhado.erro.MuitasTentativasException;
@@ -32,13 +34,16 @@ class ServicoDeCelularEMfa {
     private final UsuarioRepository usuarios;
     private final TransactionTemplate transacao;
     private final Clock clock;
+    private final RegistroDeAuditoria auditoria;
 
     ServicoDeCelularEMfa(
             ServicoDeCodigoSms codigos,
             ContaDeQuemChama contaDeQuemChama,
             UsuarioRepository usuarios,
             PlatformTransactionManager transacoes,
-            Clock clock) {
+            Clock clock,
+            RegistroDeAuditoria auditoria) {
+        this.auditoria = auditoria;
         this.codigos = codigos;
         this.contaDeQuemChama = contaDeQuemChama;
         this.usuarios = usuarios;
@@ -103,6 +108,15 @@ class ServicoDeCelularEMfa {
                 }
                 conta.gravarCelularConfirmado(celular, clock.instant());
                 usuarios.saveAndFlush(conta);
+                auditoria.registrar(
+                        conta.getId(),
+                        conta.papelPrincipal(),
+                        "contato.recolocar",
+                        "usuario",
+                        conta.getId(),
+                        Map.of(),
+                        Map.of("canal", "celular"),
+                        null);
             });
         } catch (DataIntegrityViolationException corrida) {
             throw celularJaCadastrado();
@@ -124,8 +138,20 @@ class ServicoDeCelularEMfa {
         }
         exigirCelularConfirmado(usuario);
         exigirCodigo(usuario, FinalidadeSms.CONFIGURAR_MFA, codigo);
-        transacao.executeWithoutResult(
-                status -> contaDeQuemChama.carregar(usuario.getId()).definirMfa(ativo));
+        transacao.executeWithoutResult(status -> {
+            Usuario conta = contaDeQuemChama.carregar(usuario.getId());
+            boolean antes = conta.isMfaSmsAtivo();
+            conta.definirMfa(ativo);
+            auditoria.registrar(
+                    conta.getId(),
+                    conta.papelPrincipal(),
+                    ativo ? "mfa.ligar" : "mfa.desligar",
+                    "usuario",
+                    conta.getId(),
+                    Map.of("ativo", antes),
+                    Map.of("ativo", ativo),
+                    null);
+        });
         LOG.info("MFA {}: {}", ativo ? "ligado" : "desligado", usuario.getId());
     }
 
