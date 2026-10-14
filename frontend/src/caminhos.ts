@@ -8,6 +8,7 @@ export const CAMINHOS = {
   conta: '/conta',
   confirmarCelular: '/conta/confirmar-celular',
   codigoNoLogin: '/conta/codigo-no-login',
+  trocarSenha: '/conta/trocar-senha',
   esqueciSenha: '/esqueci-senha',
   redefinirSenha: '/redefinir-senha',
   confirmarEmail: '/confirmar-email',

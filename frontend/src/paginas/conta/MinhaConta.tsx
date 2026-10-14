@@ -117,6 +117,11 @@ function Seguranca({ conta }: { conta: Conta }) {
           </Link>
           <b>{situacaoDoCodigo(conta)}</b>
         </li>
+        <li className={estilos.item}>
+          <Link className={estilos.linkDoItem} to={CAMINHOS.trocarSenha}>
+            Trocar senha
+          </Link>
+        </li>
       </ul>
     </section>
   );

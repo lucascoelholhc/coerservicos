@@ -32,3 +32,8 @@ export async function pedirCodigoParaEntrar(celular: string): Promise<string> {
 export function entrarComCodigo(dados: { celular: string; codigo: string }): Promise<SessaoResposta> {
   return chamar<SessaoResposta>('/auth/entrar-com-codigo', { metodo: 'POST', corpo: dados });
 }
+
+/** POST /api/auth/senha/trocar (logado): mantém a sessão deste aparelho e derruba as outras (204). */
+export async function trocarSenha(dados: { senhaAtual: string; novaSenha: string }): Promise<void> {
+  await chamar<unknown>('/auth/senha/trocar', { metodo: 'POST', corpo: dados });
+}

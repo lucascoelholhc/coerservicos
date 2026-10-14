@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { simularFetch } from '../teste/fetchSimulado';
+import { trocarSenha } from './autenticacao';
 import { confirmarEmail } from './contas';
 import { esqueciSenha, redefinirSenha } from './senha';
 
@@ -36,5 +37,18 @@ describe('senha e confirmação de e-mail', () => {
     expect(pedidos[0]).toMatchObject({ url: '/api/contas/email/confirmar', metodo: 'POST' });
     expect(pedidos[0]?.url).not.toContain('abc123');
     expect(JSON.parse(pedidos[0]?.corpo ?? '{}')).toEqual({ token: 'abc123' });
+  });
+});
+
+describe('trocar a senha (logado)', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('POST /api/auth/senha/trocar com a senha atual e a nova', async () => {
+    const { pedidos } = simularFetch(() => new Response(null, { status: 204 }));
+
+    await trocarSenha({ senhaAtual: 'Casa-Azul-2026', novaSenha: 'Casa-Verde-2026' });
+
+    expect(pedidos[0]).toMatchObject({ url: '/api/auth/senha/trocar', metodo: 'POST' });
+    expect(JSON.parse(pedidos[0]?.corpo ?? '{}')).toEqual({ senhaAtual: 'Casa-Azul-2026', novaSenha: 'Casa-Verde-2026' });
   });
 });

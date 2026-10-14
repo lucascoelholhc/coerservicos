@@ -192,6 +192,7 @@ describe('Minha conta: Segurança', () => {
 
     expect(seguranca.getByRole('link', { name: 'Confirmar celular' })).toHaveAttribute('href', '/conta/confirmar-celular');
     expect(seguranca.getByRole('link', { name: 'Código no login' })).toHaveAttribute('href', '/conta/codigo-no-login');
+    expect(seguranca.getByRole('link', { name: 'Trocar senha' })).toHaveAttribute('href', '/conta/trocar-senha');
     expect(seguranca.getByText('Não confirmado')).toBeInTheDocument();
     expect(seguranca.getByText('Desligado')).toBeInTheDocument();
   });

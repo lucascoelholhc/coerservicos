@@ -166,3 +166,34 @@ test.describe('Código por SMS', () => {
     expect(violacoes).toEqual([]);
   });
 });
+
+test.describe('Trocar senha', () => {
+  test('logado: Minha conta → Trocar senha → volta com aviso, sessão mantida', async ({ page }) => {
+    const violacoes = await vigiarCsp(page);
+    await simularApi(page);
+    await simularConta(page);
+    let corpoDaTroca: unknown = null;
+    await page.route('**/api/auth/senha/trocar', async (rota) => {
+      corpoDaTroca = rota.request().postDataJSON();
+      await rota.fulfill({ status: 204 });
+    });
+
+    await page.goto('/entrar');
+    await page.getByRole('textbox', { name: 'Celular ou e-mail' }).fill('ana@exemplo.com');
+    await page.getByLabel('Senha').fill('Casa-Azul-2026');
+    await page.getByRole('button', { name: 'Entrar', exact: true }).click();
+    await page.getByRole('link', { name: 'Trocar senha' }).click();
+
+    await expect(page.getByRole('heading', { level: 1, name: 'Trocar senha' })).toBeVisible();
+    await semViolacoesAxe(page);
+    await semRolagemLateral(page);
+    await page.getByLabel('Senha atual').fill('Casa-Azul-2026');
+    await page.getByLabel('Nova senha').fill('Casa-Verde-2026');
+    await page.getByRole('button', { name: 'Trocar senha' }).click();
+
+    await expect(page.getByText('Senha trocada. Os outros aparelhos foram desconectados.')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Minha conta' })).toBeVisible();
+    expect(corpoDaTroca).toEqual({ senhaAtual: 'Casa-Azul-2026', novaSenha: 'Casa-Verde-2026' });
+    expect(violacoes).toEqual([]);
+  });
+});
