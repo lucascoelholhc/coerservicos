@@ -69,6 +69,15 @@ public abstract class IntegracaoTest {
                         .valor();
     }
 
+    /**
+     * Corpo de erro sem o {@code requisicao} (CORE-11), que é único por requisição: para comparar dois
+     * corpos que devem ser iguais (anti-IDOR, 401 genérico, 409 neutro). Confere que o campo existe.
+     */
+    protected static String semRequisicao(String corpo) {
+        org.assertj.core.api.Assertions.assertThat(corpo).contains("\"requisicao\":\"");
+        return corpo.replaceAll(",?\"requisicao\":\"[^\"]*\"", "");
+    }
+
     /** Baldes do rate limit (CORE-07) zerados antes de cada teste: um teste não gasta o limite do outro. */
     @Autowired
     private org.springframework.jdbc.core.JdbcTemplate jdbcDosLimites;

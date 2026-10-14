@@ -8,6 +8,8 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import tools.jackson.databind.json.JsonMapper;
 
+import br.com.coe.servicos.compartilhado.log.Correlacao;
+
 /** Erro escrito pelos filtros de segurança, no mesmo formato do TratadorDeErros (RFC 9457). */
 final class RespostaDeProblema {
 
@@ -23,6 +25,10 @@ final class RespostaDeProblema {
         problema.put("title", titulo);
         problema.put("status", status);
         problema.put("detail", detalhe);
+        String id = Correlacao.atual();
+        if (id != null) {
+            problema.put(Correlacao.CHAVE, id);
+        }
         resposta.setStatus(status);
         resposta.setContentType(PROBLEM_JSON);
         resposta.getOutputStream().write(json.writeValueAsString(problema).getBytes(StandardCharsets.UTF_8));

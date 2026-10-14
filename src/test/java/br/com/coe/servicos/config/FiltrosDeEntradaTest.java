@@ -63,9 +63,16 @@ class FiltrosDeEntradaTest {
             MockHttpServletResponse resposta = new MockHttpServletResponse();
             MockFilterChain cadeia = new MockFilterChain();
 
-            new FiltroDeLimites(limitador, memoria, json).doFilter(pedirCodigo(), resposta, cadeia);
+            org.slf4j.MDC.put("requisicao", "id-da-requisicao");
+            try {
+                new FiltroDeLimites(limitador, memoria, json).doFilter(pedirCodigo(), resposta, cadeia);
+            } finally {
+                org.slf4j.MDC.remove("requisicao");
+            }
 
             assertThat(resposta.getStatus()).isEqualTo(503);
+            assertThat(resposta.getContentAsString(StandardCharsets.UTF_8))
+                    .contains("\"requisicao\":\"id-da-requisicao\""); // CORE-11
             assertThat(resposta.getContentType()).isEqualTo("application/problem+json");
             assertThat(resposta.getContentAsString(StandardCharsets.UTF_8))
                     .contains("urn:coe:erro:servico-instavel")

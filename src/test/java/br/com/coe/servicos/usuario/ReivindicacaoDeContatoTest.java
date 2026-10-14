@@ -197,7 +197,7 @@ class ReivindicacaoDeContatoTest extends IntegracaoTest {
                 .andReturn()
                 .getResponse()
                 .getContentAsString(StandardCharsets.UTF_8);
-        return corpo.replaceAll("\"instance\":\"[^\"]*\",?", "");
+        return semRequisicao(corpo.replaceAll("\"instance\":\"[^\"]*\",?", ""));
     }
 
     @Test

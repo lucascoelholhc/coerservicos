@@ -8,12 +8,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
+
+import br.com.coe.servicos.compartilhado.log.Correlacao;
 
 /**
  * Envio assíncrono (decisão de 07/10): a mensagem só sai depois do commit (rollback não envia) e
@@ -127,11 +130,15 @@ public class DespachoDeMensagens implements DisposableBean {
     }
 
     private void enviar(MensagemPronta mensagem) {
+        if (mensagem.requisicao() != null) {
+            MDC.put(Correlacao.CHAVE, mensagem.requisicao());
+        }
         try {
             switch (mensagem.canal()) {
                 case SMS -> sms.enviar(mensagem.destino(), mensagem.texto());
                 case EMAIL -> email.enviar(mensagem.destino(), mensagem.assunto(), mensagem.texto());
             }
+            LOG.info("Enviado {} para {}", mensagem.canal(), mensagem.destinoMascarado());
         } catch (RuntimeException erro) {
             LOG.error(
                     "Falha ao enviar {} para {}: {}",
@@ -140,6 +147,7 @@ public class DespachoDeMensagens implements DisposableBean {
                     erro.getClass().getSimpleName());
         } finally {
             pendentes.decrementAndGet();
+            MDC.remove(Correlacao.CHAVE);
         }
     }
 

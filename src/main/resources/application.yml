@@ -111,6 +111,11 @@ coe:
       secure: true      # o local (http://localhost) desliga no application-local.yml
       dominio:          # vazio = só o host que respondeu
 
+logging:
+  pattern:
+    # Id da requisição (CORE-11) em toda linha do log em texto (local e test); no JSON do prod vai pelo MDC.
+    correlation: "[%X{requisicao:-}] "
+
 server:
   error:
     include-stacktrace: never

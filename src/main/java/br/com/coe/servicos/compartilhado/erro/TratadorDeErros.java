@@ -31,6 +31,8 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import br.com.coe.servicos.compartilhado.log.Correlacao;
+
 /**
  * Formato único de erro da API: Problem Details (RFC 9457), com título e detalhe em português,
  * o status do corpo igual ao HTTP e sem nenhum detalhe interno (stack trace, nome de classe, SQL).
@@ -283,6 +285,10 @@ public class TratadorDeErros extends ResponseEntityExceptionHandler {
         ProblemDetail problema = ProblemDetail.forStatusAndDetail(status, detalhe);
         problema.setType(URI.create(PREFIXO_TIPO + codigo));
         problema.setTitle(titulo);
+        String id = Correlacao.atual();
+        if (id != null) {
+            problema.setProperty(Correlacao.CHAVE, id); // CORE-11: achar a requisição no log
+        }
         return problema;
     }
 }

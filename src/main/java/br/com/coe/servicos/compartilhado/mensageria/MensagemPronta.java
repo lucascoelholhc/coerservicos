@@ -3,15 +3,23 @@ package br.com.coe.servicos.compartilhado.mensageria;
 import java.util.Objects;
 import java.util.UUID;
 
+import br.com.coe.servicos.compartilhado.log.Correlacao;
 import br.com.coe.servicos.compartilhado.log.Mascara;
 
 /**
  * Mensagem com segredo (código, link) pronta para sair depois do commit. Existe só em memória:
  * código e link nunca são gravados em texto no banco (decisão de 07/10). A prioridade escolhe a fila
- * de envio (CORE-07) e a cota aponta a linha que a gerou, para devolver a cota se for descartada.
+ * de envio (CORE-07) e a cota aponta a linha que a gerou, para devolver a cota se for descartada. O id da
+ * requisição que a gerou vai junto, para o log do envio (em outra thread) mostrar o mesmo id (CORE-11).
  */
 public record MensagemPronta(
-        Canal canal, String destino, String assunto, String texto, Prioridade prioridade, Cota cota) {
+        Canal canal,
+        String destino,
+        String assunto,
+        String texto,
+        Prioridade prioridade,
+        Cota cota,
+        String requisicao) {
 
     public enum Canal {
         SMS,
@@ -50,7 +58,7 @@ public record MensagemPronta(
     }
 
     public static MensagemPronta sms(String celular, String texto, Prioridade prioridade, Cota cota) {
-        return new MensagemPronta(Canal.SMS, celular, null, texto, prioridade, cota);
+        return new MensagemPronta(Canal.SMS, celular, null, texto, prioridade, cota, Correlacao.atual());
     }
 
     /** E-mail sem linha de cota (prioridade normal). */
@@ -59,7 +67,7 @@ public record MensagemPronta(
     }
 
     public static MensagemPronta email(String para, String assunto, String texto, Prioridade prioridade, Cota cota) {
-        return new MensagemPronta(Canal.EMAIL, para, assunto, texto, prioridade, cota);
+        return new MensagemPronta(Canal.EMAIL, para, assunto, texto, prioridade, cota, Correlacao.atual());
     }
 
     String destinoMascarado() {
