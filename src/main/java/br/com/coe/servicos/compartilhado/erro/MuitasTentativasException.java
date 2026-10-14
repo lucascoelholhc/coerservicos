@@ -9,18 +9,11 @@ import java.util.Objects;
  */
 public class MuitasTentativasException extends RuntimeException {
 
-    private static final Duration ESPERA_PADRAO = Duration.ofSeconds(60);
-
     private final Duration espera;
 
     public MuitasTentativasException(String mensagem, Duration espera) {
         super(mensagem);
         this.espera = Objects.requireNonNull(espera, "espera");
-    }
-
-    /** Provisório: sai quando os limites por destino calcularem a espera real (etapa 2c da CORE-07). */
-    public MuitasTentativasException(String mensagem) {
-        this(mensagem, ESPERA_PADRAO);
     }
 
     public Duration espera() {

@@ -1,6 +1,7 @@
 package br.com.coe.servicos.usuario;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import jakarta.persistence.LockModeType;
@@ -27,6 +28,16 @@ interface CodigoSmsRepository extends JpaRepository<CodigoSms, UUID> {
                     + " AND criado_em > :desde",
             nativeQuery = true)
     long contarEnviosDaFinalidadeDesde(String celular, String finalidade, Instant desde);
+
+    /** O envio mais novo da finalidade desde o instante (Retry-After da espera de 60 s). */
+    @Query("SELECT max(c.criadoEm) FROM CodigoSms c WHERE c.celular = :celular AND c.finalidade = :finalidade"
+            + " AND c.criadoEm > :desde")
+    Optional<Instant> ultimoEnvioDaFinalidadeDesde(String celular, String finalidade, Instant desde);
+
+    /** Os envios desde o instante, do mais novo ao mais velho (Retry-After do teto por hora). */
+    @Query("SELECT c.criadoEm FROM CodigoSms c WHERE c.celular = :celular AND c.criadoEm > :desde"
+            + " ORDER BY c.criadoEm DESC")
+    List<Instant> enviosDesde(String celular, Instant desde);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT c FROM CodigoSms c WHERE c.celular = :celular AND c.finalidade = :finalidade"

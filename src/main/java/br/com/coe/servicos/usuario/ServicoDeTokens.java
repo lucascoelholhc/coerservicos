@@ -160,4 +160,15 @@ class ServicoDeTokens {
         return tokens.contarEmailsDaFinalidadeDesde(endereco, finalidade, agora.minus(INTERVALO_ENTRE_ENVIOS)) > 0
                 || tokens.contarEmailsDesde(endereco, agora.minus(UMA_HORA)) >= MAXIMO_ENVIOS_POR_HORA;
     }
+
+    /** Quanto falta para o endereço poder receber outro e-mail da finalidade (Retry-After do 429). */
+    Duration esperaParaEnviar(String endereco, FinalidadeToken finalidade) {
+        Instant agora = clock.instant();
+        return EsperaDeEnvio.calcular(
+                agora,
+                tokens.ultimoEmailDaFinalidadeDesde(endereco, finalidade.valor(), agora.minus(INTERVALO_ENTRE_ENVIOS)),
+                tokens.emailsDesde(endereco, agora.minus(UMA_HORA)),
+                INTERVALO_ENTRE_ENVIOS,
+                MAXIMO_ENVIOS_POR_HORA);
+    }
 }

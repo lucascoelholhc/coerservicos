@@ -78,7 +78,7 @@ class ServicoDeConfirmacaoDeEmail {
             throw new ConflitoException("email-ja-confirmado", "Seu e-mail já está confirmado.", null);
         }
         if (!tokens.enviarLink(usuario.getId(), usuario.getEmail(), FinalidadeToken.CONFIRMAR_EMAIL, VALIDADE, EMAIL)) {
-            throw new MuitasTentativasException("Você pediu muitos e-mails. Aguarde um pouco e tente de novo.");
+            throw muitosEmails(usuario.getEmail());
         }
     }
 
@@ -94,8 +94,14 @@ class ServicoDeConfirmacaoDeEmail {
             throw emailJaCadastrado();
         }
         if (!tokens.enviarLink(usuario.getId(), email, FinalidadeToken.CONFIRMAR_EMAIL, VALIDADE, EMAIL)) {
-            throw new MuitasTentativasException("Você pediu muitos e-mails. Aguarde um pouco e tente de novo.");
+            throw muitosEmails(email);
         }
+    }
+
+    private MuitasTentativasException muitosEmails(String email) {
+        return new MuitasTentativasException(
+                "Você pediu muitos e-mails. Aguarde um pouco e tente de novo.",
+                tokens.esperaParaEnviar(email, FinalidadeToken.CONFIRMAR_EMAIL));
     }
 
     private enum Confirmacao {

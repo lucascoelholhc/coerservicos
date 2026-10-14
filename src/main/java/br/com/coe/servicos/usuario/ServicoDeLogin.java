@@ -1,6 +1,7 @@
 package br.com.coe.servicos.usuario;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -72,8 +73,10 @@ class ServicoDeLogin {
 
     /** Segundo passo: o desafio do 403 + o código do SMS. Qualquer falha dá o 401 genérico. */
     LoginAceito segundoPasso(SegundoPassoRequest pedido, String ip, String userAgent) {
-        if (codigos.donoDoDesafio(pedido.desafioId()).filter(codigos::bloqueado).isPresent()) {
-            throw muitosCodigos(); // a senha já foi provada: pode saber do bloqueio
+        Optional<UUID> bloqueado = codigos.donoDoDesafio(pedido.desafioId()).filter(codigos::bloqueado);
+        if (bloqueado.isPresent()) {
+            // a senha já foi provada: pode saber do bloqueio
+            throw muitosCodigos(codigos.esperaDoBloqueio(bloqueado.get()));
         }
         Usuario usuario = codigos.conferirDesafio(pedido.desafioId(), pedido.codigo())
                 .flatMap(usuarios::findById)
@@ -110,11 +113,11 @@ class ServicoDeLogin {
                     "celular-nao-confirmado", "Seu celular ainda não foi confirmado. Fale com a equipe da COE.");
         }
         if (codigos.bloqueado(usuario.getId())) {
-            return muitosCodigos();
+            return muitosCodigos(codigos.esperaDoBloqueio(usuario.getId()));
         }
         Optional<String> desafio = codigos.emitirDesafio(usuario.getId(), usuario.getCelular(), ip);
         if (desafio.isEmpty()) {
-            return muitosCodigos();
+            return muitosCodigos(codigos.esperaParaEnviar(usuario.getCelular(), FinalidadeSms.MFA));
         }
         LOG.info("Login aguardando o segundo passo: {}", usuario.getId());
         return new AcaoProibidaException(
@@ -134,8 +137,8 @@ class ServicoDeLogin {
                 .filter(conta -> !codigos.bloqueado(conta.getId())); // bloqueado responde igual a sempre
     }
 
-    private static MuitasTentativasException muitosCodigos() {
-        return new MuitasTentativasException("Você pediu muitos códigos. Aguarde um pouco e tente de novo.");
+    private static MuitasTentativasException muitosCodigos(Duration espera) {
+        return new MuitasTentativasException("Você pediu muitos códigos. Aguarde um pouco e tente de novo.", espera);
     }
 
     private static boolean podeEntrar(Usuario usuario) {
