@@ -76,6 +76,33 @@ class FiltroDeLimitesTest extends IntegracaoTest {
     }
 
     @Test
+    @DisplayName("caminho com percent-encoding (%63odigo, %61pi) cai no mesmo balde: não pula o limite")
+    void caminhoCodificado() throws Exception {
+        for (int i = 0; i < 10; i++) {
+            pedirCodigo(IP, null).andExpect(status().isAccepted());
+        }
+
+        for (String caminho : java.util.List.of("/api/auth/%63odigo", "/%61pi/auth/codigo")) {
+            mockMvc.perform(post(java.net.URI.create(caminho))
+                            .with(doIp(IP))
+                            .header("Origin", ORIGEM_DO_FRONT)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"celular\":\"47900000970\"}"))
+                    .andExpect(status().isTooManyRequests());
+        }
+    }
+
+    @Test
+    @DisplayName("corpo grande em caminho codificado também dá 413")
+    void corpoGrandeEmCaminhoCodificado() throws Exception {
+        mockMvc.perform(post(java.net.URI.create("/api/contas/%63liente"))
+                        .with(doIp("203.0.113.22"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nome\":\"" + "x".repeat(70 * 1024) + "\"}"))
+                .andExpect(status().isPayloadTooLarge());
+    }
+
+    @Test
     @DisplayName("outro IP tem o próprio balde")
     void outroIp() throws Exception {
         for (int i = 0; i < 10; i++) {

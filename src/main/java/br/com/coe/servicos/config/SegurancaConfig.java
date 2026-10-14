@@ -177,11 +177,8 @@ public class SegurancaConfig {
      */
     private static BearerTokenResolver tokenForaDoLogin() {
         DefaultBearerTokenResolver padrao = new DefaultBearerTokenResolver();
-        return requisicao -> ROTAS_SEM_BEARER.contains(requisicao
-                        .getRequestURI()
-                        .substring(requisicao.getContextPath().length()))
-                ? null
-                : padrao.resolve(requisicao);
+        return requisicao ->
+                ROTAS_SEM_BEARER.contains(CaminhoDaRequisicao.de(requisicao)) ? null : padrao.resolve(requisicao);
     }
 
     /** Claim "papeis" vira ROLE_CLIENTE, ROLE_PROFISSIONAL, ROLE_ADMIN; o nome é o id (sub). */

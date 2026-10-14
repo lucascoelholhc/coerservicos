@@ -34,8 +34,7 @@ final class FiltroDeTamanhoDoCorpo extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest requisicao) {
-        String caminho =
-                requisicao.getRequestURI().substring(requisicao.getContextPath().length());
+        String caminho = CaminhoDaRequisicao.de(requisicao);
         String metodo = requisicao.getMethod();
         boolean temCorpo =
                 "POST".equalsIgnoreCase(metodo) || "PUT".equalsIgnoreCase(metodo) || "PATCH".equalsIgnoreCase(metodo);

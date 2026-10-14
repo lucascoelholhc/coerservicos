@@ -88,6 +88,6 @@ final class FiltroDeLimites extends OncePerRequestFilter {
     }
 
     private static String caminho(HttpServletRequest requisicao) {
-        return requisicao.getRequestURI().substring(requisicao.getContextPath().length());
+        return CaminhoDaRequisicao.de(requisicao);
     }
 }

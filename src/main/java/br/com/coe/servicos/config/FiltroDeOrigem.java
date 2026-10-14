@@ -31,8 +31,7 @@ final class FiltroDeOrigem extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest requisicao) {
-        String caminho =
-                requisicao.getRequestURI().substring(requisicao.getContextPath().length());
+        String caminho = CaminhoDaRequisicao.de(requisicao);
         boolean postNoAuth = "POST".equalsIgnoreCase(requisicao.getMethod())
                 && caminho.toLowerCase(java.util.Locale.ROOT).startsWith(PREFIXO_DO_COOKIE);
         return !postNoAuth || ENTRAR.equals(caminho);
