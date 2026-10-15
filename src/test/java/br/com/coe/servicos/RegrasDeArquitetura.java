@@ -65,6 +65,20 @@ final class RegrasDeArquitetura {
             .haveFullyQualifiedName("org.slf4j.Logger")
             .because("o corpo da requisição nunca vai para o log: quem loga é o serviço (CORE-11)");
 
+    /**
+     * Só o adaptador do S3 conhece o SDK da AWS (CORE-09): o resto do código fala com a interface
+     * {@code Armazenamento}, e trocar de provedor (ou de S3 local) mexe num lugar só.
+     */
+    static final ArchRule SO_O_ADAPTADOR_USA_O_SDK_DA_AWS = noClasses()
+            .that()
+            .resideInAPackage("br.com.coe.servicos..")
+            .and()
+            .haveNameNotMatching("br\\.com\\.coe\\.servicos\\.compartilhado\\.armazenamento\\.ArmazenamentoS3(\\$.*)?")
+            .should()
+            .dependOnClassesThat()
+            .resideInAPackage("software.amazon.awssdk..")
+            .because("só o ArmazenamentoS3 usa o SDK da AWS (CORE-09)");
+
     private RegrasDeArquitetura() {}
 
     private static boolean leORelogioDoSistema(AccessTarget alvo) {

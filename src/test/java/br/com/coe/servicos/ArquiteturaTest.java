@@ -58,6 +58,32 @@ class ArquiteturaTest {
     }
 
     @Test
+    @DisplayName("só o ArmazenamentoS3 usa o SDK da AWS")
+    void soOAdaptadorUsaOSdkDaAws() {
+        JavaClasses producao = new ClassFileImporter()
+                .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+                .importPackages("br.com.coe.servicos");
+
+        RegrasDeArquitetura.SO_O_ADAPTADOR_USA_O_SDK_DA_AWS.check(producao);
+    }
+
+    @Test
+    @DisplayName("a regra pega outra classe usando o SDK da AWS")
+    void regraPegaQuemUsaOSdk() {
+        JavaClasses classes = new ClassFileImporter().importClasses(UsaOSdkDaAws.class);
+
+        assertThatThrownBy(() -> RegrasDeArquitetura.SO_O_ADAPTADOR_USA_O_SDK_DA_AWS.check(classes))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("UsaOSdkDaAws");
+    }
+
+    static class UsaOSdkDaAws {
+        software.amazon.awssdk.regions.Region regiao() {
+            return software.amazon.awssdk.regions.Region.SA_EAST_1;
+        }
+    }
+
+    @Test
     @DisplayName("a regra pega controller com logger")
     void regraPegaControllerQueLoga() {
         JavaClasses classes = new ClassFileImporter().importClasses(ControllerQueLoga.class);

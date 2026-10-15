@@ -29,7 +29,20 @@
     <properties>
         <java.version>21</java.version>
         <bucket4j.version>8.14.0</bucket4j.version>
+        <awssdk.version>2.56.0</awssdk.version>
     </properties>
+    <dependencyManagement>
+        <dependencies>
+            <!-- AWS SDK v2 (CORE-09): versões alinhadas pela BOM -->
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${awssdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -82,6 +95,25 @@
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+        <!-- Arquivos (CORE-09): S3 com o cliente HTTP do JDK (sem Netty nem Apache, que o S3 não precisa aqui) -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>netty-nio-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>apache5-client</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>url-connection-client</artifactId>
         </dependency>
 
         <dependency>

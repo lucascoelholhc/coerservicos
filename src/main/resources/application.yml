@@ -31,6 +31,13 @@ spring:
     locale-resolver: fixed
 
 coe:
+  armazenamento:
+    # Bucket privado dos arquivos (CORE-09). Em produção: S3 da AWS com o papel IAM da tarefa, sem
+    # endpoint nem chaves (o bucket é criado na AWS-04). Endpoint e chaves só no local e no test.
+    bucket: ${COE_S3_BUCKET:}
+    regiao: ${COE_S3_REGIAO:sa-east-1}
+    validade-url: 5m           # URL assinada de leitura (teto de 15 min)
+    kms-key-id: ${COE_S3_KMS_KEY_ID:}   # SSE-KMS; vazio = criptografia padrão do bucket
   front:
     # Base dos links mandados por e-mail (token no fragmento #token=...). Obrigatória; em prod só https.
     url-base: ${COE_FRONT_URL_BASE:}
