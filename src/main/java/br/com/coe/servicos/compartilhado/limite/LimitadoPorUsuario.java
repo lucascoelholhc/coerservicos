@@ -18,4 +18,10 @@ public @interface LimitadoPorUsuario {
 
     /** Nome da regra em {@code coe.limites.regras}. */
     String value();
+
+    /**
+     * Regra global cobrada só DEPOIS do limite do usuário passar (vazio = nenhuma): quem já passou do
+     * próprio limite não gasta o global de todo mundo.
+     */
+    String global() default "";
 }

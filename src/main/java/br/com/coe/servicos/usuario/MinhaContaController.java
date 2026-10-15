@@ -35,7 +35,7 @@ class MinhaContaController {
     }
 
     @PostMapping("/eu/email/confirmacao")
-    @LimitadoPorUsuario("envio-usuario")
+    @LimitadoPorUsuario(value = "envio-usuario", global = "envio-normal-global")
     @PreAuthorize("isAuthenticated()")
     @LiberadoComContatoPendente
     ResponseEntity<MensagemResponse> pedirConfirmacaoDoEmail() {
@@ -56,7 +56,7 @@ class MinhaContaController {
 
     /** RN61: e-mail novo (campo vazio); só manda o link, a confirmação grava. */
     @PutMapping("/eu/email")
-    @LimitadoPorUsuario("contato-usuario")
+    @LimitadoPorUsuario(value = "contato-usuario", global = "envio-normal-global")
     @PreAuthorize("isAuthenticated()")
     @LiberadoComContatoPendente
     ResponseEntity<MensagemResponse> cadastrarEmail(@Valid @RequestBody NovoEmailRequest pedido) {
@@ -66,7 +66,7 @@ class MinhaContaController {
 
     /** RN61: celular novo (campo vazio); só manda o código, a confirmação grava. */
     @PutMapping("/eu/celular")
-    @LimitadoPorUsuario("contato-usuario")
+    @LimitadoPorUsuario(value = "contato-usuario", global = "envio-normal-global")
     @PreAuthorize("isAuthenticated()")
     @LiberadoComContatoPendente
     ResponseEntity<MensagemResponse> cadastrarCelular(
@@ -83,7 +83,7 @@ class MinhaContaController {
     }
 
     @PostMapping("/eu/celular/codigo")
-    @LimitadoPorUsuario("envio-usuario")
+    @LimitadoPorUsuario(value = "envio-usuario", global = "envio-normal-global")
     @PreAuthorize("isAuthenticated()")
     @LiberadoComContatoPendente
     ResponseEntity<MensagemResponse> pedirCodigoDoCelular(HttpServletRequest requisicao) {

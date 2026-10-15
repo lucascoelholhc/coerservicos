@@ -34,8 +34,7 @@ final class FiltroDeTamanhoDoCorpo extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest requisicao) {
-        String caminho =
-                requisicao.getRequestURI().substring(requisicao.getContextPath().length());
+        String caminho = CaminhoDaRequisicao.de(requisicao);
         String metodo = requisicao.getMethod();
         boolean temCorpo =
                 "POST".equalsIgnoreCase(metodo) || "PUT".equalsIgnoreCase(metodo) || "PATCH".equalsIgnoreCase(metodo);
@@ -90,6 +89,14 @@ final class FiltroDeTamanhoDoCorpo extends OncePerRequestFilter {
         @Override
         public long getContentLengthLong() {
             return corpo.length;
+        }
+
+        @Override
+        public java.io.BufferedReader getReader() {
+            java.nio.charset.Charset charset = getCharacterEncoding() == null
+                    ? java.nio.charset.StandardCharsets.UTF_8
+                    : java.nio.charset.Charset.forName(getCharacterEncoding());
+            return new java.io.BufferedReader(new java.io.InputStreamReader(getInputStream(), charset));
         }
 
         @Override

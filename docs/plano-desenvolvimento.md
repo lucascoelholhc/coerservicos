@@ -198,6 +198,7 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 - **DOM-02**: profissional sem celular confirmado não vai para análise nem aparece na busca (trava no cadastro do profissional, RN08).
 - **DOM-08**: quando existir o filtro de `contato-pendente` (RN61, dia 7b), "Cheguei", "Terminei o dia" e "aprovar diária" entram na **lista de liberados**: a marca bloqueia começar coisas novas (contratar, chat, editar perfil, cadastro de profissional), nunca a execução do que já foi pago (um profissional que perdeu um e-mail não confirmado não pode ficar travado numa diária paga).
 - **Expurgo LGPD** de `codigo_sms` e `token_verificacao` (guardam celular e e-mail): job com o dono do schema (o `coe_app` não tem DELETE), apagando linhas com mais de 30 a 90 dias (prazo a definir com o expurgo geral).
+- **IP na `log_auditoria` é dado pessoal (CORE-11, 14/10)**: precisa de prazo de guarda. Sugestão: **6 meses para o IP** (depois, o job do dono do schema zera a coluna `ip`; a `log_auditoria` é só de inserção para o `coe_app`); o resto da linha segue a regra geral de guarda da auditoria. **A DEFINIR** com quem cuida do jurídico. O IP já é gravado agrupado (IPv6 por /64, como no rate limit).
 - **Anonimização (RN60)** deve zerar também `celular_verificado_em`, `email_verificado_em` e `mfa_sms_ativo`.
 - Envios de e-mail (7b) contados por endereço em `token_verificacao`; os de SMS em `codigo_sms`.
 - **Decisões do plano do 7b (07/10):**
@@ -229,6 +230,20 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 - **Fila de envio:** prioritária (login por código, MFA, recuperação de senha) e normal (prova de posse, confirmação de contato). Mensagem descartada por fila cheia marca `descartado_em` (V16) na linha que a gerou e sai das contagens: a cota volta.
 - **SMS falso do local** continua escrevendo o código, num logger próprio fora da máscara; só no perfil local (o teste de que ele não sobe no prod continua).
 - **Revisão do banco da V16 (sem CRITICAL), entra nas etapas seguintes:** (H1) o `FOR UPDATE` de uma chave global serializa as requisições e, numa inundação, pode esgotar o pool de conexões: baldes por IP antes do global, chave global dividida em N linhas sorteadas (limite/N cada), `SET LOCAL lock_timeout` curto na transação do limitador e, se estourar, 429 (fail-closed) nas regras sensíveis, com teste de concorrência; (M3) o descarte usa `invalidado_em = coalesce(invalidado_em, agora)` e `AND usado_em IS NULL`, tratando zero linhas afetadas; (L5) só descarta a linha que acabou de gerar a mensagem. Efeito aceito: se o código novo é descartado, o anterior já foi invalidado e a pessoa fica sem código válido até pedir outro (a cota devolvida permite pedir na hora).
+
+**CORE-11 e revisões do dia 11 (14/10): o que fechou e o que ficou**
+- **Fechou**: força bruta no login, SMS/e-mail "bomba", negação do código do dono e o "existe ou não existe" do cadastro (rate limit da CORE-07); limite de corpo (413); reuso do refresh com várias abas (409 + uma nova tentativa); auditoria dos eventos sensíveis da conta; logs sem dado pessoal (máscara central + rede de segurança no Logback e no JSON do prod; Hibernate sem logar a mensagem do Postgres); id de correlação; prod não sobe com `DB_USER` acima do `coe_app`.
+- **Revisões (java-reviewer, security-reviewer, /security-scan)**: 3 HIGH corrigidos — devolução da cota segurava 2 conexões dentro do AFTER_COMMIT (agora numa thread própria); caminho com percent-encoding (`%63odigo`, `%61pi`) pulava os filtros de entrada (agora comparam o caminho decodificado, `CaminhoDaRequisicao`); o global de envio normal era gasto antes do limite do usuário nas rotas `/eu/*` (agora depois, `@LimitadoPorUsuario(global = ...)`). MEDIUM/LOW aplicados: furos da máscara (celular/CPF com espaço ou ponto, CPF em lista, e-mail com acento, token base64 padrão, "code"/"otp"), CR/LF neutralizado no log, `nosniff`/`no-store` nas respostas dos filtros, `getReader` no corpo já lido, limpeza dos baldes a cada 5 min. `/security-scan` (AgentShield): B 80/100, segredos 100/100; os 11 achados são só "prompt defense" no CLAUDE.md, não aplicados (o CLAUDE.md é instrução do Claude Code no repositório, não prompt de produto; a aplicação não usa LLM).
+- **Ficou (pendências de segurança)**:
+  - Teto por login (20/h, qualquer IP) trava o login por senha da vítima por até 1 h, inclusive do ADMIN (que não entra por código). Avaliar contar só falhas, ou isentar o ADMIN do teto e manter login + IP. Alerta quando um global esvaziar (hoje só log).
+  - Fail-closed do limitador: o pool próprio (5 conexões) pode dar 503 numa inundação distribuída; primeira camada de rate limit no ALB/WAF na etapa AWS e alarme de 503.
+  - Perfil errado em produção (sem `prod`): o IP vira o do ALB e todos dividem um balde; checar o perfil/IP na subida ou na etapa AWS; RemoteIpValve confia em 10/8, 172.16/12, 192.168/16 (restringir `internalProxies` se houver CloudFront ou outros serviços na VPC).
+  - `conta.bloqueio-codigos` pode ser gravado duas vezes em erros concorrentes (`erros == limite` sob READ COMMITTED); gravar dentro da trava ou com chave única.
+  - `ConferenciaDoLoginDoBanco`: checar também `rds_superuser`, `rolcreaterole`, `rolbypassrls` (no RDS o mestre não é `rolsuper`).
+  - `ChaveDeIp` aceita "beef"/"dead" (nome de host): hoje o valor vem sempre de `getRemoteAddr()` numérico; validar o literal sem `InetAddress` quando mexer.
+  - Máscara é rede de segurança: nome e endereço não são mascarados; nunca logar esses valores. Log do próprio Postgres/RDS (`DETAIL: Key (...)`) vai ao CloudWatch sem máscara: retenção e acesso na etapa AWS.
+  - IP na `log_auditoria`: prazo de guarda a definir com o jurídico (registrado acima); DELETE com corpo não é limitado pelo filtro de tamanho (não há rota assim hoje).
+  - OWASP Dependency-Check (back) antes do release (Bucket4j 8.14.0, Caffeine 3.2.4, logback 1.5.38, Tomcat 11.0.24, Spring Security 7.1.1, pgjdbc 42.7.13).
 
 **Casos de teste obrigatórios do CORE-03 e CORE-04** (PA03):
 - Token de acesso expirado (Clock adiantado 15 min) é recusado com 401; renovação devolve um novo par
@@ -365,6 +380,8 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 | AWS-10 | Produção | Mesma infra com outras variáveis; aceite repetido em homologação |
 
 Tudo em código (Terraform ou AWS CDK), nada configurado à mão no console.
+
+**Correlação com o ALB (CORE-11, 14/10):** o ALB manda `X-Amzn-Trace-Id`. Gravar esse valor no MDC ao lado do nosso id (`requisicao`), sem aceitar `X-Request-Id` de fora, para cruzar o log da aplicação com o log de acesso do ALB. Validar o formato antes de gravar (só `Root=1-…`, tamanho limitado).
 
 **Conexões com o RDS (CORE-07, 14/10):** cada instância abre o pool da aplicação (Hikari, padrão 10) **mais 5 do limitador de taxa** (`coe.limites.conexoes`, pool próprio para não esgotar o da aplicação). No AWS-03/AWS-05, dimensionar o `max_connections` do RDS para (pool da aplicação + 5) × número máximo de instâncias do auto scaling, com folga para o Flyway e a administração, ou pôr o **RDS Proxy** na frente. Os dois pools usam o login da aplicação (membro de `coe_app`), nunca o dono do schema.
 

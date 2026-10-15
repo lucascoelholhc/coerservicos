@@ -2,6 +2,7 @@ package br.com.coe.servicos.usuario;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import br.com.coe.servicos.compartilhado.auditoria.RegistroDeAuditoria;
 import br.com.coe.servicos.compartilhado.erro.ConflitoException;
 import br.com.coe.servicos.compartilhado.erro.MuitasTentativasException;
 import br.com.coe.servicos.compartilhado.erro.RegraDeNegocioException;
@@ -45,13 +47,16 @@ class ServicoDeConfirmacaoDeEmail {
     private final ServicoDeTokens tokens;
     private final TransactionTemplate transacao;
     private final Clock clock;
+    private final RegistroDeAuditoria auditoria;
 
     ServicoDeConfirmacaoDeEmail(
             ContaDeQuemChama contaDeQuemChama,
             UsuarioRepository usuarios,
             ServicoDeTokens tokens,
             PlatformTransactionManager transacoes,
-            Clock clock) {
+            Clock clock,
+            RegistroDeAuditoria auditoria) {
+        this.auditoria = auditoria;
         this.contaDeQuemChama = contaDeQuemChama;
         this.usuarios = usuarios;
         this.tokens = tokens;
@@ -140,6 +145,15 @@ class ServicoDeConfirmacaoDeEmail {
             }
             usuario.gravarEmailConfirmado(link.getDestino(), clock.instant());
             usuarios.saveAndFlush(usuario);
+            auditoria.registrar(
+                    usuario.getId(),
+                    usuario.papelPrincipal(),
+                    "contato.recolocar",
+                    "usuario",
+                    usuario.getId(),
+                    Map.of(),
+                    Map.of("canal", "email"),
+                    null);
             LOG.info("E-mail novo gravado já confirmado: {}", usuario.getId());
             return Confirmacao.FEITA;
         }

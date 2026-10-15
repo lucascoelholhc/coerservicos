@@ -119,7 +119,7 @@ class AntiIdorTest extends IntegracaoTest {
                 .getResponse()
                 .getContentAsString();
 
-        assertThat(deA).isEqualTo(inexistente);
+        assertThat(semRequisicao(deA)).isEqualTo(semRequisicao(inexistente));
     }
 
     @Test

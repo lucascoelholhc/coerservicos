@@ -54,6 +54,27 @@ class ProvedorDeSmsTest {
     void fakeDeLogMascaraOCelular(CapturedOutput saida) {
         new EnviadorSmsNoLog().enviar("47900000101", "COE: seu código é 123456.");
 
-        assertThat(saida.getAll()).contains("47*****0101").contains("123456").doesNotContain("47900000101");
+        // A classe já mascara o celular; o código só fica em claro no appender do perfil local (o console
+        // dos outros perfis mascara: LogsSemDadoPessoalTest, que sobe a configuração real do Logback).
+        assertThat(saida.getAll()).contains("47*****0101").doesNotContain("47900000101");
+    }
+
+    @Test
+    void codigoEmClaroSoNoAppenderDoPerfilLocal() throws java.io.IOException {
+        String configuracao = new String(
+                new org.springframework.core.io.ClassPathResource("logback-spring.xml")
+                        .getInputStream()
+                        .readAllBytes(),
+                java.nio.charset.StandardCharsets.UTF_8);
+        int local = configuracao.indexOf("<springProfile name=\"local\">");
+        int fimDoLocal = configuracao.indexOf("</springProfile>", local);
+
+        assertThat(local).isPositive();
+        assertThat(configuracao.substring(local, fimDoLocal))
+                .contains("name=\"coe.sms-falso\"")
+                .contains("%mensagemCrua");
+        assertThat(configuracao.substring(0, local) + configuracao.substring(fimDoLocal))
+                .doesNotContain("%mensagemCrua%n")
+                .doesNotContain("name=\"coe.sms-falso\"");
     }
 }

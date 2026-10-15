@@ -144,6 +144,10 @@ class LoginTest extends IntegracaoTest {
     }
 
     private String corpo401(String login, String senha) throws Exception {
+        return semRequisicao(corpo401ComRequisicao(login, senha));
+    }
+
+    private String corpo401ComRequisicao(String login, String senha) throws Exception {
         return entrar(login, senha)
                 .andExpect(status().isUnauthorized())
                 .andExpect(header().string("WWW-Authenticate", "Bearer"))

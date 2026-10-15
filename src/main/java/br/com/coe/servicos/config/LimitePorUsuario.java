@@ -34,6 +34,9 @@ class LimitePorUsuario implements HandlerInterceptor {
             LimitadoPorUsuario limite = metodo.getMethodAnnotation(LimitadoPorUsuario.class);
             if (limite != null) {
                 limitador.consumir(Balde.porChave(limite.value(), usuario()));
+                if (!limite.global().isEmpty()) {
+                    limitador.consumir(Balde.global(limite.global()));
+                }
             }
         }
         return true;

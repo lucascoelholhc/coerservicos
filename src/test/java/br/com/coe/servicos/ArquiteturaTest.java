@@ -48,6 +48,35 @@ class ArquiteturaTest {
     }
 
     @Test
+    @DisplayName("controller de produção não tem logger (o corpo da requisição nunca vai para o log)")
+    void controllersNaoLogam() {
+        JavaClasses producao = new ClassFileImporter()
+                .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+                .importPackages("br.com.coe.servicos");
+
+        RegrasDeArquitetura.CONTROLLER_SEM_LOG.check(producao);
+    }
+
+    @Test
+    @DisplayName("a regra pega controller com logger")
+    void regraPegaControllerQueLoga() {
+        JavaClasses classes = new ClassFileImporter().importClasses(ControllerQueLoga.class);
+
+        assertThatThrownBy(() -> RegrasDeArquitetura.CONTROLLER_SEM_LOG.check(classes))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("ControllerQueLoga");
+    }
+
+    @org.springframework.web.bind.annotation.RestController
+    static class ControllerQueLoga {
+        private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(ControllerQueLoga.class);
+
+        void receber(String corpo) {
+            LOG.info("recebi {}", corpo);
+        }
+    }
+
+    @Test
     @DisplayName("a regra pega endpoint sem @PreAuthorize nem @Publico")
     void regraPegaEndpointSemAutorizacao() {
         JavaClasses classes = new ClassFileImporter().importClasses(ControllerSemAutorizacao.class);

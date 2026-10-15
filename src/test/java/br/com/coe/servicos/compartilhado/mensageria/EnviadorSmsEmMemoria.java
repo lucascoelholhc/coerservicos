@@ -20,7 +20,8 @@ public class EnviadorSmsEmMemoria implements EnviadorSms {
     private static final Pattern CODIGO = Pattern.compile("\\b(\\d{6})\\b");
     private static final Duration ESPERA_MAXIMA = Duration.ofSeconds(5);
 
-    public record Sms(String celular, String texto) {}
+    /** {@code requisicao}: o id de correlação no MDC da thread de envio (CORE-11). */
+    public record Sms(String celular, String texto, String requisicao) {}
 
     private final ConcurrentLinkedDeque<Sms> enviados = new ConcurrentLinkedDeque<>();
     private final IntSupplier pendentes;
@@ -52,7 +53,7 @@ public class EnviadorSmsEmMemoria implements EnviadorSms {
                 Thread.currentThread().interrupt();
             }
         }
-        enviados.add(new Sms(celular, texto));
+        enviados.add(new Sms(celular, texto, org.slf4j.MDC.get("requisicao")));
     }
 
     /** Provedor lento a partir de agora (o teste confere que a requisição não espera). */

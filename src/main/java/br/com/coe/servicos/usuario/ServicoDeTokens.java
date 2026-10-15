@@ -15,7 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import br.com.coe.servicos.compartilhado.mensageria.Mascara;
+import br.com.coe.servicos.compartilhado.log.Mascara;
 import br.com.coe.servicos.compartilhado.mensageria.MensagemPronta;
 import br.com.coe.servicos.config.UrlDoFront;
 

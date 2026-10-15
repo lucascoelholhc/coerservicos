@@ -68,7 +68,10 @@ npm run comparar         # protótipo x React lado a lado em frontend/test-resul
 - Feito (dia 8): **FE-01** (React 19 + TS strict + Vite 8 + React Router 8 em `frontend/`; tokens e Archivo com eixo de largura hospedada no front; moldura com cabeçalho, menu de baixo e rodapé; componentes base; Início estático igual ao protótipo, sem números de regra; CSP e Permissions-Policy no Spring e no `vite preview`; E2E em 360 e 1280 px). Protótipo copiado em `docs/prototipo/` (ef7d397, só leitura). Decisões e pendências no plano (seção 7, FE-01).
 - Feito (dia 9): **DOM-01** (`GET /api/publico/catalogo` e `GET /api/publico/regras`, públicos, cache de 60 s) e **FE-02** (`frontend/src/api/`: cliente único, token só na memória, uma renovação para várias 401, `voltar` seguro, erros em pt-BR, `useRecurso`). O Início lê profissões, cidades, prazo de liberação e comissão da API. Decisões e pendências no plano (seção 7, DOM-01 + FE-02).
 - Feito (dia 10): **FE-03 (parte), marco M2**: sessão ao abrir o app, entrar (senha, segundo passo do MFA, só com código por SMS), criar conta de cliente com prova de posse (RN61, inclusive pela outra aba), Minha conta (sair, confirmar e-mail e celular, código no login, trocar senha, recolocar contato), confirmar e-mail, esqueci e redefinir senha; termos e privacidade em **rascunho**. Backend: `GET /api/contas/eu` com `emailConfirmado`, `contatoPendente`, `mfaAtivo`; `/api/publico/regras` com `versaoTermos`; a confirmação da posse do e-mail devolve `{comprovante, email}`. Decisões e pendências no plano (seção 7, FE-03).
-- Próximo: dia 11, CORE-07 (rate limit por IP e global, fila de envio com prioridade), CORE-11 (auditoria e logs mascarados) e revisão.
+- Feito (fechamento do FE-03, 14/10): teste manual dos 7 passos no navegador, todos aprovados (código do SMS no log, links no Mailpit). Correção achada nele: sem o aviso "Enviamos um link" quando o e-mail foi provado no cadastro (RN61) e Minha conta sem e-mail não pede para confirmar o e-mail. FE-03 mesclado na main (PR #18).
+- Feito (dia 11, PR #19): **CORE-07** (V16: `limite_balde` UNLOGGED e `descartado_em`; rate limit com Bucket4j: por IP e globais no Postgres, teto geral e GETs públicos em memória, por login/celular/usuário; fail-closed 429/503; `Retry-After` em todo 429; corpo acima de 64 KB = 413; fila de envio prioritária e normal com cota devolvida no descarte; 409 `renovacao-em-andamento` com uma nova tentativa no front; prod não sobe com `DB_USER` acima do `coe_app`).
+- Feito (dia 11): **CORE-11** (auditoria dos eventos sensíveis da conta na `log_auditoria`; logs sem dado pessoal: `Mascara` + `MascaraDeLog` no `%m` e nas mensagens das exceções, JSON ECS só no prod com o mesmo filtro, SMS falso em claro só no perfil local; id de correlação `requisicao` no MDC, no `X-Request-Id` e no Problem Details; `VarreduraDeLogsTest`). **CORE-07 e CORE-11 concluídas.**
+- Próximo: dia 12, CORE-09 (uploads e armazenamento; S3 local a definir).
 
 ## Estrutura do backend (por domínio, não por camada)
 `usuario` (conta, login, SMS) · `catalogo` (cidades, profissões, serviços) · `profissional` (cadastro, verificação, portfólio, agenda) · `contrato` (contratos e diárias) · `pagamento` (gateway, webhooks, ledger, repasse, reembolso) · `mensagem` (chat + censura) · `avaliacao` · `disputa` · `moderacao` (denúncias) · `admin` · `config` · `compartilhado` (Dinheiro, erros, auditoria, armazenamento)
@@ -76,6 +79,7 @@ npm run comparar         # protótipo x React lado a lado em frontend/test-resul
 - Cada domínio tem controller, service, repository, entidades e DTOs.
 - Erros: lance `RegraDeNegocioException` (422, com código da regra), `RecursoNaoEncontradoException` (404, também para recurso de outro usuário) ou `ConflitoException` (409), de `compartilhado.erro`. O `TratadorDeErros` converte em Problem Details; nunca monte resposta de erro no controller.
 - Testes de integração estendem `IntegracaoTest` (contexto, Testcontainers, MockMvc e o relógio `RelogioAjustavel` compartilhados).
+- **Varredura dos logs (CORE-11)**: o `VarreduraDeLogsTest` roda os fluxos de conta (cadastro, entrar, código por SMS, segundo passo, posse, esqueci, redefinir, trocar senha, recolocar contato) e falha se o log tiver celular, e-mail, senha, código, link, comprovante ou token usados. **Fluxo novo que mexe com dado pessoal ou segredo entra nessa varredura** (guarde cada segredo com `guardar(...)` e cada código com `codigo(...)`).
 - **O banco não é limpo entre os testes** (só os baldes do rate limit e as filas falsas de SMS/e-mail zeram antes de cada um): cada teste cria os próprios dados, com celulares fictícios (`479000000NN`) e e-mails **únicos dele** (contador ou `ContasDeTeste`), e **nunca** depende de tabela vazia, de "a primeira linha" sem filtro ou de contagem global. Consulte sempre filtrando pelos dados do próprio teste. (Causa das falhas da CORE-07: um teste reaproveitava o celular de outro e herdava a espera de 60 s e linhas já invalidadas.)
 
 ### Como usar Dinheiro, ConfiguracaoNegocio e Clock
@@ -94,7 +98,7 @@ npm run comparar         # protótipo x React lado a lado em frontend/test-resul
 - **Testes**: celulares só fictícios (`479000000NN`), nunca número real.
 
 ### Como autenticar
-- **Front**: `POST /api/auth/entrar` com `{"login","senha"}` (login = celular com ou sem máscara/+55, ou e-mail). Resposta 200: `{accessToken, expiraEm, usuario:{id,nome,papeis}}` + cookie `coe_refresh` (HttpOnly, só `/api/auth`). Guarde o `accessToken` **só na memória** e mande `Authorization: Bearer <token>`. Ao receber 401, chame `POST /api/auth/renovar` (o navegador manda o cookie); se a renovação der 401, vá para a tela de entrar. Sair: `POST /api/auth/sair` (este aparelho) ou `/api/auth/sair-de-todos`.
+- **Front**: `POST /api/auth/entrar` com `{"login","senha"}` (login = celular com ou sem máscara/+55, ou e-mail). Resposta 200: `{accessToken, expiraEm, usuario:{id,nome,papeis}}` + cookie `coe_refresh` (HttpOnly, só `/api/auth`). Guarde o `accessToken` **só na memória** e mande `Authorization: Bearer <token>`. Ao receber 401, chame `POST /api/auth/renovar` (o navegador manda o cookie); se a renovação der 401, vá para a tela de entrar. Se a renovação der **409 `renovacao-em-andamento`**, outra aba acabou de renovar com o mesmo cookie (até 30 s antes) e o cookie novo já está no navegador: espere ~300 ms e tente **uma vez** (o `cliente.ts` já faz isso); 409 de novo = sem sessão naquela aba, sem mensagem de erro. O 409 não apaga o cookie nem revoga a sessão. Sair: `POST /api/auth/sair` (este aparelho) ou `/api/auth/sair-de-todos`.
 - **Erros do login**: 401 `login-invalido` (sempre a mesma mensagem), 403 `conta-suspensa`, 403 `celular-nao-confirmado` (MFA exigido sem celular confirmado), 429 `muitas-tentativas`, 403 `segundo-passo-necessario` (MFA ligado ou ADMIN) com `desafioId` no corpo.
 - **Segundo passo (MFA)**: `POST /api/auth/segundo-passo` com `{"desafioId","codigo"}` (o código chega por SMS); responde como o `entrar`. Desafio vale 5 min, uma vez, 5 tentativas; qualquer erro = 401 `login-invalido`.
 - **Login só com código**: `POST /api/auth/codigo` com `{"celular"}` (sempre 202, mesma mensagem) e `POST /api/auth/entrar-com-codigo` com `{"celular","codigo"}`. Só celular confirmado; nunca ADMIN nem quem ligou o MFA.
@@ -130,6 +134,29 @@ npm run comparar         # protótipo x React lado a lado em frontend/test-resul
 - **Teste obrigatório** de todo recurso com dono: o dono recebe 200; outro usuário recebe 404 com o mesmo corpo de um id inexistente; papel errado recebe 403; sem token, 401 (modelo: `AntiIdorTest`).
 - **Nunca expor entidade JPA na API.**
 - API sob `/api/**`; admin sob `/api/admin/**`.
+
+### Como limitar um endpoint (CORE-07)
+- **Negar por padrão**: toda rota que muda algo em `/api` (POST, PUT, PATCH, DELETE) tem limite, senão o `CoberturaDosLimitesTest` quebra o build. Três jeitos:
+  - **por IP ou global** (antes do Security, sem ler o corpo): uma linha em `config/RotasLimitadas` (`Cobranca.porIp("regra")`, `Cobranca.global("regra")`, IP antes do global) e a regra em `coe.limites.regras` (`capacidade`, `janela`, `fatias` só nos globais);
+  - **por usuário logado**: `@LimitadoPorUsuario("regra")` no método do controller (a chave é o id do token);
+  - **por login, celular ou outro dado do corpo**: no serviço, `limitador.consumir(Balde.porChave("regra", chaveDeLimite.doLogin(...)))`; dado pessoal entra **sempre** como HMAC (`ChaveDeLimite`), nunca em claro na `limite_balde`.
+- Exceção sem limite próprio só com motivo no `CoberturaDosLimitesTest.EXCECOES` (o teto geral de `/api/**` por IP vale para todas).
+- Números no `application.yml` (`coe.limites.*`), técnicos, por perfil; nunca na tabela `configuracao`. Serão revistos com dados reais depois do lançamento.
+- Respostas: 429 `muitas-tentativas` sempre com `Retry-After` (lance `MuitasTentativasException(mensagem, espera)`); banco do limitador fora = 503 `servico-instavel` (fail-closed: nunca deixa passar sem contar).
+- Testes: o banco não é limpo entre testes, mas a `IntegracaoTest` zera os baldes antes de cada um; use IPs de teste diferentes (`requisicao.setRemoteAddr(...)`) para isolar.
+
+### Como auditar (CORE-11)
+- Injete `RegistroDeAuditoria` e chame `registrar(ator, papel, "dominio.acao", entidade, id, antes, depois, ip)` **dentro da transação da ação** (desfez a ação, some a linha). Ação da aplicação sozinha: `registrarDoSistema(...)` (papel `SISTEMA`). `ip` nulo = o da requisição atual, gravado agrupado (IPv6 por /64). Papel do usuário: `usuario.papelPrincipal()`.
+- Em `antes`/`depois` **só dado não pessoal** (ex.: `{"canal":"email"}`, `{"ativo":true}`): nunca celular, e-mail, CPF, Pix, endereço, senha, código ou token, nem mascarados. O IP é dado pessoal com prazo de guarda a definir (plano).
+- Já auditados: `senha.trocar`, `senha.redefinir`, `mfa.ligar`, `mfa.desligar`, `sessao.sair-de-todos`, `sessao.reuso-refresh`, `contato.recolocar`, `contato.transferir`, `conta.bloqueio-codigos`, `limite.teto-login`. Toda ação de admin e todo movimento de dinheiro também serão (DOM-07, FE-07).
+- Teste: a linha existe, com ator, papel e IP, e não tem o dado pessoal usado (modelo: `AuditoriaDeEventosTest`).
+
+### Como logar sem dado pessoal (CORE-11)
+- Monte a mensagem com ids e com o dado já mascarado: `Mascara.celular`, `email`, `cpf`, `cep`, `token`, `codigo` (`compartilhado.log`). **Controller não loga** (ArchUnit): o corpo da requisição nunca vai para o log.
+- O `logback-spring.xml` aplica a `MascaraDeLog` no `%m` e nas mensagens das exceções (as linhas "at" ficam intactas). É rede de segurança, não licença para logar dado pessoal. No prod o log é JSON (ECS) com o mesmo filtro (`MascaraNoJsonDoLog`); local e test em texto.
+- SMS falso: o código sai em claro **só no perfil local** (logger `coe.sms-falso`, appender próprio).
+- **Id de correlação**: toda requisição ganha um id novo (`FiltroDeCorrelacao`), no MDC (`requisicao`, aparece como `[id]` no log em texto), no header `X-Request-Id` e no Problem Details (campo `requisicao`). O `X-Request-Id` de fora é ignorado. A fila de envio leva o id para a thread que envia. Em teste que compara corpos de erro que devem ser iguais, use `semRequisicao(corpo)` (IntegracaoTest).
+- Fluxo novo que mexe com dado pessoal entra no `VarreduraDeLogsTest`.
 
 ## Regras de negócio já decididas (resumo; a fonte é `docs/regras-negocio.md`)
 - Parâmetros vêm da tabela `configuracao` (view `configuracao_vigente`). **Nunca fixar no código**: comissão 10% (teto de 30% no banco), liberação em 12 h, disputa decidida em 48 h, 3 tentativas de contato antes de análise, limite LC 150 = 2.

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Logs sem dado pessoal (CORE-11). A mensagem (%m) e as mensagens das exceções saem mascaradas por
+  MascaraDeLog em todo perfil; o resto vem dos padrões do Spring Boot. No prod o console é JSON (ECS,
+  application-prod.yml) e a máscara entra pelo MascaraNoJsonDoLog.
+  O SMS falso do perfil local escreve o código em claro num logger próprio (coe.sms-falso), com appender
+  sem máscara, SÓ no perfil local: é assim que se lê o código no teste manual. Em qualquer outro perfil
+  esse logger cai no console normal, mascarado.
+-->
+<configuration>
+    <conversionRule conversionWord="m" class="br.com.coe.servicos.compartilhado.log.MensagemMascarada"/>
+    <conversionRule conversionWord="msg" class="br.com.coe.servicos.compartilhado.log.MensagemMascarada"/>
+    <conversionRule conversionWord="message" class="br.com.coe.servicos.compartilhado.log.MensagemMascarada"/>
+    <conversionRule conversionWord="mascEx" class="br.com.coe.servicos.compartilhado.log.ExcecaoMascarada"/>
+    <conversionRule conversionWord="mensagemCrua" class="ch.qos.logback.classic.pattern.MessageConverter"/>
+    <property name="LOG_EXCEPTION_CONVERSION_WORD" value="%mascEx"/>
+
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <springProfile name="local">
+        <appender name="SMS_FALSO" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%d{HH:mm:ss.SSS} WARN  [sms-falso] %mensagemCrua%n</pattern>
+            </encoder>
+        </appender>
+        <logger name="coe.sms-falso" level="WARN" additivity="false">
+            <appender-ref ref="SMS_FALSO"/>
+        </logger>
+    </springProfile>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>

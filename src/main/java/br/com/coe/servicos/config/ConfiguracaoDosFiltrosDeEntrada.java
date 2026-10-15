@@ -20,6 +20,14 @@ import br.com.coe.servicos.compartilhado.limite.LimitadorEmMemoria;
 @Configuration
 class ConfiguracaoDosFiltrosDeEntrada {
 
+    /** O primeiro de todos: o id da requisição existe antes de qualquer resposta de erro (CORE-11). */
+    @Bean
+    FilterRegistrationBean<FiltroDeCorrelacao> filtroDeCorrelacao() {
+        FilterRegistrationBean<FiltroDeCorrelacao> registro = new FilterRegistrationBean<>(new FiltroDeCorrelacao());
+        registro.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        return registro;
+    }
+
     @Bean
     FilterRegistrationBean<FiltroDeLimites> filtroDeLimites(
             LimitadorDeTaxa limitador, LimitadorEmMemoria memoria, JsonMapper json) {
