@@ -1,6 +1,7 @@
-# Serviços locais de apoio (o S3 local entra no CORE-09). Uso: docker compose up -d   (lê o .env da raiz)
+# Serviços locais de apoio. Uso: docker compose up -d   (lê o .env da raiz)
 #   Postgres 16 ... localhost:5433  (5432 fica para um Postgres instalado na máquina)
 #   Mailpit ...... SMTP localhost:1025, painel http://localhost:8025   (e-mail/SMS falso)
+#   SeaweedFS .... S3 em http://localhost:8333, chaves S3_ACCESS_KEY/S3_SECRET_KEY do .env (fotos e documentos)
 name: coe-servicos
 
 services:
@@ -27,5 +28,25 @@ services:
       - "127.0.0.1:1025:1025"
       - "127.0.0.1:8025:8025"
 
+  # S3 local (CORE-09). A versão é fixa e igual à dos testes (ArmazenamentoS3IT): nunca "latest".
+  # Plano B, se o SeaweedFS falhar: S3Proxy em memória (ver docs/plano-desenvolvimento.md, CORE-09).
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.48
+    entrypoint: ["sh", "/iniciar.sh"]   # gera as identidades do S3 a partir do .env, sem chave no git
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?defina S3_ACCESS_KEY no .env}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?defina S3_SECRET_KEY no .env}
+    ports:
+      - "127.0.0.1:8333:8333"   # só a API S3, só nesta máquina
+    volumes:
+      - seaweedfs-dados:/data
+      - ./docker/seaweedfs/iniciar.sh:/iniciar.sh:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8333/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
 volumes:
   postgres-dados:
+  seaweedfs-dados:

@@ -22,7 +22,7 @@ Público com pouca familiaridade com tecnologia: telas simples, poucos campos, b
 | Front | **React + TypeScript + Vite**, na pasta `frontend/` |
 | Testes back | JUnit 5, AssertJ, Mockito, MockMvc, Testcontainers (Postgres real) |
 | Testes front | Vitest + Testing Library; Playwright para E2E |
-| Local | Postgres local ou Docker (`docker compose`, porta 5433); Mailpit (e-mail/SMS falso). S3 local **A DEFINIR no CORE-09** (a imagem pública do MinIO deixou de existir) |
+| Local | Postgres local ou Docker (`docker compose`, porta 5433); Mailpit (e-mail/SMS falso); **SeaweedFS** como S3 local (porta 8333, versão fixa; a imagem pública do MinIO deixou de existir; plano B: S3Proxy em memória) |
 | Pagamento | Gateway **A DEFINIR** (PA02). Até lá, adaptador falso atrás da interface `GatewayPagamento` |
 | Deploy | AWS depois do aceite local (ECS Fargate, RDS, S3, Secrets Manager) |
 
@@ -71,7 +71,7 @@ npm run comparar         # protótipo x React lado a lado em frontend/test-resul
 - Feito (fechamento do FE-03, 14/10): teste manual dos 7 passos no navegador, todos aprovados (código do SMS no log, links no Mailpit). Correção achada nele: sem o aviso "Enviamos um link" quando o e-mail foi provado no cadastro (RN61) e Minha conta sem e-mail não pede para confirmar o e-mail. FE-03 mesclado na main (PR #18).
 - Feito (dia 11, PR #19): **CORE-07** (V16: `limite_balde` UNLOGGED e `descartado_em`; rate limit com Bucket4j: por IP e globais no Postgres, teto geral e GETs públicos em memória, por login/celular/usuário; fail-closed 429/503; `Retry-After` em todo 429; corpo acima de 64 KB = 413; fila de envio prioritária e normal com cota devolvida no descarte; 409 `renovacao-em-andamento` com uma nova tentativa no front; prod não sobe com `DB_USER` acima do `coe_app`).
 - Feito (dia 11): **CORE-11** (auditoria dos eventos sensíveis da conta na `log_auditoria`; logs sem dado pessoal: `Mascara` + `MascaraDeLog` no `%m` e nas mensagens das exceções, JSON ECS só no prod com o mesmo filtro, SMS falso em claro só no perfil local; id de correlação `requisicao` no MDC, no `X-Request-Id` e no Problem Details; `VarreduraDeLogsTest`). **CORE-07 e CORE-11 concluídas.**
-- Próximo: dia 12, CORE-09 (uploads e armazenamento; S3 local a definir).
+- Em andamento (dia 12): **CORE-09** (armazenamento: SeaweedFS no compose, `Armazenamento` com S3, validação de imagem). Decisões no plano (seção 6, CORE-09).
 
 ## Estrutura do backend (por domínio, não por camada)
 `usuario` (conta, login, SMS) · `catalogo` (cidades, profissões, serviços) · `profissional` (cadastro, verificação, portfólio, agenda) · `contrato` (contratos e diárias) · `pagamento` (gateway, webhooks, ledger, repasse, reembolso) · `mensagem` (chat + censura) · `avaliacao` · `disputa` · `moderacao` (denúncias) · `admin` · `config` · `compartilhado` (Dinheiro, erros, auditoria, armazenamento)

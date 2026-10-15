@@ -16,7 +16,7 @@ As tarefas estão organizadas por tipo nas seções 3 a 9 (ambiente, banco, núc
 | Testes back | JUnit 5, AssertJ, Mockito, Spring Boot Test, Testcontainers (Postgres real), JaCoCo |
 | Front | React + TypeScript + Vite em `frontend/`, seguindo o protótipo "Dia carimbado" (`docs/identidade-visual.md`) |
 | Testes front | Vitest + Testing Library; Playwright para E2E |
-| Ambiente local | Postgres + Docker Compose (Mailpit para e-mail/SMS falso). S3 local escolhido no CORE-09: a imagem pública do MinIO deixou de existir |
+| Ambiente local | Postgres + Docker Compose (Mailpit para e-mail/SMS falso; **SeaweedFS** como S3 local, versão fixa, escolhido no CORE-09 porque a imagem pública do MinIO deixou de existir; plano B: S3Proxy em memória) |
 | Pagamento no local | Adaptador falso do gateway, com a mesma interface do gateway real |
 
 ### Arquitetura
@@ -66,7 +66,7 @@ Toda tarefa passa pelo mesmo ciclo. Uma tarefa corresponde a uma branch e a um P
 | ID | Tarefa | Entrega |
 |---|---|---|
 | AMB-01 | Revisar o projeto | Java 21, Spring Boot 4; dependências webmvc, security, data-jpa, validation, actuator, flyway (starter), flyway-database-postgresql, postgresql, testcontainers |
-| AMB-02 | `docker-compose.yml` | `postgres:16` (volume nomeado, porta 5433, cria o papel `coe_app`), `mailpit`. Sem S3 por ora (entra no CORE-09) |
+| AMB-02 | `docker-compose.yml` | `postgres:16` (volume nomeado, porta 5433, cria o papel `coe_app`), `mailpit`; `seaweedfs` (S3 em `127.0.0.1:8333`, entrou no CORE-09) |
 | AMB-03 | Perfis Spring | `local`, `test`, `prod`; segredos por variável de ambiente; `.env.example` no repositório e `.env` no `.gitignore` |
 | AMB-04 | Pacotes | Um pacote por domínio + `compartilhado` (erros, dinheiro, auditoria, armazenamento) |
 | AMB-05 | Teste base | Classe `IntegracaoTest` com Testcontainers Postgres reutilizável + teste de fumaça |
@@ -128,7 +128,7 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 | CORE-06 | Papéis e autorização | CLIENTE, PROFISSIONAL, ADMIN; checagem de dono em todo recurso | RNF02 |
 | CORE-07 | Rate limit | Bucket4j em login, SMS, recuperação de senha e chat; rate limit por IP e global em `/api/auth/*`, `/api/contas/posse/*`, `/api/contas/cliente`, `GET /api/publico/*`, `PUT /api/contas/eu/{celular,email}` e `trocar` (o "existe ou não existe" que sobra no cadastro fica com ele); **fila de envio com prioridade** (login, MFA e recuperação de senha separados de prova de posse e confirmação de contato), com a cota devolvida quando a mensagem é descartada, e teste de inundação de prova de posse sem perder código de login | RNF03 |
 | CORE-08 | CSRF e CORS | CORS fechado ao domínio da COE; CSRF só no endpoint de renovação do token (único que usa cookie) | RNF01 |
-| CORE-09 | Arquivos | `Armazenamento` (S3): tipo real, tamanho, sem EXIF, nome gerado, URL assinada. Escolher o S3 local do compose (SeaweedFS, LocalStack ou RustFS) | RNF07, RNF14 |
+| CORE-09 | Arquivos | `Armazenamento` (S3): tipo real, tamanho, sem EXIF, nome gerado, URL assinada. S3 local do compose: **SeaweedFS** (plano B: S3Proxy) | RNF07, RNF14 |
 | CORE-10 | Criptografia de campo | Conversor JPA AES-GCM para CPF, Pix e endereço | RNF13 |
 | CORE-11 | Auditoria e logs | `log_auditoria`; logs JSON com máscara de dados pessoais | RNF08, RNF15 |
 | CORE-12 | Configuração | Leitura da `configuracao_vigente` | RN31, RN38 |
@@ -244,6 +244,17 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
   - Máscara é rede de segurança: nome e endereço não são mascarados; nunca logar esses valores. Log do próprio Postgres/RDS (`DETAIL: Key (...)`) vai ao CloudWatch sem máscara: retenção e acesso na etapa AWS.
   - IP na `log_auditoria`: prazo de guarda a definir com o jurídico (registrado acima); DELETE com corpo não é limitado pelo filtro de tamanho (não há rota assim hoje).
   - OWASP Dependency-Check (back) antes do release (Bucket4j 8.14.0, Caffeine 3.2.4, logback 1.5.38, Tomcat 11.0.24, Spring Security 7.1.1, pgjdbc 42.7.13).
+
+**CORE-09 (dia 12): decisões de 14/10**
+- **S3 local = SeaweedFS** (`chrislusf/seaweedfs`, tag fixa, nunca `latest`; a mesma nos testes com Testcontainers). As identidades do S3 são geradas na subida a partir de `S3_ACCESS_KEY`/`S3_SECRET_KEY` do `.env` (`docker/seaweedfs/iniciar.sh`), sem chave no git. **Plano B:** S3Proxy em memória (Java, `andrewgaul/s3proxy`), se o SeaweedFS deixar de servir (URL assinada, path-style ou imagem).
+- **Upload passa pela API** (multipart), nunca PUT assinado direto ao bucket: a validação acontece antes de gravar.
+- **Tudo privado + URL assinada** (5 min), inclusive o portfólio público (RN22); CDN ou leitura pública ficam para depois, se o custo pedir. O GET assinado leva `response-content-type` do tipo detectado.
+- **Formatos:** JPEG, PNG e WebP (leitura pela TwelveMonkeys `imageio-webp`); WebP é gravado como JPEG (fundo branco se tiver alfa). HEIC recusado (sem leitor Java puro; o Safari do iPhone converte para JPEG quando o campo pede `image/jpeg,image/png`). PDF fora por ora (decidir no DOM-02 se precisar).
+- **Limites** (`coe.armazenamento.*`): 8 MB por arquivo (por categoria), multipart com limite próprio (o de 64 KB de `/api/**` não vale para `multipart/*`), lado maior reduzido a 2560 px. Pixels: até 40 MP **só** com leitura por subamostragem (`ImageReadParam`) e semáforo de processamento simultâneo configurável; dimensões conferidas no cabeçalho, antes de decodificar.
+- **Sem metadados:** a imagem é decodificada e gravada de novo; a orientação do EXIF é aplicada nos pixels **antes**, e as cores vão para sRGB ao descartar o ICC.
+- **Chave** `<categoria>/<UUID aleatório>.<jpg|png>` (documento, selfie, portfolio, pedido, evidencia, disputa); nome original nunca gravado nem logado. PUT com o `Content-Type` detectado. Criptografia do servidor com `coe.armazenamento.kms-key-id` (vazia no local, preenchida no prod, AWS-04).
+- **Arquivo órfão:** `guardar` exige transação ativa (senão falha) e registra a remoção no rollback, numa thread própria (lição do AFTER_COMMIT). Queda entre o PUT e o commit pode deixar órfão: varredura periódica (bucket x `chave_arquivo`) fica como tarefa futura.
+- **Miniaturas (RNF24)** ficam no domínio (DOM-04, portfólio). **Endpoints de upload** chegam no DOM-02/DOM-08, com limite por usuário (o `CoberturaDosLimitesTest` cobra). **CSP:** `img-src` ganha o host do bucket (`http://localhost:8333` no local) junto com a primeira tela que mostrar foto, mudando `cabecalhos-seguranca.json` e `PoliticasDoNavegadorTest` juntos. **Auditoria** fica com a ação de domínio ("documento enviado"); o armazenamento só loga chave e categoria.
 
 **Casos de teste obrigatórios do CORE-03 e CORE-04** (PA03):
 - Token de acesso expirado (Clock adiantado 15 min) é recusado com 401; renovação devolve um novo par
@@ -425,7 +436,7 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 ### Fatia 2: O profissional entra na busca (dias 12–22)
 | Dia | Tarefas | O que fazer | Pronto quando |
 |---|---|---|---|
-| 12 | CORE-09 | Armazenamento (escolher o S3 local do compose): tipo real, tamanho, sem EXIF, URL assinada | Upload falso rejeitado |
+| 12 | CORE-09 | Armazenamento (S3 local: SeaweedFS): tipo real, tamanho, sem EXIF, URL assinada | Upload falso rejeitado |
 | 13 | CORE-10 | Criptografia de CPF, Pix e endereço | CPF cifrado no banco |
 | 14 | DOM-02 | Cadastro, etapas 1–4, com idade mínima (18 anos, `Clock`) | 17 anos e 364 dias recusado; exatos 18 aceito |
 | 15 | DOM-02 | Etapas 5–8 (cidades, valor, agenda, bio) | Bio com telefone é recusada |
