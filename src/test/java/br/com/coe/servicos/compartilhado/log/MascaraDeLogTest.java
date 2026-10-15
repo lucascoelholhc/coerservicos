@@ -30,6 +30,16 @@ class MascaraDeLogTest {
                 código em contexto            | COE: seu código é 483920. Vale por 5 minutos.       | 483920
                 código sem acento             | codigo=483920                                       | 483920
                 token base64url               | link #token=Rq4ZB0OmTL20_U2x2DQMd2MTbCM3PNbT4frWi3iJf4Fg  | Rq4ZB0OmTL20_U2x2DQMd2MTbCM3PNbT4frWi3iJf4Fg
+                celular com espaços           | celular 47 9 9999-0001 sem conta                    | 9999-0001
+                celular com pontos            | celular 47.99999.0001 sem conta                     | 99999.0001
+                CPF com espaços               | cpf 123 456 789 09 recusado                         | 123 456 789 09
+                CPF sem pontos com hífen      | cpf 123456789-09 recusado                           | 123456789-09
+                CPF numa lista                | Failing row contains (x, 12345678909, y)            | 12345678909
+                e-mail com acento             | para joão.silva@exemplo.com agora                   | oão.silva
+                código como code              | code 123456 enviado                                 | 123456
+                código como otp               | otp=123456                                          | 123456
+                código longe da palavra       | O seu código de acesso da COE é 123456              | 123456
+                token base64 padrão           | chave abcdEFGH1234+/abcdEFGH1234/abcdEFGH12== fim   | abcdEFGH1234+/abcdEFGH1234/abcdEFGH12==
                 JWT                           | Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkFuYSJ9.abc123def456ghi789jkl012mno345pq | eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkFuYSJ9
                 """)
         void esconde(String caso, String texto, String segredo) {
@@ -62,7 +72,8 @@ class MascaraDeLogTest {
                     "bean requestMappingHandlerMapping criado",
                     "org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter",
                     "chave limite_balde entrar-login-ip:203.0.113.7",
-                    "47*****0101 e a***@exemplo.com já mascarados"
+                    "47*****0101 e a***@exemplo.com já mascarados",
+                    "valor 12345678901,00 em reais"
                 })
         void mantem(String texto) {
             assertThat(MascaraDeLog.mascarar(texto)).isEqualTo(texto);

@@ -92,6 +92,14 @@ final class FiltroDeTamanhoDoCorpo extends OncePerRequestFilter {
         }
 
         @Override
+        public java.io.BufferedReader getReader() {
+            java.nio.charset.Charset charset = getCharacterEncoding() == null
+                    ? java.nio.charset.StandardCharsets.UTF_8
+                    : java.nio.charset.Charset.forName(getCharacterEncoding());
+            return new java.io.BufferedReader(new java.io.InputStreamReader(getInputStream(), charset));
+        }
+
+        @Override
         public ServletInputStream getInputStream() {
             InputStream bytes = new ByteArrayInputStream(corpo);
             return new ServletInputStream() {

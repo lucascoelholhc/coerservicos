@@ -65,7 +65,7 @@ coe:
     conexoes: 5                # pool próprio do limitador (não esgota o da aplicação)
     espera-por-conexao: 500ms  # sem conexão nesse prazo = 503
     corpo-maximo: 64KB         # corpo das requisições em /api/** (413 acima)
-    limpeza: 1h                # apaga os baldes vencidos
+    limpeza: 5m                # apaga os baldes vencidos (frequente: a tabela cresce numa inundação)
     regras:
       # em memória (por instância)
       api-ip: { capacidade: 300, janela: 1m }
@@ -112,6 +112,10 @@ coe:
       dominio:          # vazio = só o host que respondeu
 
 logging:
+  level:
+    # O Hibernate loga a mensagem do Postgres ("Failing row contains (...)", "Key (email)=(...)") com
+    # dado pessoal antes de o Spring traduzir a exceção; o TratadorDeErros já loga só o que importa (CORE-11).
+    org.hibernate.engine.jdbc.spi.SqlExceptionHelper: "OFF"
   pattern:
     # Id da requisição (CORE-11) em toda linha do log em texto (local e test); no JSON do prod vai pelo MDC.
     correlation: "[%X{requisicao:-}] "

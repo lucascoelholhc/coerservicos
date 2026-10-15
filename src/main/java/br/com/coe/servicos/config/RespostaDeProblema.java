@@ -30,6 +30,9 @@ final class RespostaDeProblema {
             problema.put(Correlacao.CHAVE, id);
         }
         resposta.setStatus(status);
+        // respondido antes do Security: os cabeçalhos dele ainda não foram postos
+        resposta.setHeader("X-Content-Type-Options", "nosniff");
+        resposta.setHeader("Cache-Control", "no-store");
         resposta.setContentType(PROBLEM_JSON);
         resposta.getOutputStream().write(json.writeValueAsString(problema).getBytes(StandardCharsets.UTF_8));
     }

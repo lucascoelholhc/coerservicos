@@ -206,7 +206,7 @@ class VarreduraDeLogsTest extends IntegracaoTest {
         assertThat(log).contains("Login ok").contains("Enviado SMS");
         assertThat(segredos)
                 .allSatisfy(segredo -> assertThat(log)
-                        .as("o log não pode ter %s…", segredo.substring(0, 4))
+                        .as("o log não pode ter o segredo nº %d", segredos.indexOf(segredo))
                         .doesNotContain(segredo));
         assertThat(codigos)
                 .hasSizeGreaterThanOrEqualTo(6)

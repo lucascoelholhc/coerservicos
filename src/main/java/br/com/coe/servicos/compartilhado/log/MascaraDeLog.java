@@ -12,18 +12,23 @@ import java.util.regex.Pattern;
  */
 public final class MascaraDeLog {
 
-    private static final Pattern EMAIL =
-            Pattern.compile("(?<![\\w.%+-])([\\w%+-])[\\w.%+-]*@([\\w-]+(?:\\.[\\w-]+)*\\.[A-Za-z]{2,})");
-    private static final Pattern TOKEN = Pattern.compile("(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{32,}(?![A-Za-z0-9_-])");
+    private static final Pattern EMAIL = Pattern.compile(
+            "(?<![\\w.%+'-])([\\w%+'-])[\\w.%+'-]*@([\\w-]+(?:\\.[\\w-]+)*\\.[A-Za-z]{2,})",
+            Pattern.UNICODE_CHARACTER_CLASS);
+    private static final Pattern TOKEN =
+            Pattern.compile("(?<![A-Za-z0-9_+/=-])[A-Za-z0-9_+/=-]{32,}(?![A-Za-z0-9_+/=-])");
     private static final Pattern UUID =
             Pattern.compile("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
     private static final Pattern LETRA = Pattern.compile("[A-Za-z]");
     private static final Pattern DIGITO = Pattern.compile("\\d");
-    private static final Pattern CPF = Pattern.compile("(?<![\\d.])\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2}(?![\\d-])");
-    private static final Pattern CELULAR_FORMATADO =
-            Pattern.compile("(?<![\\w-])(?:\\+?55\\s?)?\\(?(\\d{2})\\)?\\s?(9\\d{4})[-\\s]?(\\d{4})(?![\\w-])");
-    private static final Pattern DIGITOS_SOLTOS = Pattern.compile("(?<![\\w.,/:*-])\\d{10,11}(?![\\w.,/:*-])");
-    private static final Pattern CODIGO = Pattern.compile("(?iu)(c[oó]digo\\b[^\\d\\n]{0,15})(\\d{6})(?!\\d)");
+    private static final Pattern CPF = Pattern.compile(
+            "(?<![\\d.])\\d{3}[.\\s]\\d{3}[.\\s]\\d{3}[-.\\s]?\\d{2}(?![\\d-])|(?<![\\d.])\\d{9}-\\d{2}(?![\\d-])");
+    private static final Pattern CELULAR_FORMATADO = Pattern.compile(
+            "(?<![\\w-])(?:\\+?55[\\s.]?)?\\(?(\\d{2})\\)?[\\s.]?(9[\\s.]?\\d{4})[-\\s.]?(\\d{4})(?![\\w-])");
+    private static final Pattern DIGITOS_SOLTOS =
+            Pattern.compile("(?<![\\w*/-])(?<!\\d[.,:])\\d{10,11}(?![\\w*/-])(?![.,:]\\d)");
+    private static final Pattern CODIGO =
+            Pattern.compile("(?iu)((?:c[oó]digo|code|otp|pin)\\b[^\\d\\n]{0,30})(\\d{6})(?!\\d)");
     private static final Pattern LINHA_DA_PILHA = Pattern.compile("^\\s*(at |\\.\\.\\. \\d+ )");
 
     private MascaraDeLog() {}
@@ -37,7 +42,9 @@ public final class MascaraDeLog {
         resultado = substituir(TOKEN, resultado, MascaraDeLog::token);
         resultado = substituir(CPF, resultado, cpf -> Mascara.cpf(cpf.group()));
         resultado = substituir(
-                CELULAR_FORMATADO, resultado, cel -> Mascara.celular(cel.group(1) + cel.group(2) + cel.group(3)));
+                CELULAR_FORMATADO,
+                resultado,
+                cel -> Mascara.celular((cel.group(1) + cel.group(2) + cel.group(3)).replaceAll("\\D", "")));
         resultado = substituir(
                 DIGITOS_SOLTOS, resultado, digitos -> "*".repeat(digitos.group().length()));
         return CODIGO.matcher(resultado).replaceAll("$1******");
@@ -71,10 +78,13 @@ public final class MascaraDeLog {
     private static String substituir(
             Pattern padrao, String texto, java.util.function.Function<Matcher, String> substituto) {
         Matcher achou = padrao.matcher(texto);
-        StringBuilder resultado = new StringBuilder(texto.length());
-        while (achou.find()) {
-            achou.appendReplacement(resultado, Matcher.quoteReplacement(substituto.apply(achou)));
+        if (!achou.find()) {
+            return texto; // o caso comum: nada a mascarar, sem copiar a linha
         }
+        StringBuilder resultado = new StringBuilder(texto.length());
+        do {
+            achou.appendReplacement(resultado, Matcher.quoteReplacement(substituto.apply(achou)));
+        } while (achou.find());
         achou.appendTail(resultado);
         return resultado.toString();
     }

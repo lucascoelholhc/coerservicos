@@ -8,6 +8,8 @@ public class MensagemMascarada extends MessageConverter {
 
     @Override
     public String convert(ILoggingEvent evento) {
-        return MascaraDeLog.mascarar(super.convert(evento));
+        String mensagem = MascaraDeLog.mascarar(super.convert(evento));
+        // quebra de linha numa mensagem forjaria uma linha de log no texto (injeção): vira \\n literal
+        return mensagem == null ? null : mensagem.replace("\r", "\\r").replace("\n", "\\n");
     }
 }
