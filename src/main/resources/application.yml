@@ -37,6 +37,12 @@ spring:
     locale-resolver: fixed
 
 coe:
+  cifra:
+    # Criptografia de campo (CORE-10): CPF, chave Pix e endereço em AES-256-GCM; CPF também como HMAC.
+    # Obrigatórias em todo perfil (sem elas a aplicação não sobe). Em prod, do Secrets Manager (AWS-04).
+    kid-atual: ${COE_CIFRA_KID_ATUAL:}
+    chaves: ${COE_CIFRA_CHAVES:}
+    chave-hmac-cpf: ${COE_CHAVE_HMAC_CPF:}
   armazenamento:
     # Bucket privado dos arquivos (CORE-09). Em produção: S3 da AWS com o papel IAM da tarefa, sem
     # endpoint nem chaves (o bucket é criado na AWS-04). Endpoint e chaves só no local e no test.
