@@ -23,7 +23,6 @@ public class EnderecoCifradoConverter implements AttributeConverter<String, byte
 
     @Override
     public String convertToEntityAttribute(byte[] coluna) {
-        String texto = cifra.decifrar(coluna, Campo.ENDERECO);
-        return texto == null ? null : texto;
+        return cifra.decifrar(coluna, Campo.ENDERECO);
     }
 }

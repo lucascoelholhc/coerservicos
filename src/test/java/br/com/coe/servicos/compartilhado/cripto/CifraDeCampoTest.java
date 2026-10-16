@@ -122,6 +122,27 @@ class CifraDeCampoTest {
     }
 
     @Test
+    @DisplayName("contexto no AAD amarra o dado à linha: copiado para outra linha, não decifra")
+    void contexto() {
+        byte[] daLinhaA = cifra.cifrar("pix-da-pessoa-a@exemplo.com", Campo.CHAVE_PIX, "repasse:linha-a");
+
+        assertThat(cifra.decifrar(daLinhaA, Campo.CHAVE_PIX, "repasse:linha-a"))
+                .isEqualTo("pix-da-pessoa-a@exemplo.com");
+        assertThatThrownBy(() -> cifra.decifrar(daLinhaA, Campo.CHAVE_PIX, "repasse:linha-b"))
+                .isInstanceOf(DadoCifradoInvalidoException.class);
+        assertThatThrownBy(() -> cifra.decifrar(daLinhaA, Campo.CHAVE_PIX))
+                .isInstanceOf(DadoCifradoInvalidoException.class);
+        assertThatThrownBy(() -> cifra.decifrar(cifra.cifrar("x", Campo.CHAVE_PIX), Campo.CHAVE_PIX, "repasse:linha-a"))
+                .isInstanceOf(DadoCifradoInvalidoException.class);
+    }
+
+    @Test
+    @DisplayName("contexto vazio não vale (seria o mesmo que sem contexto)")
+    void contextoVazio() {
+        assertThatThrownBy(() -> cifra.cifrar("x", Campo.CHAVE_PIX, " ")).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     @DisplayName("acentos e textos longos (endereço) voltam iguais")
     void utf8() {
         String endereco = "Rua São João, 1.234, apto 56 — bloco C, Itajaí/SC";

@@ -55,6 +55,34 @@ class CifraNoBancoTest extends IntegracaoTest {
         assertThat(cifra.decifrar(pixNoBanco, Campo.CHAVE_PIX)).isEqualTo(pix);
     }
 
+    @Autowired
+    private jakarta.persistence.EntityManagerFactory fabrica;
+
+    @Test
+    @DisplayName("pelo Hibernate (@Convert): grava cifrado, relê decifrado; a coluna não tem o texto")
+    void peloHibernate() {
+        Cpf cpf = CpfsDeTeste.unico();
+        String pix = "pix-" + UUID.randomUUID() + "@teste.coe.local";
+        UUID usuario = novoUsuario();
+        jakarta.persistence.EntityManager gravacao = fabrica.createEntityManager();
+        gravacao.getTransaction().begin();
+        EntidadeCifradaDeTeste entidade = new EntidadeCifradaDeTeste(usuario, cpf, hmac.de(cpf), pix);
+        gravacao.persist(entidade);
+        gravacao.getTransaction().commit();
+        gravacao.close();
+
+        jakarta.persistence.EntityManager leitura = fabrica.createEntityManager();
+        EntidadeCifradaDeTeste relida = leitura.find(EntidadeCifradaDeTeste.class, entidade.id());
+        leitura.close();
+
+        assertThat(relida.cpf()).isEqualTo(cpf);
+        assertThat(relida.chavePix()).isEqualTo(pix);
+        assertThat(new String(coluna("cpf_cifrado", usuario), StandardCharsets.ISO_8859_1))
+                .doesNotContain(cpf.digitos());
+        assertThat(new String(coluna("chave_pix_cifrada", usuario), StandardCharsets.ISO_8859_1))
+                .doesNotContain(pix);
+    }
+
     @Test
     @DisplayName("busca exata pelo HMAC, sem decifrar nada")
     void buscaPeloHmac() {

@@ -15,6 +15,10 @@ import javax.crypto.spec.GCMParameterSpec;
  * O nonce é aleatório a cada cifra (o mesmo valor nunca dá o mesmo resultado); o AAD é o cabeçalho + o
  * {@link Campo}, então mexer na versão, no kid ou trocar o dado de coluna é recusado. Cifra sempre com o kid
  * atual e decifra com qualquer kid conhecido (rotação).
+ *
+ * <p>Sem contexto (conversores JPA), o dado não fica amarrado à linha: quem escreve no banco pode copiar o valor
+ * cifrado de uma linha para outra. Onde isso importa (chave Pix do repasse, DOM-07), use as versões com
+ * {@code contexto} (ex.: {@code "repasse:" + id}), que entra no AAD: copiado para outra linha, não decifra.
  */
 public final class CifraDeCampo {
 
@@ -34,6 +38,31 @@ public final class CifraDeCampo {
 
     /** Nulo continua nulo (coluna vazia no rascunho). */
     public byte[] cifrar(String texto, Campo campo) {
+        return cifrarCom(texto, campo, null);
+    }
+
+    /** Como {@link #cifrar(String, Campo)}, com o dado amarrado ao {@code contexto} (ex.: id da linha). */
+    public byte[] cifrar(String texto, Campo campo, String contexto) {
+        return cifrarCom(texto, campo, exigirContexto(contexto));
+    }
+
+    public String decifrar(byte[] dado, Campo campo) {
+        return decifrarCom(dado, campo, null);
+    }
+
+    /** Decifra o que foi cifrado com o mesmo {@code contexto}; outro contexto (ou nenhum) é recusado. */
+    public String decifrar(byte[] dado, Campo campo, String contexto) {
+        return decifrarCom(dado, campo, exigirContexto(contexto));
+    }
+
+    private static String exigirContexto(String contexto) {
+        if (contexto == null || contexto.isBlank()) {
+            throw new IllegalArgumentException("contexto vazio: use a versão sem contexto");
+        }
+        return contexto;
+    }
+
+    private byte[] cifrarCom(String texto, Campo campo, String contexto) {
         if (texto == null) {
             return null;
         }
@@ -44,7 +73,7 @@ public final class CifraDeCampo {
         try {
             Cipher cifra = Cipher.getInstance(TRANSFORMACAO);
             cifra.init(Cipher.ENCRYPT_MODE, chaves.chave(kid).orElseThrow(), new GCMParameterSpec(TAG_BITS, nonce));
-            cifra.updateAAD(aad(cabecalho, campo));
+            cifra.updateAAD(aad(cabecalho, campo, contexto));
             byte[] cifrado = cifra.doFinal(texto.getBytes(StandardCharsets.UTF_8));
             return ByteBuffer.allocate(cabecalho.length + NONCE + cifrado.length)
                     .put(cabecalho)
@@ -56,7 +85,7 @@ public final class CifraDeCampo {
         }
     }
 
-    public String decifrar(byte[] dado, Campo campo) {
+    private String decifrarCom(byte[] dado, Campo campo, String contexto) {
         if (dado == null) {
             return null;
         }
@@ -77,7 +106,7 @@ public final class CifraDeCampo {
                     Cipher.DECRYPT_MODE,
                     chave,
                     new GCMParameterSpec(TAG_BITS, Arrays.copyOfRange(dado, inicioDoNonce, inicioDoNonce + NONCE)));
-            cifra.updateAAD(aad(Arrays.copyOfRange(dado, 0, inicioDoNonce), campo));
+            cifra.updateAAD(aad(Arrays.copyOfRange(dado, 0, inicioDoNonce), campo, contexto));
             byte[] texto = cifra.doFinal(dado, inicioDoNonce + NONCE, dado.length - inicioDoNonce - NONCE);
             return new String(texto, StandardCharsets.UTF_8);
         } catch (AEADBadTagException erro) {
@@ -96,11 +125,17 @@ public final class CifraDeCampo {
                 .array();
     }
 
-    private static byte[] aad(byte[] cabecalho, Campo campo) {
+    /** cabeçalho + "coe:campo" + (se houver) 0x00 + contexto: o separador evita ambiguidade entre os dois. */
+    private static byte[] aad(byte[] cabecalho, Campo campo, String contexto) {
         byte[] doCampo = campo.aad();
-        return ByteBuffer.allocate(cabecalho.length + doCampo.length)
+        byte[] doContexto = contexto == null ? new byte[0] : contexto.getBytes(StandardCharsets.UTF_8);
+        ByteBuffer aad = ByteBuffer.allocate(
+                        cabecalho.length + doCampo.length + (contexto == null ? 0 : 1 + doContexto.length))
                 .put(cabecalho)
-                .put(doCampo)
-                .array();
+                .put(doCampo);
+        if (contexto != null) {
+            aad.put((byte) 0).put(doContexto);
+        }
+        return aad.array();
     }
 }

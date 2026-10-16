@@ -4,7 +4,8 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * Qual dado está cifrado. Entra no AAD do GCM: o CPF cifrado não decifra como endereço nem como chave Pix,
- * então trocar colunas ou linhas no banco não engana a aplicação. O nome nunca muda (dado gravado depende dele).
+ * então trocar o dado de coluna é recusado. Trocar de linha só é recusado com contexto (ver
+ * {@link CifraDeCampo#cifrar(String, Campo, String)}). O nome nunca muda (dado gravado depende dele).
  */
 public enum Campo {
     CPF("cpf"),

@@ -38,6 +38,9 @@ class HmacDeCpfTest {
     void chaveRuim() {
         assertThatThrownBy(() -> HmacDeCpf.de("")).hasMessageContaining("COE_CHAVE_HMAC_CPF");
         assertThatThrownBy(() -> HmacDeCpf.de("c2VncmVkbw==")).hasMessageContaining("32 bytes");
+        assertThatThrownBy(() -> HmacDeCpf.de("nao-e-base64!")).hasMessageContaining("base64");
+        assertThatThrownBy(() -> HmacDeCpf.de("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="))
+                .hasMessageContaining("iguais");
         assertThat(HmacDeCpf.de(CHAVE).toString()).doesNotContain(CHAVE);
     }
 }

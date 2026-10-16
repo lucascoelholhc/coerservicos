@@ -23,7 +23,6 @@ public class ChavePixCifradaConverter implements AttributeConverter<String, byte
 
     @Override
     public String convertToEntityAttribute(byte[] coluna) {
-        String texto = cifra.decifrar(coluna, Campo.CHAVE_PIX);
-        return texto == null ? null : texto;
+        return cifra.decifrar(coluna, Campo.CHAVE_PIX);
     }
 }

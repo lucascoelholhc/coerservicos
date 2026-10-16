@@ -3,6 +3,7 @@ package br.com.coe.servicos.compartilhado.cripto;
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
 
+import br.com.coe.servicos.compartilhado.erro.RegraDeNegocioException;
 import br.com.coe.servicos.compartilhado.pessoal.Cpf;
 
 /**
@@ -26,6 +27,14 @@ public class CpfCifradoConverter implements AttributeConverter<Cpf, byte[]> {
     @Override
     public Cpf convertToEntityAttribute(byte[] coluna) {
         String texto = cifra.decifrar(coluna, Campo.CPF);
-        return texto == null ? null : Cpf.de(texto);
+        if (texto == null) {
+            return null;
+        }
+        try {
+            return Cpf.de(texto);
+        } catch (RegraDeNegocioException invalido) {
+            // decifrou mas não é CPF válido: dado corrompido no banco, não erro de quem pediu
+            throw new DadoCifradoInvalidoException(Campo.CPF, "o valor decifrado não é um CPF válido");
+        }
     }
 }

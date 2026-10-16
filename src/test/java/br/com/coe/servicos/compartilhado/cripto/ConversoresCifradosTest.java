@@ -32,6 +32,16 @@ class ConversoresCifradosTest {
     }
 
     @Test
+    @DisplayName("CPF que decifra mas não é válido: erro de dado (500), nunca 422 de usuário")
+    void cpfCorrompido() {
+        byte[] invalido = cifra.cifrar("11111111111", Campo.CPF);
+
+        assertThatThrownBy(() -> new CpfCifradoConverter(cifra).convertToEntityAttribute(invalido))
+                .isInstanceOf(DadoCifradoInvalidoException.class)
+                .hasMessageNotContaining("11111111111");
+    }
+
+    @Test
     @DisplayName("a chave Pix cifrada não decifra como endereço")
     void campoErrado() {
         byte[] pix = new ChavePixCifradaConverter(cifra).convertToDatabaseColumn("pessoa@exemplo.com");
