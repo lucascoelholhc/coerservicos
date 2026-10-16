@@ -1,5 +1,6 @@
 package br.com.coe.servicos.profissional;
 
+import java.time.Instant;
 import java.util.UUID;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -31,6 +32,15 @@ class DocumentoVerificacao implements Persistable<UUID> {
     @Column(nullable = false)
     private String status;
 
+    @Column(name = "motivo_recusa")
+    private String motivoRecusa;
+
+    @Column(name = "analisado_por")
+    private UUID analisadoPor;
+
+    @Column(name = "analisado_em")
+    private Instant analisadoEm;
+
     @Transient
     private boolean novo = true;
 
@@ -58,6 +68,26 @@ class DocumentoVerificacao implements Persistable<UUID> {
     @Override
     public boolean isNew() {
         return novo;
+    }
+
+    boolean pendente() {
+        return "pendente".equals(status);
+    }
+
+    /** Conferido pelo admin na aprovação do cadastro (DOM-03). */
+    void aprovar(UUID admin, Instant agora) {
+        analisar("aprovado", admin, agora);
+    }
+
+    void recusar(UUID admin, Instant agora, String motivo) {
+        analisar("recusado", admin, agora);
+        this.motivoRecusa = motivo;
+    }
+
+    private void analisar(String novo, UUID admin, Instant agora) {
+        this.status = novo;
+        this.analisadoPor = admin;
+        this.analisadoEm = agora;
     }
 
     String tipo() {
