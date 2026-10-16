@@ -19,6 +19,12 @@ spring:
       mail.smtp.connectiontimeout: 5000
       mail.smtp.timeout: 10000
       mail.smtp.writetimeout: 10000
+  servlet:
+    multipart:
+      # Upload de foto (CORE-09): acima de 8 MB por categoria o validador recusa; aqui a folga do multipart.
+      # O filtro de corpo só deixa passar disso nas RotasDeUpload; no resto da API, 64 KB.
+      max-file-size: 10MB
+      max-request-size: 11MB
   mvc:
     problemdetails.enabled: true      # erros em Problem Details (RFC 9457)
   jackson:
@@ -38,6 +44,20 @@ coe:
     regiao: ${COE_S3_REGIAO:sa-east-1}
     validade-url: 5m           # URL assinada de leitura (teto de 15 min)
     kms-key-id: ${COE_S3_KMS_KEY_ID:}   # SSE-KMS; vazio = criptografia padrão do bucket
+    imagem:
+      # Validação do upload (RNF07, decidido em 14/10). O multipart (spring.servlet.multipart) cobre o maior.
+      tamanho-maximo:
+        documento: 8MB
+        selfie: 8MB
+        portfolio: 8MB
+        pedido: 8MB
+        evidencia: 8MB
+        disputa: 8MB
+      pixels-maximo: 40000000      # pelo cabeçalho, antes de decodificar (teto: 40 milhões)
+      lado-maximo: 2560            # lado maior da imagem gravada
+      processamentos-simultaneos: 2   # imagens decodificadas ao mesmo tempo por instância (memória)
+      espera-por-vaga: 5s          # sem vaga nesse prazo = 503
+      qualidade-jpeg: 0.85
   front:
     # Base dos links mandados por e-mail (token no fragmento #token=...). Obrigatória; em prod só https.
     url-base: ${COE_FRONT_URL_BASE:}
@@ -72,6 +92,7 @@ coe:
     conexoes: 5                # pool próprio do limitador (não esgota o da aplicação)
     espera-por-conexao: 500ms  # sem conexão nesse prazo = 503
     corpo-maximo: 64KB         # corpo das requisições em /api/** (413 acima)
+    corpo-maximo-upload: ${spring.servlet.multipart.max-request-size}   # só nas RotasDeUpload, com multipart (CORE-09)
     limpeza: 5m                # apaga os baldes vencidos (frequente: a tabela cresce numa inundação)
     regras:
       # em memória (por instância)

@@ -3,6 +3,8 @@ package br.com.coe.servicos.config;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Locale;
+import java.util.Set;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ReadListener;
 import jakarta.servlet.ServletException;
@@ -16,19 +18,25 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Corpo de requisição em /api/** com no máximo {@code coe.limites.corpo-maximo} (CORE-07; uploads da
- * CORE-09 terão o deles). Content-Length acima = 413 sem ler nada. Sem Content-Length (chunked): lê até
- * o limite + 1 byte; passou, 413; senão segue com o corpo já lido (os corpos da API são JSON pequenos).
+ * Corpo de requisição em /api/** com no máximo {@code coe.limites.corpo-maximo} (CORE-07). Só as rotas de
+ * upload ({@link RotasDeUpload}), e só com {@code multipart/form-data}, usam o limite do upload
+ * ({@code coe.limites.corpo-maximo-upload}, CORE-09); multipart em qualquer outra rota fica nos 64 KB.
+ * Content-Length acima = 413 sem ler nada. Sem Content-Length (chunked): lê até o limite + 1 byte;
+ * passou, 413; senão segue com o corpo já lido.
  */
 final class FiltroDeTamanhoDoCorpo extends OncePerRequestFilter {
 
     private static final String PREFIXO_DA_API = "/api/";
 
     private final long maximo;
+    private final long maximoDeUpload;
+    private final Set<String> rotasDeUpload;
     private final JsonMapper json;
 
-    FiltroDeTamanhoDoCorpo(long maximo, JsonMapper json) {
+    FiltroDeTamanhoDoCorpo(long maximo, long maximoDeUpload, Set<String> rotasDeUpload, JsonMapper json) {
         this.maximo = maximo;
+        this.maximoDeUpload = maximoDeUpload;
+        this.rotasDeUpload = Set.copyOf(rotasDeUpload);
         this.json = json;
     }
 
@@ -44,24 +52,43 @@ final class FiltroDeTamanhoDoCorpo extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest requisicao, HttpServletResponse resposta, FilterChain cadeia)
             throws ServletException, IOException {
+        boolean upload = ehUpload(requisicao);
+        long limite = upload ? maximoDeUpload : maximo;
         long declarado = requisicao.getContentLengthLong();
-        if (declarado > maximo) {
-            recusar(resposta);
+        if (declarado > limite) {
+            recusar(resposta, upload);
             return;
         }
         if (declarado >= 0) {
             cadeia.doFilter(requisicao, resposta);
             return;
         }
-        byte[] corpo = requisicao.getInputStream().readNBytes((int) maximo + 1);
-        if (corpo.length > maximo) {
-            recusar(resposta);
+        byte[] corpo = requisicao.getInputStream().readNBytes((int) limite + 1);
+        if (corpo.length > limite) {
+            recusar(resposta, upload);
             return;
         }
         cadeia.doFilter(new CorpoJaLido(requisicao, corpo), resposta);
     }
 
-    private void recusar(HttpServletResponse resposta) throws IOException {
+    private boolean ehUpload(HttpServletRequest requisicao) {
+        String tipo = requisicao.getContentType();
+        return tipo != null
+                && tipo.toLowerCase(Locale.ROOT).startsWith("multipart/form-data")
+                && rotasDeUpload.contains(CaminhoDaRequisicao.de(requisicao));
+    }
+
+    private void recusar(HttpServletResponse resposta, boolean upload) throws IOException {
+        if (upload) {
+            RespostaDeProblema.escrever(
+                    resposta,
+                    json,
+                    HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE,
+                    "arquivo-grande-demais",
+                    "Arquivo não aceito",
+                    "A foto é grande demais.");
+            return;
+        }
         RespostaDeProblema.escrever(
                 resposta,
                 json,

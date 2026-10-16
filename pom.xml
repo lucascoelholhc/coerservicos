@@ -30,6 +30,7 @@
         <java.version>21</java.version>
         <bucket4j.version>8.14.0</bucket4j.version>
         <awssdk.version>2.56.0</awssdk.version>
+        <twelvemonkeys.version>3.15.3</twelvemonkeys.version>
     </properties>
     <dependencyManagement>
         <dependencies>
@@ -114,6 +115,12 @@
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>url-connection-client</artifactId>
+        </dependency>
+        <!-- Leitura de WebP no ImageIO (CORE-09); a imagem é sempre gravada de novo como JPEG ou PNG -->
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-webp</artifactId>
+            <version>${twelvemonkeys.version}</version>
         </dependency>
 
         <dependency>

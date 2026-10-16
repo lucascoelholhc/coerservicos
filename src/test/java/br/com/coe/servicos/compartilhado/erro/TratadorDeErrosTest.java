@@ -129,10 +129,50 @@ class TratadorDeErrosTest extends IntegracaoTest {
             throw new org.springframework.dao.OptimisticLockingFailureException("versão 3 mudou para 4");
         }
 
+        @GetMapping("/arquivo/{motivo}")
+        void arquivo(@PathVariable String motivo) {
+            throw switch (motivo) {
+                case "tipo" -> ArquivoRecusadoException.tipoInvalido();
+                case "tamanho" -> ArquivoRecusadoException.grandeDemais("8 MB");
+                default -> ArquivoRecusadoException.imagemGrandeDemais();
+            };
+        }
+
+        @GetMapping("/multipart-grande")
+        void multipartGrande() {
+            throw new org.springframework.web.multipart.MaxUploadSizeExceededException(10_485_760L);
+        }
+
         @GetMapping("/inesperado")
         void inesperado() {
             throw new IllegalStateException("detalhe interno: SELECT * FROM usuario");
         }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0} = {1} {2}")
+    @org.junit.jupiter.params.provider.CsvSource({
+        "tipo,      415, arquivo-tipo-invalido, Envie a foto em JPG ou PNG.",
+        "tamanho,   413, arquivo-grande-demais, A foto é grande demais. Envie uma foto de até 8 MB.",
+        "resolucao, 422, imagem-grande-demais,  A foto tem resolução grande demais. Envie uma foto menor."
+    })
+    @DisplayName("arquivo recusado (CORE-09): status do motivo, código e mensagem em português")
+    void arquivoRecusado(String motivo, int status, String codigo, String mensagem) throws Exception {
+        mockMvc.perform(get("/teste/erros/arquivo/" + motivo))
+                .andExpect(status().is(status))
+                .andExpect(content().contentType(PROBLEM_JSON))
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:" + codigo))
+                .andExpect(jsonPath("$.status").value(status))
+                .andExpect(jsonPath("$.detail").value(mensagem));
+    }
+
+    @Test
+    @DisplayName("multipart acima do limite do Spring: 413 arquivo-grande-demais")
+    void multipartGrandeDemais() throws Exception {
+        mockMvc.perform(get("/teste/erros/multipart-grande"))
+                .andExpect(status().isPayloadTooLarge())
+                .andExpect(content().contentType(PROBLEM_JSON))
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:arquivo-grande-demais"))
+                .andExpect(jsonPath("$.detail").value("A foto é grande demais."));
     }
 
     @Test

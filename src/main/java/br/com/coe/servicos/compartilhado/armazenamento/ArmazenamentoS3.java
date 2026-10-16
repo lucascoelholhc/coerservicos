@@ -98,7 +98,7 @@ final class ArmazenamentoS3 implements Armazenamento, AutoCloseable {
             throw new ServicoInstavelException(INDISPONIVEL, erro);
         }
         // Só a chave e a categoria: nunca o conteúdo nem o nome original (CORE-11).
-        LOG.info("Arquivo guardado: chave={} categoria={} bytes={}", chave, categoria.prefixo(), arquivo.tamanho());
+        LOG.info("Arquivo guardado: {}, {} bytes", paraLog(chave), arquivo.tamanho());
         return chave;
     }
 
@@ -138,7 +138,7 @@ final class ArmazenamentoS3 implements Armazenamento, AutoCloseable {
         } catch (SdkException erro) {
             throw new ServicoInstavelException(INDISPONIVEL, erro);
         }
-        LOG.info("Arquivo apagado: chave={}", chave);
+        LOG.info("Arquivo apagado: {}", paraLog(chave));
     }
 
     /** Local e test: cria o bucket (privado, o padrão do S3) se ele ainda não existir. */
@@ -162,6 +162,15 @@ final class ArmazenamentoS3 implements Armazenamento, AutoCloseable {
     /** {@code <categoria>/<uuid aleatório>.<jpg|png>}: o UUID v4 vem do SecureRandom, sem nada do usuário. */
     static String novaChave(Categoria categoria, TipoDeImagem tipo) {
         return categoria.prefixo() + "/" + UUID.randomUUID() + "." + tipo.extensao();
+    }
+
+    /**
+     * A chave no log como "categoria X, arquivo uuid.ext": o UUID sozinho escapa da máscara de token
+     * (MascaraDeLog só poupa um UUID inteiro), e a chave não é dado pessoal.
+     */
+    static String paraLog(String chave) {
+        int barra = chave.indexOf('/');
+        return "categoria " + chave.substring(0, barra) + ", arquivo " + chave.substring(barra + 1);
     }
 
     static boolean chaveValida(String chave) {
