@@ -17,6 +17,7 @@ import org.springframework.core.io.ClassPathResource;
 class PropriedadesDoArmazenamentoTest {
 
     private static final String ENDPOINT = "http://localhost:8333";
+    static final String KMS = "arn:aws:kms:sa-east-1:000000000000:key/teste";
 
     @Test
     @DisplayName("local/test: endpoint próprio com as duas chaves passa")
@@ -27,7 +28,14 @@ class PropriedadesDoArmazenamentoTest {
     @Test
     @DisplayName("produção: sem endpoint e sem chaves (papel IAM) passa")
     void producaoSemEndpoint() {
-        assertThatCode(() -> producao("").validar(true)).doesNotThrowAnyException();
+        assertThatCode(() -> producao(KMS).validar(true)).doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("produção sem chave KMS não sobe (documento e selfie com criptografia verificável)")
+    void producaoExigeKms() {
+        assertThatThrownBy(() -> producao("").validar(true)).hasMessageContaining("kms-key-id");
+        assertThatCode(() -> producao("").validar(false)).doesNotThrowAnyException();
     }
 
     @Test
@@ -45,7 +53,7 @@ class PropriedadesDoArmazenamentoTest {
     @DisplayName("produção não cria o bucket (é da infraestrutura, AWS-04)")
     void producaoNaoCriaBucket() {
         PropriedadesDoArmazenamento criando = new PropriedadesDoArmazenamento(
-                "coe-arquivos", null, "sa-east-1", null, null, Duration.ofMinutes(5), "", true);
+                "coe-arquivos", null, "sa-east-1", null, null, Duration.ofMinutes(5), KMS, true);
 
         assertThatThrownBy(() -> criando.validar(true)).hasMessageContaining("criar-bucket");
     }
@@ -113,6 +121,19 @@ class PropriedadesDoArmazenamentoTest {
         }
     }
 
+    @Test
+    @DisplayName("produção = perfil prod OU origens só https (os dois sinais, nunca um só)")
+    void producaoPeloPerfil() {
+        org.springframework.mock.env.MockEnvironment prod = new org.springframework.mock.env.MockEnvironment();
+        prod.setActiveProfiles("prod");
+        org.springframework.mock.env.MockEnvironment local = new org.springframework.mock.env.MockEnvironment();
+        local.setActiveProfiles("local");
+
+        assertThat(ConfiguracaoDoArmazenamento.ehProducao(prod, false)).isTrue();
+        assertThat(ConfiguracaoDoArmazenamento.ehProducao(local, true)).isTrue();
+        assertThat(ConfiguracaoDoArmazenamento.ehProducao(local, false)).isFalse();
+    }
+
     static PropriedadesDoArmazenamento local(String endpoint, String chave, String segredo) {
         return new PropriedadesDoArmazenamento(
                 "coe-arquivos-teste", endpoint, "us-east-1", chave, segredo, Duration.ofMinutes(5), "", true);
@@ -124,6 +145,6 @@ class PropriedadesDoArmazenamentoTest {
     }
 
     private static PropriedadesDoArmazenamento semEndpoint(String bucket, String regiao, Duration validade) {
-        return new PropriedadesDoArmazenamento(bucket, null, regiao, null, null, validade, "", false);
+        return new PropriedadesDoArmazenamento(bucket, null, regiao, null, null, validade, KMS, false);
     }
 }

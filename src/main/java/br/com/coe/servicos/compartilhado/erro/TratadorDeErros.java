@@ -81,6 +81,17 @@ public class TratadorDeErros extends ResponseEntityExceptionHandler {
                         "A foto é grande demais."));
     }
 
+    /** Multipart quebrado (parte malformada, corpo cortado): 400, sem a mensagem do framework. */
+    @ExceptionHandler(org.springframework.web.multipart.MultipartException.class)
+    ProblemDetail multipartInvalido(org.springframework.web.multipart.MultipartException erro) {
+        LOG.info("Multipart inválido: {}", erro.getClass().getSimpleName());
+        return problema(
+                HttpStatus.BAD_REQUEST,
+                "requisicao-invalida",
+                "Requisição inválida",
+                "Não foi possível ler a foto enviada.");
+    }
+
     @ExceptionHandler(RecursoNaoEncontradoException.class)
     ProblemDetail naoEncontrado(RecursoNaoEncontradoException erro) {
         return problema(HttpStatus.NOT_FOUND, "nao-encontrado", "Não encontrado", erro.getMessage());

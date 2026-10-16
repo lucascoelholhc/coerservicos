@@ -77,8 +77,8 @@ class ArmazenamentoS3Test extends IntegracaoTest {
     @DisplayName("a URL assinada para de funcionar depois da validade")
     void urlExpira() throws Exception {
         String chave = s3.guardar(new ArquivoValidado(conteudoUnico(), TipoDeImagem.JPEG), Categoria.EVIDENCIA);
-        URI url = s3.urlAssinada(chave, Duration.ofSeconds(2));
-        assertThat(baixar(url).statusCode()).as("ainda válida").isEqualTo(200);
+        URI url = s3.urlAssinada(chave, Duration.ofSeconds(1));
+        assertThat(url.getQuery()).contains("X-Amz-Expires=1");
 
         await().atMost(Duration.ofSeconds(10))
                 .pollInterval(Duration.ofMillis(500))

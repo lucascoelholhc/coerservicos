@@ -147,6 +147,28 @@ class FiltrosDeEntradaTest {
             assertThat(jsonNaRota.getStatus()).isEqualTo(413);
         }
 
+        @Test
+        @DisplayName("rota de upload sem Content-Length (chunked): 411, sem ler o corpo em memória")
+        void uploadSemTamanho() throws ServletException, IOException {
+            MockHttpServletRequest requisicao = new MockHttpServletRequest("POST", ROTA_DE_UPLOAD) {
+                @Override
+                public long getContentLengthLong() {
+                    return -1;
+                }
+            };
+            requisicao.setContentType("multipart/form-data; boundary=xyz");
+            requisicao.setContent(new byte[40]);
+            MockHttpServletResponse resposta = new MockHttpServletResponse();
+            MockFilterChain cadeia = new MockFilterChain();
+
+            filtro.doFilter(requisicao, resposta, cadeia);
+
+            assertThat(resposta.getStatus()).isEqualTo(411);
+            assertThat(resposta.getContentAsString(StandardCharsets.UTF_8))
+                    .contains("urn:coe:erro:tamanho-nao-informado");
+            assertThat(cadeia.getRequest()).isNull();
+        }
+
         private MockHttpServletRequest multipart(String caminho, int tamanho) {
             MockHttpServletRequest requisicao = new MockHttpServletRequest("POST", caminho);
             requisicao.setContentType("multipart/form-data; boundary=xyz");

@@ -95,8 +95,108 @@ class ValidadorDeImagemTest {
                 .isInstanceOfSatisfying(ArquivoRecusadoException.class, erro -> {
                     assertThat(erro.getCodigo()).isEqualTo("arquivo-tipo-invalido");
                     assertThat(erro.getStatus()).isEqualTo(415);
-                    assertThat(erro.getMessage()).contains("JPG ou PNG");
                 });
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"exe", "html"})
+    @DisplayName("o que nem é imagem: pede JPG ou PNG")
+    void mensagemDeTipo(String caso) {
+        byte[] bytes = caso.equals("exe")
+                ? juntar("MZ".getBytes(StandardCharsets.US_ASCII), new byte[200])
+                : "<html></html>".getBytes(StandardCharsets.UTF_8);
+
+        assertThatThrownBy(() -> validador.validar(bytes, Categoria.DOCUMENTO)).hasMessageContaining("JPG ou PNG");
+    }
+
+    @Test
+    @DisplayName("imagem que não abre (corrompida ou cortada): 415 com mensagem para tirar outra foto")
+    void imagemQueNaoAbre() {
+        byte[] inteiro = ImagensDeTeste.jpeg(200, 200);
+        byte[] cortado = java.util.Arrays.copyOf(inteiro, inteiro.length * 6 / 10);
+
+        assertThatThrownBy(() -> validador.validar(cortado, Categoria.DOCUMENTO))
+                .isInstanceOfSatisfying(ArquivoRecusadoException.class, erro -> {
+                    assertThat(erro.getCodigo()).isEqualTo("arquivo-tipo-invalido");
+                    assertThat(erro.getStatus()).isEqualTo(415);
+                    assertThat(erro.getMessage()).contains("Não conseguimos abrir");
+                });
+    }
+
+    @Test
+    @DisplayName("JPEG com perfil ICC quebrado: aceito sem o ICC ou 415, nunca 500")
+    void iccQuebrado() {
+        try {
+            ArquivoValidado arquivo = validador.validar(ImagensDeTeste.jpegComIccQuebrado(), Categoria.DOCUMENTO);
+            assertThat(segmentosDoJpeg(arquivo.conteudo())).doesNotContain(0xE2);
+        } catch (ArquivoRecusadoException recusado) {
+            assertThat(recusado.getStatus()).isEqualTo(415);
+        }
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"zTXt", "iTXt", "iCCP", "eXIf"})
+    @DisplayName("PNG com metadado grande (bomba de descompressão): recusado antes de abrir")
+    void pngComMetadadoGrande(String tipo) {
+        byte[] bomba = ImagensDeTeste.pngComChunk(tipo, 100 * 1024, 1);
+
+        assertTimeoutPreemptively(
+                Duration.ofSeconds(2),
+                () -> assertThatThrownBy(() -> validador.validar(bomba, Categoria.PORTFOLIO))
+                        .isInstanceOfSatisfying(
+                                ArquivoRecusadoException.class,
+                                erro -> assertThat(erro.getCodigo()).isEqualTo("arquivo-tipo-invalido")));
+    }
+
+    @Test
+    @DisplayName("PNG com milhares de chunks: recusado")
+    void pngComChunksDemais() {
+        byte[] muitos = ImagensDeTeste.pngComChunk("tEXt", 4, 5000);
+
+        assertThatThrownBy(() -> validador.validar(muitos, Categoria.PORTFOLIO))
+                .isInstanceOf(ArquivoRecusadoException.class);
+    }
+
+    @Test
+    @DisplayName("PNG com metadado pequeno passa (e sai sem ele)")
+    void pngComMetadadoPequeno() {
+        ArquivoValidado arquivo = validador.validar(ImagensDeTeste.pngComChunk("tEXt", 100, 1), Categoria.PORTFOLIO);
+
+        assertThat(contem(arquivo.conteudo(), "tEXt")).isFalse();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"EXIF", "ICCP", "XMP "})
+    @DisplayName("WebP com metadado grande: recusado antes de abrir")
+    void webpComMetadadoGrande(String tipo) {
+        assertThatThrownBy(() -> validador.validar(ImagensDeTeste.webpComChunk(tipo, 100 * 1024), Categoria.PORTFOLIO))
+                .isInstanceOf(ArquivoRecusadoException.class);
+    }
+
+    @Test
+    @DisplayName("PNG transparente: a cor escondida embaixo do alfa zero é apagada")
+    void corEscondidaApagada() {
+        BufferedImage saida = ler(validador
+                .validar(ImagensDeTeste.pngComCorEscondida(), Categoria.PORTFOLIO)
+                .conteudo());
+
+        assertThat(saida.getRGB(0, 0)).isZero();
+        assertThat(saida.getRGB(1, 1)).isEqualTo(0xFF00FF00);
+    }
+
+    @Test
+    @DisplayName("a vaga volta mesmo quando a imagem é recusada no meio")
+    void vagaVoltaNaRecusa() {
+        int antes = validador.vagas().availablePermits();
+
+        byte[] inteiro = ImagensDeTeste.jpeg(200, 200);
+        assertThatThrownBy(
+                        () -> validador.validar(java.util.Arrays.copyOf(inteiro, inteiro.length / 2), Categoria.PEDIDO))
+                .isInstanceOf(ArquivoRecusadoException.class);
+        assertThatThrownBy(() -> validador.validar(ImagensDeTeste.pngQueDeclara(50_000, 50_000), Categoria.PEDIDO))
+                .isInstanceOf(ArquivoRecusadoException.class);
+
+        assertThat(validador.vagas().availablePermits()).isEqualTo(antes);
     }
 
     @Test

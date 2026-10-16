@@ -55,6 +55,17 @@ final class FiltroDeTamanhoDoCorpo extends OncePerRequestFilter {
         boolean upload = ehUpload(requisicao);
         long limite = upload ? maximoDeUpload : maximo;
         long declarado = requisicao.getContentLengthLong();
+        if (upload && declarado < 0) {
+            // o navegador sempre manda Content-Length no multipart; chunked aqui seria ler até 11 MB antes do login
+            RespostaDeProblema.escrever(
+                    resposta,
+                    json,
+                    HttpServletResponse.SC_LENGTH_REQUIRED,
+                    "tamanho-nao-informado",
+                    "Tamanho não informado",
+                    "Envie a foto de novo.");
+            return;
+        }
         if (declarado > limite) {
             recusar(resposta, upload);
             return;

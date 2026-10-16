@@ -192,6 +192,52 @@ final class ImagensDeTeste {
         return saida.toByteArray();
     }
 
+    /** PNG pequeno com um chunk extra (ex.: zTXt de 100 KB) logo depois do IHDR. */
+    static byte[] pngComChunk(String tipo, int tamanho, int quantidade) {
+        byte[] png = png(8, 8);
+        int depoisDoIhdr = 8 + 25;
+        ByteArrayOutputStream extras = new ByteArrayOutputStream();
+        for (int i = 0; i < quantidade; i++) {
+            extras.writeBytes(chunk(tipo, new byte[tamanho]));
+        }
+        return juntar(
+                Arrays.copyOfRange(png, 0, depoisDoIhdr),
+                extras.toByteArray(),
+                Arrays.copyOfRange(png, depoisDoIhdr, png.length));
+    }
+
+    /** O WebP de teste com um chunk RIFF a mais no fim (ex.: EXIF de 100 KB), com o tamanho do RIFF acertado. */
+    static byte[] webpComChunk(String tipo, int tamanho) {
+        byte[] webp = recurso("opaca.webp");
+        ByteBuffer extra = ByteBuffer.allocate(8 + tamanho + (tamanho % 2)).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        extra.put(tipo.getBytes(StandardCharsets.US_ASCII)).putInt(tamanho);
+        byte[] junto = juntar(webp, extra.array());
+        ByteBuffer.wrap(junto).order(java.nio.ByteOrder.LITTLE_ENDIAN).putInt(4, junto.length - 8);
+        return junto;
+    }
+
+    /** JPEG com um APP2 de ICC lixo (perfil que não abre) logo depois do SOI. */
+    static byte[] jpegComIccQuebrado() {
+        byte[] jpeg = jpeg(32, 32);
+        byte[] lixo = new byte[300];
+        Arrays.fill(lixo, (byte) 0x7F);
+        byte[] icc = juntar("ICC_PROFILE ".getBytes(StandardCharsets.US_ASCII), new byte[] {1, 1}, lixo);
+        ByteBuffer segmento = ByteBuffer.allocate(4 + icc.length);
+        segmento.put((byte) 0xFF)
+                .put((byte) 0xE2)
+                .putShort((short) (icc.length + 2))
+                .put(icc);
+        return juntar(new byte[] {jpeg[0], jpeg[1]}, segmento.array(), Arrays.copyOfRange(jpeg, 2, jpeg.length));
+    }
+
+    /** PNG com um pixel totalmente transparente que guarda vermelho puro (dado escondido). */
+    static byte[] pngComCorEscondida() {
+        BufferedImage imagem = new BufferedImage(4, 4, BufferedImage.TYPE_INT_ARGB);
+        imagem.setRGB(0, 0, 0x00FF0000);
+        imagem.setRGB(1, 1, 0xFF00FF00);
+        return codificar(imagem, "png");
+    }
+
     private static byte[] chunk(String tipo, byte[] dados) {
         byte[] nome = tipo.getBytes(StandardCharsets.US_ASCII);
         CRC32 crc = new CRC32();

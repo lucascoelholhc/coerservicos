@@ -97,6 +97,46 @@ class ArmazenamentoTransacionalTest extends IntegracaoTest {
                 .until(() -> baixar(armazenamento.urlAssinada(chave.get(), Duration.ofMinutes(1))) == 404);
     }
 
+    @Test
+    @DisplayName("apagar dentro de transação desfeita: o arquivo fica (o banco continua apontando para ele)")
+    void apagarNoRollbackMantem() throws Exception {
+        String chave = new TransactionTemplate(transacoes)
+                .execute(status -> armazenamento.guardar(arquivo(), Categoria.PORTFOLIO));
+
+        new TransactionTemplate(transacoes).executeWithoutResult(status -> {
+            armazenamento.apagar(chave);
+            status.setRollbackOnly();
+        });
+
+        Thread.sleep(500);
+        assertThat(baixar(armazenamento.urlAssinada(chave, Duration.ofMinutes(1))))
+                .isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("apagar dentro de transação confirmada: apaga depois do commit")
+    void apagarNoCommitApaga() {
+        String chave = new TransactionTemplate(transacoes)
+                .execute(status -> armazenamento.guardar(arquivo(), Categoria.PORTFOLIO));
+
+        new TransactionTemplate(transacoes).executeWithoutResult(status -> armazenamento.apagar(chave));
+
+        await().atMost(Duration.ofSeconds(10))
+                .until(() -> baixar(armazenamento.urlAssinada(chave, Duration.ofMinutes(1))) == 404);
+    }
+
+    @Test
+    @DisplayName("apagar fora de transação: apaga na hora")
+    void apagarSemTransacao() throws Exception {
+        String chave = new TransactionTemplate(transacoes)
+                .execute(status -> armazenamento.guardar(arquivo(), Categoria.PORTFOLIO));
+
+        armazenamento.apagar(chave);
+
+        assertThat(baixar(armazenamento.urlAssinada(chave, Duration.ofMinutes(1))))
+                .isEqualTo(404);
+    }
+
     private static ArquivoValidado arquivo() {
         return new ArquivoValidado(ImagensDeTeste.png(8, 8), TipoDeImagem.PNG);
     }

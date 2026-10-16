@@ -28,7 +28,7 @@ services:
       - "127.0.0.1:1025:1025"
       - "127.0.0.1:8025:8025"
 
-  # S3 local (CORE-09). A versão é fixa e igual à dos testes (ArmazenamentoS3IT): nunca "latest".
+  # S3 local (CORE-09). A versão é fixa e igual à dos testes (ArmazenamentoS3Test): nunca "latest".
   # Plano B, se o SeaweedFS falhar: S3Proxy em memória (ver docs/plano-desenvolvimento.md, CORE-09).
   seaweedfs:
     image: chrislusf/seaweedfs:4.48

@@ -9,7 +9,8 @@ import java.awt.image.ColorConvertOp;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.Iterator;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import javax.imageio.IIOImage;
@@ -23,6 +24,8 @@ import javax.imageio.stream.ImageOutputStream;
 import javax.imageio.stream.MemoryCacheImageInputStream;
 import javax.imageio.stream.MemoryCacheImageOutputStream;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.util.unit.DataSize;
 
 import br.com.coe.servicos.compartilhado.erro.ArquivoRecusadoException;
@@ -44,6 +47,7 @@ import br.com.coe.servicos.compartilhado.erro.ServicoInstavelException;
  */
 public class ValidadorDeImagem {
 
+    private static final Logger LOG = LoggerFactory.getLogger(ValidadorDeImagem.class);
     private static final byte[] JPEG = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
     private static final byte[] PNG = {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n'};
     private static final byte[] RIFF = {'R', 'I', 'F', 'F'};
@@ -56,6 +60,11 @@ public class ValidadorDeImagem {
 
     public ValidadorDeImagem(PropriedadesDeImagem propriedades) {
         propriedades.validar();
+        for (Formato formato : Formato.values()) {
+            if (!ImageIO.getImageReadersByFormatName(formato.nome).hasNext()) {
+                throw new IllegalStateException("Sem leitor de imagem para " + formato.nome + " (TwelveMonkeys?)");
+            }
+        }
         this.propriedades = propriedades;
         this.vagas = new Semaphore(propriedades.processamentosSimultaneos(), true);
     }
@@ -75,6 +84,11 @@ public class ValidadorDeImagem {
             throw ArquivoRecusadoException.grandeDemais(formatar(limite));
         }
         Formato formato = detectar(bruto);
+        if (formato == Formato.PNG) {
+            MetadadosDaImagem.conferirPng(bruto);
+        } else if (formato == Formato.WEBP) {
+            MetadadosDaImagem.conferirWebp(bruto);
+        }
         ocuparVaga();
         try {
             return processar(bruto, formato);
@@ -103,10 +117,16 @@ public class ValidadorDeImagem {
         BufferedImage lida = decodificar(bruto, formato);
         boolean comTransparencia =
                 formato == Formato.PNG && lida.getColorModel().hasAlpha();
-        BufferedImage imagem = emSrgb(lida, comTransparencia);
-        imagem = reduzir(imagem, comTransparencia);
-        if (formato == Formato.JPEG) {
-            imagem = OrientacaoExif.aplicar(imagem, OrientacaoExif.ler(bruto));
+        BufferedImage imagem;
+        try {
+            imagem = normalizar(lida, comTransparencia);
+            if (formato == Formato.JPEG) {
+                imagem = OrientacaoExif.aplicar(imagem, OrientacaoExif.ler(bruto));
+            }
+        } catch (RuntimeException erro) {
+            // perfil de cor que não converte (CMMException) e afins: a foto não abre, não é erro nosso
+            LOG.debug("Imagem recusada na conversão: {}", erro.getClass().getName());
+            throw ArquivoRecusadoException.naoAbre();
         }
         if (formato == Formato.PNG) {
             return new ArquivoValidado(gravarPng(imagem), TipoDeImagem.PNG);
@@ -115,17 +135,15 @@ public class ValidadorDeImagem {
     }
 
     private BufferedImage decodificar(byte[] bruto, Formato formato) {
-        Iterator<ImageReader> leitores = ImageIO.getImageReadersByFormatName(formato.nome);
-        if (!leitores.hasNext()) {
-            throw new IllegalStateException("Sem leitor de imagem para " + formato.nome);
-        }
-        ImageReader leitor = leitores.next();
+        ImageReader leitor = ImageIO.getImageReadersByFormatName(formato.nome).next();
+        List<String> avisos = new ArrayList<>();
+        leitor.addIIOReadWarningListener((fonte, aviso) -> avisos.add(aviso));
         try (ImageInputStream entrada = new MemoryCacheImageInputStream(new ByteArrayInputStream(bruto))) {
             leitor.setInput(entrada, true, true);
             int largura = leitor.getWidth(0);
             int altura = leitor.getHeight(0);
             if (largura <= 0 || altura <= 0) {
-                throw ArquivoRecusadoException.tipoInvalido();
+                throw ArquivoRecusadoException.naoAbre();
             }
             if ((long) largura * altura > propriedades.pixelsMaximo()) {
                 throw ArquivoRecusadoException.imagemGrandeDemais();
@@ -133,54 +151,76 @@ public class ValidadorDeImagem {
             ImageReadParam parametros = leitor.getDefaultReadParam();
             int passo = Math.max(1, Math.max(largura, altura) / propriedades.ladoMaximo());
             parametros.setSourceSubsampling(passo, passo, 0, 0);
-            return leitor.read(0, parametros);
+            BufferedImage lida = leitor.read(0, parametros);
+            if (!avisos.isEmpty()) {
+                // o leitor do JPEG devolve a parte que leu de um arquivo cortado, só com aviso: recusa
+                throw ArquivoRecusadoException.naoAbre();
+            }
+            return lida;
         } catch (ArquivoRecusadoException erro) {
             throw erro;
         } catch (IOException | RuntimeException erro) {
-            // arquivo corrompido ou montado para enganar o leitor: para o usuário, não é uma foto válida
-            throw ArquivoRecusadoException.tipoInvalido();
+            // arquivo corrompido ou montado para enganar o leitor (só a classe no log: a mensagem pode ter dado)
+            LOG.debug("Imagem recusada na leitura: {}", erro.getClass().getName());
+            throw ArquivoRecusadoException.naoAbre();
         } finally {
             leitor.dispose();
         }
     }
 
-    /** Cópia em sRGB 8 bits (RGB, ou ARGB se for manter a transparência); converte ICC e cinza. */
-    private static BufferedImage emSrgb(BufferedImage origem, boolean comTransparencia) {
-        BufferedImage destino = new BufferedImage(
-                origem.getWidth(),
-                origem.getHeight(),
-                comTransparencia ? BufferedImage.TYPE_INT_ARGB : BufferedImage.TYPE_INT_RGB);
+    /**
+     * sRGB 8 bits já no tamanho final (lado maior até o máximo), RGB com fundo branco ou ARGB se for manter a
+     * transparência. Uma cópia só no caso comum; cinza ou ICC próprio convertem antes (duas cópias, raro).
+     */
+    private BufferedImage normalizar(BufferedImage origem, boolean comTransparencia) {
+        int tipo = comTransparencia ? BufferedImage.TYPE_INT_ARGB : BufferedImage.TYPE_INT_RGB;
+        BufferedImage fonte = origem;
         ColorSpace espaco = origem.getColorModel().getColorSpace();
-        if (espaco.isCS_sRGB() || origem.getColorModel().hasAlpha()) {
-            // transparência: o fundo branco entra aqui (a conversão de ICC com alfa fica a cargo do leitor)
-            Graphics2D g = destino.createGraphics();
-            if (!comTransparencia) {
-                g.setColor(Color.WHITE);
-                g.fillRect(0, 0, destino.getWidth(), destino.getHeight());
-            }
-            g.drawImage(origem, 0, 0, null);
-            g.dispose();
-            return destino;
+        if (!espaco.isCS_sRGB() && !origem.getColorModel().hasAlpha()) {
+            fonte = new ColorConvertOp(null)
+                    .filter(origem, new BufferedImage(origem.getWidth(), origem.getHeight(), tipo));
         }
-        return new ColorConvertOp(null).filter(origem, destino);
+        BufferedImage pronta = redimensionar(fonte, comTransparencia, tipo);
+        if (comTransparencia) {
+            apagarCorEscondida(pronta);
+        }
+        return pronta;
     }
 
-    private BufferedImage reduzir(BufferedImage imagem, boolean comTransparencia) {
-        int ladoMaior = Math.max(imagem.getWidth(), imagem.getHeight());
-        if (ladoMaior <= propriedades.ladoMaximo()) {
-            return imagem;
+    private BufferedImage redimensionar(BufferedImage fonte, boolean comTransparencia, int tipo) {
+        int ladoMaior = Math.max(fonte.getWidth(), fonte.getHeight());
+        double escala = Math.min(1.0, (double) propriedades.ladoMaximo() / ladoMaior);
+        if (escala == 1.0 && fonte.getType() == tipo) {
+            return fonte;
         }
-        double escala = (double) propriedades.ladoMaximo() / ladoMaior;
-        int largura = Math.max(1, (int) Math.round(imagem.getWidth() * escala));
-        int altura = Math.max(1, (int) Math.round(imagem.getHeight() * escala));
-        BufferedImage reduzida = new BufferedImage(
-                largura, altura, comTransparencia ? BufferedImage.TYPE_INT_ARGB : BufferedImage.TYPE_INT_RGB);
-        Graphics2D g = reduzida.createGraphics();
+        int largura = Math.max(1, (int) Math.round(fonte.getWidth() * escala));
+        int altura = Math.max(1, (int) Math.round(fonte.getHeight() * escala));
+        BufferedImage destino = new BufferedImage(largura, altura, tipo);
+        Graphics2D g = destino.createGraphics();
+        if (!comTransparencia) {
+            g.setColor(Color.WHITE);
+            g.fillRect(0, 0, largura, altura);
+        }
         g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
         g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-        g.drawImage(imagem, 0, 0, largura, altura, null);
+        g.drawImage(fonte, 0, 0, largura, altura, null);
         g.dispose();
-        return reduzida;
+        return destino;
+    }
+
+    /** Pixel invisível (alfa 0) não guarda cor: nada escondido sobrevive à regravação do PNG. */
+    private static void apagarCorEscondida(BufferedImage imagem) {
+        int largura = imagem.getWidth();
+        int[] linha = new int[largura];
+        for (int y = 0; y < imagem.getHeight(); y++) {
+            imagem.getRGB(0, y, largura, 1, linha, 0, largura);
+            for (int x = 0; x < largura; x++) {
+                if ((linha[x] >>> 24) == 0) {
+                    linha[x] = 0;
+                }
+            }
+            imagem.setRGB(0, y, largura, 1, linha, 0, largura);
+        }
     }
 
     /** JPEG sem metadados além do JFIF básico (nada de EXIF, ICC, XMP ou comentário). */

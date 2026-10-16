@@ -20,7 +20,7 @@ public class TestcontainersConfiguration {
 
     private static final int PORTA_S3 = 8333;
     // Chaves SÓ do S3 de teste (contêiner descartável, não são segredo).
-    private static final String CHAVE_DE_ACESSO = "chave-de-teste";
+    private static final String CHAVE_DE_ACESSO = "chave-de-acesso-de-teste";
     private static final String CHAVE_SECRETA = "segredo-de-teste-1234";
 
     @Bean

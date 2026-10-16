@@ -18,6 +18,12 @@ public class ArquivoRecusadoException extends RegraDeNegocioException {
         return new ArquivoRecusadoException(415, "arquivo-tipo-invalido", "Envie a foto em JPG ou PNG.");
     }
 
+    /** Parece imagem, mas não abre: corrompida, cortada no meio ou montada para enganar o leitor. */
+    public static ArquivoRecusadoException naoAbre() {
+        return new ArquivoRecusadoException(
+                415, "arquivo-tipo-invalido", "Não conseguimos abrir essa foto. Tire outra e envie de novo.");
+    }
+
     /** Passou do tamanho da categoria; {@code limite} já formatado (ex.: "8 MB"). */
     public static ArquivoRecusadoException grandeDemais(String limite) {
         return new ArquivoRecusadoException(

@@ -138,6 +138,11 @@ class TratadorDeErrosTest extends IntegracaoTest {
             };
         }
 
+        @GetMapping("/multipart-quebrado")
+        void multipartQuebrado() {
+            throw new org.springframework.web.multipart.MultipartException("Stream ended unexpectedly");
+        }
+
         @GetMapping("/multipart-grande")
         void multipartGrande() {
             throw new org.springframework.web.multipart.MaxUploadSizeExceededException(10_485_760L);
@@ -163,6 +168,17 @@ class TratadorDeErrosTest extends IntegracaoTest {
                 .andExpect(jsonPath("$.type").value("urn:coe:erro:" + codigo))
                 .andExpect(jsonPath("$.status").value(status))
                 .andExpect(jsonPath("$.detail").value(mensagem));
+    }
+
+    @Test
+    @DisplayName("multipart malformado: 400 sem detalhe interno")
+    void multipartQuebrado() throws Exception {
+        mockMvc.perform(get("/teste/erros/multipart-quebrado"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(PROBLEM_JSON))
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:requisicao-invalida"))
+                .andExpect(content()
+                        .string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Stream ended"))));
     }
 
     @Test

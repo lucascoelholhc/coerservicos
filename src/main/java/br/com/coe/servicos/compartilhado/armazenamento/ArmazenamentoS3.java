@@ -5,6 +5,7 @@ import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,12 +39,20 @@ final class ArmazenamentoS3 implements Armazenamento, AutoCloseable {
     private static final Logger LOG = LoggerFactory.getLogger(ArmazenamentoS3.class);
 
     /** Só chaves geradas aqui: nunca assina nem apaga caminho vindo de fora. */
-    private static final Pattern CHAVE_VALIDA = Pattern.compile(
-            "(documento|selfie|portfolio|pedido|evidencia|disputa)/[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}\\.(jpg|png)");
+    private static final Pattern CHAVE_VALIDA = Pattern.compile("("
+            + java.util.Arrays.stream(Categoria.values())
+                    .map(Categoria::prefixo)
+                    .collect(Collectors.joining("|"))
+            + ")/[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}\\.("
+            + java.util.Arrays.stream(TipoDeImagem.values())
+                    .map(TipoDeImagem::extensao)
+                    .collect(Collectors.joining("|"))
+            + ")");
 
     private static final Duration TEMPO_DE_CONEXAO = Duration.ofSeconds(5);
     private static final Duration TEMPO_DE_LEITURA = Duration.ofSeconds(30);
-    private static final Duration TEMPO_DA_CHAMADA = Duration.ofSeconds(60);
+    // guardar roda dentro da transação do banco (a conexão espera junto): chamada curta
+    private static final Duration TEMPO_DA_CHAMADA = Duration.ofSeconds(30);
     private static final String INDISPONIVEL =
             "Não foi possível acessar os arquivos agora. Tente de novo em instantes.";
 

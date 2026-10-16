@@ -66,7 +66,17 @@ final class ArmazenamentoTransacional implements Armazenamento, AutoCloseable {
 
     @Override
     public void apagar(String chave) {
-        destino.apagar(chave);
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            destino.apagar(chave);
+            return;
+        }
+        // dentro de uma transação: se ela for desfeita, o banco continua apontando para o arquivo
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                apagarDepois(chave);
+            }
+        });
     }
 
     private void apagarDepois(String chave) {
@@ -75,7 +85,7 @@ final class ArmazenamentoTransacional implements Armazenamento, AutoCloseable {
                 try {
                     destino.apagar(chave);
                 } catch (RuntimeException erro) {
-                    LOG.warn("Arquivo órfão não apagado (transação desfeita): {}", ArmazenamentoS3.paraLog(chave));
+                    LOG.warn("Arquivo não apagado depois da transação: {}", ArmazenamentoS3.paraLog(chave));
                 }
             });
         } catch (RejectedExecutionException cheia) {

@@ -9,6 +9,9 @@ set -eu
 
 # As chaves vão para um JSON montado aqui: só caracteres que não precisam de escape.
 for chave in "$S3_ACCESS_KEY" "$S3_SECRET_KEY"; do
+  if [ "${#chave}" -lt 16 ]; then
+    echo "S3_ACCESS_KEY e S3_SECRET_KEY: use pelo menos 16 caracteres" >&2; exit 1
+  fi
   case "$chave" in
     *[!A-Za-z0-9/+=_-]*) echo "S3_ACCESS_KEY e S3_SECRET_KEY: use só letras, números e / + = _ -" >&2; exit 1 ;;
   esac

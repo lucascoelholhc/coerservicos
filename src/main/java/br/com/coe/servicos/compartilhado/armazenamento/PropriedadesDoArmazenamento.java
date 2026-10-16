@@ -58,6 +58,9 @@ public record PropriedadesDoArmazenamento(
         } else {
             validarEndpoint(producao);
         }
+        if (producao && !usaKms()) {
+            throw invalida("coe.armazenamento.kms-key-id é obrigatória em produção (COE_S3_KMS_KEY_ID; LGPD)");
+        }
         if (producao && criarBucket) {
             throw invalida("coe.armazenamento.criar-bucket não vale em produção (o bucket é da infraestrutura)");
         }
