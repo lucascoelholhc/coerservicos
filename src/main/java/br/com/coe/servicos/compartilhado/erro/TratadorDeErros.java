@@ -57,6 +57,41 @@ public class TratadorDeErros extends ResponseEntityExceptionHandler {
                 HttpStatus.UNPROCESSABLE_CONTENT, erro.getCodigo(), "Não foi possível concluir", erro.getMessage());
     }
 
+    /** Upload recusado (CORE-09): cada motivo com o seu status (413, 415 ou 422). */
+    @ExceptionHandler(ArquivoRecusadoException.class)
+    ProblemDetail arquivoRecusado(ArquivoRecusadoException erro) {
+        LOG.info("Arquivo recusado: {}", erro.getCodigo());
+        return problema(
+                HttpStatus.valueOf(erro.getStatus()), erro.getCodigo(), "Arquivo não aceito", erro.getMessage());
+    }
+
+    /** Multipart acima de {@code spring.servlet.multipart.*}: o mesmo código do limite por categoria. */
+    @Override
+    protected ResponseEntity<Object> handleMaxUploadSizeExceededException(
+            org.springframework.web.multipart.MaxUploadSizeExceededException erro,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest requisicao) {
+        return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE)
+                .headers(headers)
+                .body(problema(
+                        HttpStatus.CONTENT_TOO_LARGE,
+                        "arquivo-grande-demais",
+                        "Arquivo não aceito",
+                        "A foto é grande demais."));
+    }
+
+    /** Multipart quebrado (parte malformada, corpo cortado): 400, sem a mensagem do framework. */
+    @ExceptionHandler(org.springframework.web.multipart.MultipartException.class)
+    ProblemDetail multipartInvalido(org.springframework.web.multipart.MultipartException erro) {
+        LOG.info("Multipart inválido: {}", erro.getClass().getSimpleName());
+        return problema(
+                HttpStatus.BAD_REQUEST,
+                "requisicao-invalida",
+                "Requisição inválida",
+                "Não foi possível ler a foto enviada.");
+    }
+
     @ExceptionHandler(RecursoNaoEncontradoException.class)
     ProblemDetail naoEncontrado(RecursoNaoEncontradoException erro) {
         return problema(HttpStatus.NOT_FOUND, "nao-encontrado", "Não encontrado", erro.getMessage());

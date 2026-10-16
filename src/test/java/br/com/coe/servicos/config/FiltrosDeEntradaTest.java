@@ -102,7 +102,79 @@ class FiltrosDeEntradaTest {
     @DisplayName("FiltroDeTamanhoDoCorpo: 413 acima do limite")
     class TamanhoDoCorpo {
 
-        private final FiltroDeTamanhoDoCorpo filtro = new FiltroDeTamanhoDoCorpo(16, json);
+        private static final String ROTA_DE_UPLOAD = "/api/teste/foto";
+
+        private final FiltroDeTamanhoDoCorpo filtro =
+                new FiltroDeTamanhoDoCorpo(16, 64, java.util.Set.of(ROTA_DE_UPLOAD), json);
+
+        @Test
+        @DisplayName("rota de upload com multipart: vale o limite do upload, não o de 64 KB (CORE-09)")
+        void uploadDentroDoLimiteProprio() throws ServletException, IOException {
+            MockFilterChain cadeia = new MockFilterChain();
+
+            filtro.doFilter(multipart(ROTA_DE_UPLOAD, 40), new MockHttpServletResponse(), cadeia);
+
+            assertThat(cadeia.getRequest()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("rota de upload acima do limite do upload: 413 arquivo-grande-demais")
+        void uploadAcimaDoLimiteProprio() throws ServletException, IOException {
+            MockHttpServletResponse resposta = new MockHttpServletResponse();
+            MockFilterChain cadeia = new MockFilterChain();
+
+            filtro.doFilter(multipart(ROTA_DE_UPLOAD, 65), resposta, cadeia);
+
+            assertThat(resposta.getStatus()).isEqualTo(413);
+            assertThat(resposta.getContentAsString(StandardCharsets.UTF_8))
+                    .contains("urn:coe:erro:arquivo-grande-demais");
+            assertThat(cadeia.getRequest()).isNull();
+        }
+
+        @Test
+        @DisplayName("multipart fora das rotas de upload, ou JSON na rota de upload: limite normal")
+        void multipartSoNasRotasDeUpload() throws ServletException, IOException {
+            MockHttpServletResponse foraDaRota = new MockHttpServletResponse();
+            filtro.doFilter(multipart("/api/contas/cliente", 40), foraDaRota, new MockFilterChain());
+
+            MockHttpServletRequest json = new MockHttpServletRequest("POST", ROTA_DE_UPLOAD);
+            json.setContentType("application/json");
+            json.setContent(new byte[40]);
+            MockHttpServletResponse jsonNaRota = new MockHttpServletResponse();
+            filtro.doFilter(json, jsonNaRota, new MockFilterChain());
+
+            assertThat(foraDaRota.getStatus()).isEqualTo(413);
+            assertThat(jsonNaRota.getStatus()).isEqualTo(413);
+        }
+
+        @Test
+        @DisplayName("rota de upload sem Content-Length (chunked): 411, sem ler o corpo em memória")
+        void uploadSemTamanho() throws ServletException, IOException {
+            MockHttpServletRequest requisicao = new MockHttpServletRequest("POST", ROTA_DE_UPLOAD) {
+                @Override
+                public long getContentLengthLong() {
+                    return -1;
+                }
+            };
+            requisicao.setContentType("multipart/form-data; boundary=xyz");
+            requisicao.setContent(new byte[40]);
+            MockHttpServletResponse resposta = new MockHttpServletResponse();
+            MockFilterChain cadeia = new MockFilterChain();
+
+            filtro.doFilter(requisicao, resposta, cadeia);
+
+            assertThat(resposta.getStatus()).isEqualTo(411);
+            assertThat(resposta.getContentAsString(StandardCharsets.UTF_8))
+                    .contains("urn:coe:erro:tamanho-nao-informado");
+            assertThat(cadeia.getRequest()).isNull();
+        }
+
+        private MockHttpServletRequest multipart(String caminho, int tamanho) {
+            MockHttpServletRequest requisicao = new MockHttpServletRequest("POST", caminho);
+            requisicao.setContentType("multipart/form-data; boundary=xyz");
+            requisicao.setContent(new byte[tamanho]);
+            return requisicao;
+        }
 
         @Test
         @DisplayName("Content-Length acima do limite = 413 sem ler o corpo")

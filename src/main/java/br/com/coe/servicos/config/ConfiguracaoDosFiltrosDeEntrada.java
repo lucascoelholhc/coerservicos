@@ -39,9 +39,11 @@ class ConfiguracaoDosFiltrosDeEntrada {
 
     @Bean
     FilterRegistrationBean<FiltroDeTamanhoDoCorpo> filtroDeTamanhoDoCorpo(
-            @Value("${coe.limites.corpo-maximo:64KB}") DataSize maximo, JsonMapper json) {
-        FilterRegistrationBean<FiltroDeTamanhoDoCorpo> registro =
-                new FilterRegistrationBean<>(new FiltroDeTamanhoDoCorpo(maximo.toBytes(), json));
+            @Value("${coe.limites.corpo-maximo:64KB}") DataSize maximo,
+            @Value("${coe.limites.corpo-maximo-upload}") DataSize maximoDeUpload,
+            JsonMapper json) {
+        FilterRegistrationBean<FiltroDeTamanhoDoCorpo> registro = new FilterRegistrationBean<>(
+                new FiltroDeTamanhoDoCorpo(maximo.toBytes(), maximoDeUpload.toBytes(), RotasDeUpload.CAMINHOS, json));
         registro.setOrder(Ordered.HIGHEST_PRECEDENCE + 20);
         return registro;
     }

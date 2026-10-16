@@ -22,11 +22,11 @@ O Maven não precisa ser instalado: use o `./mvnw` da raiz (no Windows, `mvnw.cm
 cp .env.example .env
 ```
 
-Preencha `DB_USER` e `DB_PASSWORD`. O `.env` não vai para o git. A aplicação lê o arquivo sozinha (`spring.config.import`), e o `docker compose` também.
+Preencha `DB_USER`, `DB_PASSWORD`, `S3_ACCESS_KEY` e `S3_SECRET_KEY`. O `.env` não vai para o git. A aplicação lê o arquivo sozinha (`spring.config.import`), e o `docker compose` também.
 
 ## 2. Subir o banco
 
-**Opção A: Docker** (Postgres 16 na porta **5433** e Mailpit)
+**Opção A: Docker** (Postgres 16 na porta **5433**, Mailpit e SeaweedFS)
 
 ```bash
 docker compose up -d
@@ -38,8 +38,10 @@ No `.env`, use `DB_URL=jdbc:postgresql://localhost:5433/coeservicos`. O papel `c
 |---|---|
 | Postgres 16 | `localhost:5433`, banco `coeservicos` |
 | Mailpit (e-mails e SMS falsos) | SMTP `localhost:1025`, painel http://localhost:8025 |
+| SeaweedFS (S3 local: fotos e documentos) | http://localhost:8333, chaves `S3_ACCESS_KEY`/`S3_SECRET_KEY` do `.env` |
 
-O S3 local (arquivos) entra no CORE-09.
+O bucket é privado e a aplicação o cria sozinha no perfil local. Os arquivos só abrem por URL assinada (alguns minutos).
+Na opção B, suba só o S3 com `docker compose up -d seaweedfs`.
 
 **Opção B: Postgres instalado na máquina** (porta 5432)
 
@@ -117,7 +119,7 @@ Apaga tudo do banco local (só dados de desenvolvimento) e reaplica as migraçõ
 **Docker:**
 
 ```bash
-docker compose down -v      # remove o volume do Postgres
+docker compose down -v      # remove os volumes do Postgres e do SeaweedFS
 docker compose up -d
 ```
 
