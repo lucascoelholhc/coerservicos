@@ -40,6 +40,9 @@ class ConfiguracaoNegocioCacheTest {
         valores.put("MEIA_DIARIA_HORAS", "4");
         valores.put("PAGAMENTO_EXPIRA_MINUTOS", "60");
         valores.put("VERSAO_TERMOS", "1.0");
+        valores.put("DIARIA_MINIMA", "80.00");
+        valores.put("MEIA_DIARIA_MINIMA", "50.00");
+        valores.put("SOBRE_MINIMO_CARACTERES", "25");
         return valores;
     }
 

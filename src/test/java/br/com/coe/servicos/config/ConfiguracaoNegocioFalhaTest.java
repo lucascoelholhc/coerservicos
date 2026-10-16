@@ -30,6 +30,9 @@ class ConfiguracaoNegocioFalhaTest {
         valores.put("MEIA_DIARIA_HORAS", "4");
         valores.put("PAGAMENTO_EXPIRA_MINUTOS", "60");
         valores.put("VERSAO_TERMOS", "1.0");
+        valores.put("DIARIA_MINIMA", "80.00");
+        valores.put("MEIA_DIARIA_MINIMA", "50.00");
+        valores.put("SOBRE_MINIMO_CARACTERES", "25");
         return valores;
     }
 
@@ -76,7 +79,11 @@ class ConfiguracaoNegocioFalhaTest {
         "TENTATIVAS_ANTES_ANALISE, -1",
         "MEIA_DIARIA_HORAS, 0",
         "PAGAMENTO_EXPIRA_MINUTOS, 0",
-        "VERSAO_TERMOS, ' '"
+        "VERSAO_TERMOS, ' '",
+        "DIARIA_MINIMA, 0.00",
+        "DIARIA_MINIMA, 80.001",
+        "MEIA_DIARIA_MINIMA, -1",
+        "SOBRE_MINIMO_CARACTERES, 0"
     })
     @DisplayName("com valor inválido, não sobe e a mensagem diz a chave e o valor")
     void valorInvalido(String chave, String valor) {

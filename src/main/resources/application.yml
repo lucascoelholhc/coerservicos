@@ -64,6 +64,9 @@ coe:
       processamentos-simultaneos: 2   # imagens decodificadas ao mesmo tempo por instância (memória)
       espera-por-vaga: 5s          # sem vaga nesse prazo = 503
       qualidade-jpeg: 0.85
+  cadastro:
+    # URL assinada de documento e selfie: curta e só para o dono (o ADMIN tem a dele no DOM-03; RN16)
+    validade-url-documento: 2m
   front:
     # Base dos links mandados por e-mail (token no fragmento #token=...). Obrigatória; em prod só https.
     url-base: ${COE_FRONT_URL_BASE:}
@@ -116,6 +119,7 @@ coe:
       posse-ip: { capacidade: 10, janela: 1h }
       posse-confirmar-ip: { capacidade: 20, janela: 10m }
       confirmar-email-ip: { capacidade: 20, janela: 10m }
+      upload-ip: { capacidade: 60, janela: 1h }   # uploads do cadastro (DOM-02)
       # no Postgres, globais (fatias: a chave é dividida em N linhas sorteadas, H1)
       cadastro-global: { capacidade: 500, janela: 1h, fatias: 10 }
       envio-normal-global: { capacidade: 300, janela: 1h, fatias: 10 }
@@ -127,6 +131,8 @@ coe:
       contato-usuario: { capacidade: 5, janela: 1h }
       envio-usuario: { capacidade: 10, janela: 1h }
       confirmar-usuario: { capacidade: 20, janela: 10m }
+      cadastro-usuario: { capacidade: 120, janela: 1h }   # etapas do cadastro do profissional (DOM-02)
+      upload-usuario: { capacidade: 30, janela: 1h }      # fotos e documentos: decodificar imagem custa caro
   mensageria:
     # Envio assíncrono de SMS e e-mail depois do commit (decisão de 07/10): filas próprias e limitadas.
     # Fila cheia descarta com log mascarado e devolve a cota da linha (CORE-07); a resposta não muda.

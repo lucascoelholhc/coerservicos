@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.sql.init.dependency.DependsOnDatabaseInitialization;
 import org.springframework.stereotype.Service;
 
+import br.com.coe.servicos.compartilhado.dinheiro.Dinheiro;
 import br.com.coe.servicos.compartilhado.dinheiro.Percentual;
 import br.com.coe.servicos.compartilhado.dinheiro.TaxaPagaPor;
 
@@ -49,7 +50,10 @@ public class ConfiguracaoNegocio {
             int tentativasAntesAnalise,
             Duration meiaDiariaMaxima,
             Duration expiracaoPagamento,
-            String versaoTermos) {}
+            String versaoTermos,
+            Dinheiro diariaMinima,
+            Dinheiro meiaDiariaMinima,
+            int sobreMinimoCaracteres) {}
 
     private record Snapshot(Parametros parametros, Instant lidoEm, long geracao) {}
 
@@ -135,6 +139,21 @@ public class ConfiguracaoNegocio {
     }
 
     /** Descarta os valores guardados: a próxima leitura vai ao banco, mesmo que uma leitura esteja em curso. */
+    /** Valor mínimo da diária do profissional (RN09). */
+    public Dinheiro diariaMinima() {
+        return parametros().diariaMinima();
+    }
+
+    /** Valor mínimo da meia diária (RN09); ela também precisa ser menor que a diária. */
+    public Dinheiro meiaDiariaMinima() {
+        return parametros().meiaDiariaMinima();
+    }
+
+    /** Tamanho mínimo do "Sobre você" (RN10). */
+    public int sobreMinimoCaracteres() {
+        return parametros().sobreMinimoCaracteres();
+    }
+
     public void invalidarCache() {
         geracao.incrementAndGet();
     }
@@ -157,7 +176,10 @@ public class ConfiguracaoNegocio {
                 ler(brutos, ChaveConfiguracao.TENTATIVAS_ANTES_ANALISE, ConfiguracaoNegocio::positivo),
                 ler(brutos, ChaveConfiguracao.MEIA_DIARIA_HORAS, texto -> Duration.ofHours(positivo(texto))),
                 ler(brutos, ChaveConfiguracao.PAGAMENTO_EXPIRA_MINUTOS, texto -> Duration.ofMinutes(positivo(texto))),
-                ler(brutos, ChaveConfiguracao.VERSAO_TERMOS, ConfiguracaoNegocio::naoVazio));
+                ler(brutos, ChaveConfiguracao.VERSAO_TERMOS, ConfiguracaoNegocio::naoVazio),
+                ler(brutos, ChaveConfiguracao.DIARIA_MINIMA, ConfiguracaoNegocio::dinheiroPositivo),
+                ler(brutos, ChaveConfiguracao.MEIA_DIARIA_MINIMA, ConfiguracaoNegocio::dinheiroPositivo),
+                ler(brutos, ChaveConfiguracao.SOBRE_MINIMO_CARACTERES, ConfiguracaoNegocio::positivo));
     }
 
     /** Comissão até o teto de 30% (RN31); o banco tem o mesmo CHECK (V12). */
@@ -167,6 +189,14 @@ public class ConfiguracaoNegocio {
             throw new IllegalArgumentException("não pode passar de 30% (RN31)");
         }
         return comissao;
+    }
+
+    private static Dinheiro dinheiroPositivo(String texto) {
+        Dinheiro valor = Dinheiro.de(texto);
+        if (valor.compareTo(Dinheiro.ZERO) <= 0) {
+            throw new IllegalArgumentException("precisa ser maior que zero");
+        }
+        return valor;
     }
 
     private static int positivo(String texto) {
