@@ -38,6 +38,9 @@ class ConfiguracaoDoArmazenamentoTest extends IntegracaoTest {
         assertThat(imagem.ladoMaximo()).isEqualTo(2560);
         assertThat(imagem.processamentosSimultaneos()).isPositive();
         assertThat(validador).isNotNull();
+        assertThat(imagem.qualidadeDe(Categoria.DOCUMENTO)).isEqualTo(0.92f);
+        assertThat(imagem.qualidadeDe(Categoria.SELFIE)).isEqualTo(0.92f);
+        assertThat(imagem.qualidadeDe(Categoria.PORTFOLIO)).isEqualTo(0.85f);
     }
 
     @Test

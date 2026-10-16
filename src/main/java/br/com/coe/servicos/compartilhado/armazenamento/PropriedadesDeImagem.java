@@ -16,7 +16,8 @@ import org.springframework.util.unit.DataSize;
  * @param ladoMaximo                lado maior da imagem gravada (reduzida, mantendo a proporção)
  * @param processamentosSimultaneos imagens decodificadas ao mesmo tempo nesta instância
  * @param esperaPorVaga             quanto esperar por uma vaga antes de responder 503
- * @param qualidadeJpeg             qualidade do JPEG gravado, de 0 a 1
+ * @param qualidadeJpeg             qualidade do JPEG gravado por categoria, de 0 a 1 (documento e selfie mais
+ *                                  altas: o texto do RG/CNH precisa continuar legível)
  */
 @ConfigurationProperties("coe.armazenamento.imagem")
 public record PropriedadesDeImagem(
@@ -25,7 +26,7 @@ public record PropriedadesDeImagem(
         int ladoMaximo,
         int processamentosSimultaneos,
         Duration esperaPorVaga,
-        float qualidadeJpeg) {
+        Map<Categoria, Float> qualidadeJpeg) {
 
     /** Teto aprovado (14/10): acima disso nem a subamostragem segura a memória com folga. */
     static final long PIXELS_TETO = 40_000_000L;
@@ -51,9 +52,16 @@ public record PropriedadesDeImagem(
         if (esperaPorVaga == null || esperaPorVaga.isNegative() || esperaPorVaga.isZero()) {
             throw invalida("espera-por-vaga precisa ser positiva");
         }
-        if (!(qualidadeJpeg > 0f && qualidadeJpeg <= 1f)) {
-            throw invalida("qualidade-jpeg precisa ficar entre 0 e 1");
+        for (Categoria categoria : Categoria.values()) {
+            Float qualidade = qualidadeJpeg == null ? null : qualidadeJpeg.get(categoria);
+            if (qualidade == null || !(qualidade > 0f && qualidade <= 1f)) {
+                throw invalida("qualidade-jpeg." + categoria.prefixo() + " precisa ficar entre 0 e 1");
+            }
         }
+    }
+
+    float qualidadeDe(Categoria categoria) {
+        return qualidadeJpeg.get(categoria);
     }
 
     DataSize limiteDe(Categoria categoria) {
