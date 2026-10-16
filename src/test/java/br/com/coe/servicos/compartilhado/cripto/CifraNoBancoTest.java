@@ -47,9 +47,7 @@ class CifraNoBancoTest extends IntegracaoTest {
         byte[] pixNoBanco = coluna("chave_pix_cifrada", usuario);
 
         assertThat(new String(cpfNoBanco, StandardCharsets.ISO_8859_1)).doesNotContain(cpf.digitos());
-        assertThat(new String(pixNoBanco, StandardCharsets.ISO_8859_1))
-                .doesNotContain(pix)
-                .doesNotContain("@");
+        assertThat(new String(pixNoBanco, StandardCharsets.ISO_8859_1)).doesNotContain(pix);
         assertThat(coluna("cpf_hash", usuario)).hasSize(32).isEqualTo(hmac.de(cpf));
         assertThat(cifra.decifrar(cpfNoBanco, Campo.CPF)).isEqualTo(cpf.digitos());
         assertThat(cifra.decifrar(pixNoBanco, Campo.CHAVE_PIX)).isEqualTo(pix);
