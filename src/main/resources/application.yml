@@ -63,7 +63,7 @@ coe:
         selfie: 0.92
         portfolio: 0.85
         pedido: 0.85
-        evidencia: 0.92            # prova de serviço e de disputa: detalhe vale mais que tamanho
+        evidencia: 0.92            # prova da diária (e disputa, abaixo): detalhe vale mais que tamanho
         disputa: 0.92
   front:
     # Base dos links mandados por e-mail (token no fragmento #token=...). Obrigatória; em prod só https.

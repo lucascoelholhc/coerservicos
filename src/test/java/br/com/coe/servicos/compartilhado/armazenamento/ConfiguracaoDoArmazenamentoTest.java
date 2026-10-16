@@ -38,9 +38,16 @@ class ConfiguracaoDoArmazenamentoTest extends IntegracaoTest {
         assertThat(imagem.ladoMaximo()).isEqualTo(2560);
         assertThat(imagem.processamentosSimultaneos()).isPositive();
         assertThat(validador).isNotNull();
-        assertThat(imagem.qualidadeDe(Categoria.DOCUMENTO)).isEqualTo(0.92f);
-        assertThat(imagem.qualidadeDe(Categoria.SELFIE)).isEqualTo(0.92f);
-        assertThat(imagem.qualidadeDe(Categoria.PORTFOLIO)).isEqualTo(0.85f);
+        java.util.Map<Categoria, Float> esperadas = java.util.Map.of(
+                Categoria.DOCUMENTO, 0.92f,
+                Categoria.SELFIE, 0.92f,
+                Categoria.EVIDENCIA, 0.92f,
+                Categoria.DISPUTA, 0.92f,
+                Categoria.PORTFOLIO, 0.85f,
+                Categoria.PEDIDO, 0.85f);
+        for (Categoria categoria : Categoria.values()) {
+            assertThat(imagem.qualidadeDe(categoria)).as(categoria.prefixo()).isEqualTo(esperadas.get(categoria));
+        }
     }
 
     @Test
