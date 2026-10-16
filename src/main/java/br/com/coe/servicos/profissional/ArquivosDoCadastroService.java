@@ -93,7 +93,7 @@ class ArquivosDoCadastroService {
         }
         ArquivoValidado arquivo = validador.validar(bytes, tipo.categoria());
         return transacao.execute(status -> {
-            Profissional p = rascunhoGravado();
+            Profissional p = cadastro.rascunhoEditavel();
             if (tipo == TipoDeDocumento.CERTIFICADO_NR10) {
                 exigirNr10(profissoesDe(p));
             }
@@ -105,24 +105,21 @@ class ArquivosDoCadastroService {
             });
             String chave = armazenamento.guardar(arquivo, tipo.categoria());
             DocumentoVerificacao documento = documentos.save(new DocumentoVerificacao(p.id(), tipo, chave));
-            auditoria.registrar(
-                    dono,
-                    contas.de(dono).papelPrincipal(),
-                    "profissional.documento-enviado",
-                    "documento_verificacao",
-                    documento.getId(),
-                    null,
-                    Map.of("tipo", tipo.codigo()),
-                    null);
+            auditarDocumento("profissional.documento-enviado", documento);
             return new CadastroResposta.DocumentoResposta(documento.getId(), documento.tipo(), documento.status());
         });
     }
 
     /** URL curta (2 min) e só do dono; o ADMIN que verifica tem a dele no DOM-03 (RN16). */
     CadastroResposta.UrlResposta urlDoDocumento(UUID id) {
-        DocumentoVerificacao documento = documentoDoDono(id);
-        URI url = armazenamento.urlAssinada(documento.chaveArquivo(), validadeDoDocumento);
-        return new CadastroResposta.UrlResposta(url.toString(), clock.instant().plus(validadeDoDocumento));
+        return transacao.execute(status -> {
+            DocumentoVerificacao documento = documentoDoDono(id);
+            URI url = armazenamento.urlAssinada(documento.chaveArquivo(), validadeDoDocumento);
+            // ver documento de identidade é acesso a dado sensível: fica registrado (LGPD)
+            auditarDocumento("profissional.documento-visto", documento);
+            return new CadastroResposta.UrlResposta(
+                    url.toString(), clock.instant().plus(validadeDoDocumento));
+        });
     }
 
     void apagarDocumento(UUID id) {
@@ -133,6 +130,7 @@ class ArquivosDoCadastroService {
                     .orElseThrow(() -> new RecursoNaoEncontradoException(DOCUMENTO_NAO_ENCONTRADO));
             documentos.delete(documento);
             armazenamento.apagar(documento.chaveArquivo());
+            auditarDocumento("profissional.documento-removido", documento);
         });
     }
 
@@ -144,14 +142,15 @@ class ArquivosDoCadastroService {
         UUID servicoId = servicoDaFoto(servico, profissoes);
         ArquivoValidado arquivo = validador.validar(bytes, Categoria.PORTFOLIO);
         return transacao.execute(status -> {
-            Profissional p = rascunhoGravado();
-            long quantas = fotos.countByProfissionalId(p.id());
-            if (quantas >= FOTOS_MAXIMAS) {
+            // travado: dois envios ao mesmo tempo não passam juntos do limite
+            Profissional p = cadastro.rascunhoEditavel();
+            if (fotos.countByProfissionalId(p.id()) >= FOTOS_MAXIMAS) {
                 throw new RegraDeNegocioException(
                         "limite-de-fotos", "Você já mandou " + FOTOS_MAXIMAS + " fotos. Tire uma para pôr outra.");
             }
             String chave = armazenamento.guardar(arquivo, Categoria.PORTFOLIO);
-            FotoPortfolio foto = fotos.save(new FotoPortfolio(p.id(), servicoId, chave, texto, (short) quantas));
+            short ordem = (short) fotos.proximaOrdem(p.id());
+            FotoPortfolio foto = fotos.save(new FotoPortfolio(p.id(), servicoId, chave, texto, ordem));
             return new CadastroResposta.FotoResposta(foto.getId(), montador.nomeDoServico(foto), foto.legenda());
         });
     }
@@ -198,13 +197,18 @@ class ArquivosDoCadastroService {
                 .orElseThrow(() -> new RecursoNaoEncontradoException(DOCUMENTO_NAO_ENCONTRADO));
     }
 
-    /** O rascunho de quem chama, gravado se ainda não existia (o upload pode vir antes das outras etapas). */
-    private Profissional rascunhoGravado() {
-        Profissional p = cadastro.rascunhoEditavel();
-        if (p.isNew()) {
-            profissionais.saveAndFlush(p);
-        }
-        return p;
+    /** Auditoria do documento (só o tipo, nunca a chave do arquivo), na transação da ação. */
+    private void auditarDocumento(String acao, DocumentoVerificacao documento) {
+        UUID dono = usuario.id();
+        auditoria.registrar(
+                dono,
+                contas.de(dono).papelPrincipal(),
+                acao,
+                "documento_verificacao",
+                documento.getId(),
+                null,
+                Map.of("tipo", documento.tipo()),
+                null);
     }
 
     /** Profissões do rascunho de quem chama, lidas numa transação curta (antes de processar a imagem). */

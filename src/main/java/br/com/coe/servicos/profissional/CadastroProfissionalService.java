@@ -115,6 +115,10 @@ class CadastroProfissionalService {
         Cpf cpf = Cpf.de(pedido.cpf());
         exigirIdade(pedido.dataNascimento());
         UUID dono = usuario.id();
+        // em análise responde isso, e não o 409 do CPF (nem consulta o CPF de quem não pode editar)
+        profissionais.findByUsuarioId(dono).filter(p -> !p.editavel()).ifPresent(p -> {
+            throw emAnalise();
+        });
         if (profissionais.cpfEmUsoPorOutro(hmac.de(cpf), dono)) {
             throw cpfRepetido(dono);
         }
@@ -122,7 +126,9 @@ class CadastroProfissionalService {
             return transacao.execute(status -> {
                 Profissional p = rascunhoEditavel();
                 p.definirCpf(cpf, hmac, pedido.dataNascimento());
-                return salvar(p);
+                CadastroResposta resposta = salvar(p);
+                auditar(dono, "profissional.dados-alterados", p.id(), Map.of("campos", List.of("cpf", "nascimento")));
+                return resposta;
             });
         } catch (DataIntegrityViolationException corrida) {
             if (String.valueOf(corrida.getMostSpecificCause().getMessage()).contains("uq_profissional_cpf")) {
@@ -158,23 +164,11 @@ class CadastroProfissionalService {
 
     @Transactional
     CadastroResposta valor(PedidosDoCadastro.Valor pedido) {
-        ConfiguracaoNegocio.Parametros parametros = configuracao.parametros();
-        Dinheiro diaria = pedido.valorDiaria();
-        if (diaria.compareTo(parametros.diariaMinima()) < 0) {
-            throw new RegraDeNegocioException(
-                    "valor-abaixo-do-minimo",
-                    "O valor mínimo da diária é " + parametros.diariaMinima().formatar() + ".");
-        }
-        Dinheiro meia = pedido.valorMeiaDiaria();
-        if (meia != null && (meia.compareTo(parametros.meiaDiariaMinima()) < 0 || meia.compareTo(diaria) >= 0)) {
-            throw new RegraDeNegocioException(
-                    "meia-diaria-invalida",
-                    "A meia diária precisa ser de pelo menos "
-                            + parametros.meiaDiariaMinima().formatar() + " e menor que a diária.");
-        }
+        exigirValorMinimo(pedido.valorDiaria(), pedido.valorMeiaDiaria());
         CensuraDeContato.exigirSemContato(pedido.horario(), "horario");
         Profissional p = rascunhoEditavel();
-        p.definirValor(diaria, meia, pedido.horario().strip());
+        p.definirValor(
+                pedido.valorDiaria(), pedido.valorMeiaDiaria(), pedido.horario().strip());
         return salvar(p);
     }
 
@@ -226,7 +220,10 @@ class CadastroProfissionalService {
         String chave = ChavesPix.normalizar(pedido.tipo(), pedido.chave());
         Profissional p = rascunhoEditavel();
         p.definirPix(pedido.tipo(), chave);
-        return salvar(p);
+        CadastroResposta resposta = salvar(p);
+        // só o tipo: a chave é dado pessoal (CORE-11)
+        auditar(usuario.id(), "profissional.pix-alterado", p.id(), Map.of("tipo", pedido.tipo()));
+        return resposta;
     }
 
     @Transactional
@@ -243,6 +240,9 @@ class CadastroProfissionalService {
             throw new RegraDeNegocioException(
                     "cadastro-incompleto", "Falta completar: " + String.join(", ", faltas) + ".");
         }
+        exigirValorMinimo(p.valorDiaria(), p.valorMeiaDiaria());
+        // um telefone partido entre a frase e o texto só aparece com os dois juntos
+        CensuraDeContato.exigirSemContato(p.textoSobre(), "sobre");
         ContaDoCadastro.Conta conta = contas.de(dono);
         if (!conta.celularConfirmado()) {
             throw new RegraDeNegocioException(
@@ -270,15 +270,47 @@ class CadastroProfissionalService {
         return montador.montar(p, dono);
     }
 
-    /** O rascunho de quem chama (criado na primeira etapa); em análise ou aprovado não muda. */
+    /**
+     * O rascunho de quem chama, criado na primeira etapa (ou no primeiro upload) e travado até o fim da transação;
+     * em análise ou aprovado não muda. Precisa de transação aberta.
+     */
     Profissional rascunhoEditavel() {
         UUID dono = usuario.id();
-        Profissional p = profissionais.findByUsuarioId(dono).orElseGet(() -> Profissional.novoRascunho(dono));
+        Profissional p = profissionais.travarPorUsuario(dono).orElseGet(() -> {
+            profissionais.criarRascunhoSeNaoExiste(UUID.randomUUID(), dono);
+            return profissionais.travarPorUsuario(dono).orElseThrow();
+        });
         if (!p.editavel()) {
-            throw new RegraDeNegocioException(
-                    "cadastro-em-analise", "Seu cadastro está em análise. Espere a resposta para mudar alguma coisa.");
+            throw emAnalise();
         }
         return p;
+    }
+
+    private static RegraDeNegocioException emAnalise() {
+        return new RegraDeNegocioException(
+                "cadastro-em-analise", "Seu cadastro está em análise. Espere a resposta para mudar alguma coisa.");
+    }
+
+    /** Diária e meia diária dentro dos mínimos de hoje (RN09); conferido na etapa e de novo no envio. */
+    private void exigirValorMinimo(Dinheiro diaria, Dinheiro meia) {
+        ConfiguracaoNegocio.Parametros parametros = configuracao.parametros();
+        if (diaria.compareTo(parametros.diariaMinima()) < 0) {
+            throw new RegraDeNegocioException(
+                    "valor-abaixo-do-minimo",
+                    "O valor mínimo da diária é " + parametros.diariaMinima().formatar() + ".");
+        }
+        if (meia != null && (meia.compareTo(parametros.meiaDiariaMinima()) < 0 || meia.compareTo(diaria) >= 0)) {
+            throw new RegraDeNegocioException(
+                    "meia-diaria-invalida",
+                    "A meia diária precisa ser de pelo menos "
+                            + parametros.meiaDiariaMinima().formatar() + " e menor que a diária.");
+        }
+    }
+
+    /** Auditoria de mudança no cadastro, só com dado não pessoal, na transação da ação. */
+    private void auditar(UUID dono, String acao, UUID profissional, Map<String, ?> depois) {
+        auditoria.registrar(
+                dono, contas.de(dono).papelPrincipal(), acao, "profissional", profissional, null, depois, null);
     }
 
     private CadastroResposta salvar(Profissional p) {

@@ -228,6 +228,115 @@ class ArquivosDoCadastroTest extends IntegracaoTest {
     }
 
     @Test
+    @DisplayName("foto de outro usuário: descrever, apagar e URL = 404 igual ao inexistente")
+    void fotoDeOutro() throws Exception {
+        UUID dono = contas.criarConfirmada(Papel.CLIENTE).id();
+        UUID foto = idDe(
+                cadastroDe(dono).foto(null, "Muro").andReturn().getResponse().getContentAsString());
+        UUID outro = contas.criarConfirmada(Papel.CLIENTE).id();
+        cadastroDe(outro).etapa("trabalho", """
+                {"profissao":"pedreiro","outras":[]}""");
+        String token = bearer(outro, Papel.CLIENTE);
+
+        String url = mockMvc.perform(get(BASE + "/fotos/" + foto + "/url").header("Authorization", token))
+                .andExpect(status().isNotFound())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        String inexistente = mockMvc.perform(
+                        get(BASE + "/fotos/" + UUID.randomUUID() + "/url").header("Authorization", token))
+                .andExpect(status().isNotFound())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        assertThat(semInstancia(url)).isEqualTo(semInstancia(inexistente));
+        mockMvc.perform(delete(BASE + "/fotos/" + foto).header("Authorization", token))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(BASE + "/fotos/" + foto)
+                        .header("Authorization", token)
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"legenda":"minha agora"}"""))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get(BASE + "/fotos/" + foto + "/url").header("Authorization", bearer(dono, Papel.CLIENTE)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("no máximo 12 fotos: a 13ª dá 422 limite-de-fotos; a ordem não repete depois de apagar")
+    void limiteDeFotos() throws Exception {
+        UUID usuario = contas.criarConfirmada(Papel.CLIENTE).id();
+        CadastroDeTeste cadastro = cadastroDe(usuario);
+        UUID primeira = null;
+        for (int i = 0; i < 12; i++) {
+            String corpo = cadastro.foto(null, "Foto " + i)
+                    .andExpect(status().isCreated())
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString();
+            if (primeira == null) {
+                primeira = idDe(corpo);
+            }
+        }
+
+        cadastro.foto(null, "Foto 13")
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:limite-de-fotos"));
+        mockMvc.perform(delete(BASE + "/fotos/" + primeira).header("Authorization", bearer(usuario, Papel.CLIENTE)))
+                .andExpect(status().isNoContent());
+        cadastro.foto(null, "Foto nova").andExpect(status().isCreated());
+        assertThat(jdbc.queryForObject(
+                        "SELECT count(DISTINCT f.ordem) = count(*) FROM foto_portfolio f JOIN profissional p"
+                                + " ON p.id = f.profissional_id WHERE p.usuario_id = ?",
+                        Boolean.class,
+                        usuario))
+                .isTrue();
+    }
+
+    @Test
+    @DisplayName("em análise, mandar documento ou foto dá 422 cadastro-em-analise")
+    void uploadEmAnalise() throws Exception {
+        UUID usuario = contas.criarConfirmada(Papel.CLIENTE).id();
+        CadastroDeTeste cadastro = cadastroDe(usuario);
+        cadastro.completo();
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(BASE + "/envio")
+                        .header("Authorization", bearer(usuario, Papel.CLIENTE))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"versaoTermosAceita":"1.0","aceitoRegraDeContato":true}"""))
+                .andExpect(status().isOk());
+
+        cadastro.documento("rg_verso")
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:cadastro-em-analise"));
+        cadastro.foto(null, "Mais uma").andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    @DisplayName("ver e apagar documento ficam na auditoria (acesso a dado sensível)")
+    void auditoriaDeDocumento() throws Exception {
+        UUID usuario = contas.criarConfirmada(Papel.CLIENTE).id();
+        UUID id = idDe(
+                cadastroDe(usuario).documento("cnh").andReturn().getResponse().getContentAsString());
+
+        mockMvc.perform(get(BASE + "/documentos/" + id + "/url")
+                        .header("Authorization", bearer(usuario, Papel.CLIENTE)))
+                .andExpect(status().isOk());
+        mockMvc.perform(delete(BASE + "/documentos/" + id).header("Authorization", bearer(usuario, Papel.CLIENTE)))
+                .andExpect(status().isNoContent());
+
+        assertThat(jdbc.queryForList(
+                        "SELECT acao FROM log_auditoria WHERE ator_id = ? AND entidade_id = ?",
+                        String.class,
+                        usuario,
+                        id))
+                .contains(
+                        "profissional.documento-enviado",
+                        "profissional.documento-visto",
+                        "profissional.documento-removido");
+    }
+
+    @Test
     @DisplayName("sem login: 401 no upload")
     void semLogin() throws Exception {
         mockMvc.perform(multipart(BASE + "/documentos")

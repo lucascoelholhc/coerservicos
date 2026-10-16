@@ -36,7 +36,33 @@ class CensuraDeContatoTest {
                 "@joaopintor",
                 "Telegram: joaopintor",
                 "Me liga que eu explico",
-                "Liga pra mim depois"
+                "Liga pra mim depois",
+                // revisões do DOM-02: contornos que passavam
+                "47999990001 m",
+                "47999990001 h",
+                "R$ 47999990001",
+                "R$47999123456,00",
+                "4799999 0001kg",
+                "\uFF14\uFF17\uFF19\uFF19\uFF19\uFF19\uFF19\uFF10\uFF10\uFF10\uFF11",
+                "\u0664\u0667\u0669\u0669\u0669\u0669\u0669\u0660\u0660\u0660\u0661",
+                "4\u200B7\u200B9\u200B9\u200B9\u200B9\u200B9\u200B0\u200B0\u200B0\u200B1",
+                "me chama no za\u200Bp",
+                "47,99912,3456",
+                "4799912_3456",
+                "47*99912*3456",
+                "47 | 99912 | 3456",
+                "nove nove nove nove traço um dois três quatro",
+                "47 nove nove nove um dois tres quatro",
+                "quarenta e sete nove nove nove nove um dois",
+                "meu site loja.app",
+                "linktr.ee/joaopintor",
+                "joao at gmail",
+                "joao arr0ba gmail",
+                "me procura no gmail",
+                "chama no direct",
+                "me manda dm",
+                "chama no zaap",
+                "manda no wats"
             })
     void bloqueia(String texto) {
         assertThat(CensuraDeContato.temContato(texto)).isTrue();
@@ -64,6 +90,11 @@ class CensuraDeContatoTest {
                 "Faço 2 diárias por semana no mesmo cliente",
                 "Sou caprichoso e pontual. Levo as minhas ferramentas.",
                 "Ganhei 10% de desconto no material",
+                "Pinto 3 cômodos, 2 banheiros e 1 cozinha",
+                "Pintei a face externa do muro",
+                "O Sr.João indicou meu trabalho",
+                "Obra de 120 m2 entregue em 2019",
+                "Cobro R$ 1.250,00 a obra toda, R$ 280 a diária",
                 ""
             })
     void passa(String texto) {

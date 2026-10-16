@@ -269,10 +269,11 @@
                                     </limits>
                                 </rule>
                                 <rule>
-                                    <!-- dinheiro exige 100% (CLAUDE.md): linhas e ramos -->
+                                    <!-- dinheiro e censura de contato exigem 100% (CLAUDE.md): linhas e ramos -->
                                     <element>PACKAGE</element>
                                     <includes>
                                         <include>br.com.coe.servicos.compartilhado.dinheiro</include>
+                                        <include>br.com.coe.servicos.compartilhado.censura</include>
                                     </includes>
                                     <limits>
                                         <limit>

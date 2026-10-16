@@ -142,14 +142,6 @@ class Profissional implements Persistable<UUID> {
 
     protected Profissional() {}
 
-    static Profissional novoRascunho(UUID usuarioId) {
-        Profissional profissional = new Profissional();
-        profissional.id = UUID.randomUUID();
-        profissional.usuarioId = usuarioId;
-        profissional.status = RASCUNHO;
-        return profissional;
-    }
-
     @PostLoad
     @PostPersist
     void marcarComoExistente() {
@@ -173,7 +165,7 @@ class Profissional implements Persistable<UUID> {
 
     void definirTrabalho(UUID principal, Set<UUID> outras) {
         this.profissaoPrincipalId = principal;
-        this.outrasProfissoes = new HashSet<>(outras);
+        trocar(this.outrasProfissoes, outras);
     }
 
     /** CPF cifrado e HMAC sempre juntos: um sem o outro quebraria a unicidade (revisão da CORE-10). */
@@ -189,7 +181,7 @@ class Profissional implements Persistable<UUID> {
     }
 
     void definirServicos(Set<UUID> servicos) {
-        this.servicos = new HashSet<>(servicos);
+        trocar(this.servicos, servicos);
     }
 
     void definirExperiencia(short anos, String ferramentas, boolean mei) {
@@ -208,11 +200,20 @@ class Profissional implements Persistable<UUID> {
     void definirOnde(UUID cidadeBase, short raio, Set<UUID> outras) {
         this.cidadeBaseId = cidadeBase;
         this.raioKm = raio;
-        this.outrasCidades = new HashSet<>(outras);
+        trocar(this.outrasCidades, outras);
     }
 
     void definirDias(Set<Short> dias) {
-        this.dias = new HashSet<>(dias);
+        trocar(this.dias, dias);
+    }
+
+    /**
+     * Muda a coleção no lugar: o Hibernate grava só a diferença (trocar a instância apagaria e regravaria todas as
+     * linhas da tabela de ligação a cada etapa).
+     */
+    private static <T> void trocar(Set<T> atual, Set<T> nova) {
+        atual.retainAll(nova);
+        atual.addAll(nova);
     }
 
     void definirSobre(List<String> frases, String bio) {

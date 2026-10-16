@@ -55,7 +55,7 @@ class CadastroProfissionalController {
 
     @PutMapping("/dados")
     @PreAuthorize("isAuthenticated()")
-    @LimitadoPorUsuario("cadastro-usuario")
+    @LimitadoPorUsuario("dados-usuario")
     CadastroResposta dados(@Valid @RequestBody PedidosDoCadastro.Dados pedido) {
         return cadastro.dados(pedido);
     }

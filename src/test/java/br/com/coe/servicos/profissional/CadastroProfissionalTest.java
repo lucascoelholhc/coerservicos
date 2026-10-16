@@ -348,6 +348,110 @@ class CadastroProfissionalTest extends IntegracaoTest {
                 .andExpect(jsonPath("$.type").value("urn:coe:erro:termos-desatualizados"));
     }
 
+    @Test
+    @DisplayName("duas primeiras etapas ao mesmo tempo (duplo clique): nenhuma dá 500, fica um rascunho só")
+    void corridaNoPrimeiroRascunho() throws Exception {
+        UUID usuario = contas.criarConfirmada(Papel.CLIENTE).id();
+        java.util.concurrent.ExecutorService duas = java.util.concurrent.Executors.newFixedThreadPool(2);
+        java.util.concurrent.CountDownLatch largada = new java.util.concurrent.CountDownLatch(1);
+        java.util.List<java.util.concurrent.Future<Integer>> respostas = new java.util.ArrayList<>();
+        for (int i = 0; i < 2; i++) {
+            respostas.add(duas.submit(() -> {
+                largada.await();
+                return cadastroDe(usuario)
+                        .etapa("trabalho", """
+                                {"profissao":"pedreiro","outras":[]}""")
+                        .andReturn()
+                        .getResponse()
+                        .getStatus();
+            }));
+        }
+        largada.countDown();
+        for (java.util.concurrent.Future<Integer> resposta : respostas) {
+            assertThat(resposta.get()).isIn(200, 409);
+        }
+        duas.shutdown();
+        assertThat(jdbc.queryForObject(
+                        "SELECT count(*) FROM profissional WHERE usuario_id = ?", Integer.class, usuario))
+                .isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("em análise, mudar o CPF dá 422 cadastro-em-analise (não o 409 do CPF)")
+    void dadosEmAnalise() throws Exception {
+        UUID usuario = contas.criarConfirmada(Papel.CLIENTE).id();
+        CadastroDeTeste cadastro = cadastroDe(usuario);
+        cadastro.completo();
+        enviar(usuario, "1.0").andExpect(status().isOk());
+
+        cadastro.etapa("dados", dados(CpfsDeTeste.unico().digitos(), "1990-05-20"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:cadastro-em-analise"));
+    }
+
+    @Test
+    @DisplayName("trocar a profissão tira os serviços da profissão antiga")
+    void trocarProfissao() throws Exception {
+        CadastroDeTeste cadastro =
+                cadastroDe(contas.criarConfirmada(Papel.CLIENTE).id());
+        cadastro.etapa("trabalho", """
+                {"profissao":"pedreiro","outras":[]}""");
+        cadastro.etapa("servicos", """
+                {"servicos":[{"profissao":"pedreiro","nome":"Alvenaria"}]}""");
+
+        cadastro.etapa("trabalho", """
+                        {"profissao":"pintor","outras":[]}""")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.servicos").isEmpty())
+                .andExpect(jsonPath("$.etapas.servicos").value(false));
+    }
+
+    @Test
+    @DisplayName("faixa de experiência fora da lista: 422 experiencia-invalida")
+    void experienciaInvalida() throws Exception {
+        cadastroDe(contas.criarConfirmada(Papel.CLIENTE).id())
+                .etapa("experiencia", """
+                        {"anos":7,"ferramentas":"sim"}""")
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:experiencia-invalida"));
+    }
+
+    @Test
+    @DisplayName("telefone partido entre os textos (frase + texto) é pego no envio")
+    void contatoPartidoEntreCampos() throws Exception {
+        UUID usuario = contas.criarConfirmada(Papel.CLIENTE).id();
+        CadastroDeTeste cadastro = cadastroDe(usuario);
+        cadastro.completo();
+        cadastro.etapa("sobre", """
+                        {"frases":["Atendo bem, contato 47 9999"],"texto":"0001 é o final do número do trabalho."}""").andExpect(status().isOk());
+
+        enviar(usuario, "1.0")
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:texto-com-contato"));
+    }
+
+    @Test
+    @DisplayName("trocar o Pix e os dados pessoais fica na auditoria (só o tipo, nunca o valor)")
+    void auditoriaDePixEDados() throws Exception {
+        UUID usuario = contas.criarConfirmada(Papel.CLIENTE).id();
+        CadastroDeTeste cadastro = cadastroDe(usuario);
+        Cpf cpf = CpfsDeTeste.unico();
+        cadastro.etapa("dados", dados(cpf.digitos(), "1990-05-20")).andExpect(status().isOk());
+        cadastro.etapa("pix", """
+                {"tipo":"email","chave":"auditoria.pix@exemplo.com"}""").andExpect(status().isOk());
+
+        String auditoria = jdbc.queryForObject(
+                "SELECT string_agg(acao || coalesce(depois::text, ''), ' ') FROM log_auditoria WHERE ator_id = ?",
+                String.class,
+                usuario);
+        assertThat(auditoria)
+                .contains("profissional.dados-alterados")
+                .contains("profissional.pix-alterado")
+                .contains("email")
+                .doesNotContain("auditoria.pix@exemplo.com")
+                .doesNotContain(cpf.digitos());
+    }
+
     private ResultActions enviar(UUID usuario, String versaoTermos) throws Exception {
         return mockMvc.perform(post(BASE + "/envio")
                 .header("Authorization", bearer(usuario, Papel.CLIENTE))

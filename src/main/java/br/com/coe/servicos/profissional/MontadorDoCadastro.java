@@ -62,7 +62,11 @@ class MontadorDoCadastro {
         Map<String, Boolean> completas = new LinkedHashMap<>();
         completas.put("trabalho", p.profissaoPrincipalId() != null);
         completas.put("dados", p.cpf() != null && p.dataNascimento() != null);
-        completas.put("documentos", (tipos.contains("rg_frente") || tipos.contains("cnh")) && tipos.contains("selfie"));
+        // RG (frente; o verso é opcional) ou CNH, e a selfie (RN08)
+        completas.put(
+                "documentos",
+                (tipos.contains(TipoDeDocumento.RG_FRENTE.codigo()) || tipos.contains(TipoDeDocumento.CNH.codigo()))
+                        && tipos.contains(TipoDeDocumento.SELFIE.codigo()));
         completas.put("servicos", !p.servicos().isEmpty());
         completas.put("experiencia", p.experienciaAnos() != null && p.ferramentas() != null);
         completas.put("valor", p.valorDiaria() != null);
