@@ -8,7 +8,7 @@ import java.util.UUID;
 
 /**
  * Profissionais de exemplo do perfil local (DB-11), os mesmos do protótipo ({@code docs/prototipo/js/dados.js}).
- * Todos fictícios: CPFs de bases {@code 999000101…} com dígito verificador válido, celulares {@code 479000501NN},
+ * Todos fictícios: CPFs de bases {@code 999000101…} com dígito verificador válido, celulares {@code 479000501NN}, e-mails {@code profissionalNN@coe.local},
  * chaves Pix aleatórias fixas. Ids fixos para o seeder saber o que já criou. Só o {@link SeederLocal} usa.
  */
 final class ExemplosLocais {
@@ -24,6 +24,7 @@ final class ExemplosLocais {
             UUID profissional,
             String nome,
             String celular,
+            String email,
             String cpf,
             LocalDate nascimento,
             String profissao,
@@ -52,6 +53,7 @@ final class ExemplosLocais {
                     profissional,
                     nome,
                     celular,
+                    email,
                     cpf,
                     outro,
                     profissao,
@@ -81,6 +83,7 @@ final class ExemplosLocais {
                     profissional,
                     nome,
                     celular,
+                    email,
                     cpf,
                     nascimento,
                     profissao,
@@ -515,6 +518,7 @@ final class ExemplosLocais {
                 profissional(n),
                 nome,
                 celular(n),
+                email(n),
                 cpf,
                 nascimento,
                 profissao,
@@ -563,6 +567,7 @@ final class ExemplosLocais {
                 profissional(n),
                 nome,
                 celular(n),
+                email(n),
                 cpf,
                 nascimento,
                 profissao,
@@ -596,6 +601,11 @@ final class ExemplosLocais {
 
     static String celular(int n) {
         return String.valueOf(47_900_050_100L + n);
+    }
+
+    /** E-mail confirmado: sem ele a conta fica com contato pendente (RN61). */
+    static String email(int n) {
+        return String.format("profissional%02d@coe.local", n);
     }
 
     private static String pix(int n) {

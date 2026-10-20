@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.nio.charset.StandardCharsets;
@@ -25,6 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -86,9 +88,18 @@ class SeederLocalTest extends IntegracaoTest {
 
     private SeederLocal seeder(
             List<ExemplosLocais.Exemplo> exemplos, String ambiente, ArquivosDoCadastroService arquivosUsados) {
+        return seeder(exemplos, ambiente, false, arquivosUsados);
+    }
+
+    private SeederLocal seeder(
+            List<ExemplosLocais.Exemplo> exemplos,
+            String ambiente,
+            boolean comPerfilProd,
+            ArquivosDoCadastroService arquivosUsados) {
         return new SeederLocal(
                 exemplos,
                 ambiente,
+                comPerfilProd,
                 cadastro,
                 arquivosUsados,
                 profissionais,
@@ -110,6 +121,7 @@ class SeederLocalTest extends IntegracaoTest {
                 UUID.randomUUID(),
                 "Exemplo " + n,
                 String.valueOf(47_900_000_000L + n),
+                "exemplo" + n + "@teste.coe.local",
                 CpfsDeTeste.unico().digitos(),
                 LocalDate.of(1980, 5, 10),
                 "pintor",
@@ -153,6 +165,86 @@ class SeederLocalTest extends IntegracaoTest {
     }
 
     @Test
+    @DisplayName("com o perfil prod junto do local, também recusa rodar")
+    void nuncaComOProd() {
+        ExemplosLocais.Exemplo exemplo = exemplo(true, SOBRE);
+
+        assertThatThrownBy(
+                        () -> seeder(List.of(exemplo), "local", true, arquivos).semear())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("prod");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM usuario WHERE id = ?", Integer.class, exemplo.usuario()))
+                .isZero();
+    }
+
+    @Test
+    @DisplayName("não deixa usuário no contexto de segurança, nem depois de um erro")
+    void contextoDeSegurancaLimpo() {
+        seeder(List.of(exemplo(true, SOBRE)), "local").semear();
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+
+        ExemplosLocais.Exemplo comTelefone = exemplo(true, "Pinto casas com capricho. Chama no 47 99123-4567.");
+        assertThatThrownBy(() -> seeder(List.of(comTelefone), "local").semear())
+                .isInstanceOf(RegraDeNegocioException.class);
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
+
+    @Test
+    @DisplayName("subida que caiu no meio deixa o rascunho; a próxima retoma e conclui")
+    void retomaORascunho() {
+        ExemplosLocais.Exemplo valido = exemplo(true, SOBRE);
+        assertThatThrownBy(() -> seeder(List.of(valido.comRaio(15)), "local").semear())
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(profissionais.findById(valido.profissional()).orElseThrow().status())
+                .isEqualTo(Profissional.RASCUNHO);
+
+        SeederLocal.Resultado resultado = seeder(List.of(valido), "local").semear();
+
+        assertThat(resultado.criados()).isEqualTo(1);
+        assertThat(profissionais.findById(valido.profissional()).orElseThrow().status())
+                .isEqualTo(Profissional.ATIVO);
+    }
+
+    @Test
+    @DisplayName("celular de exemplo já usado por outra conta: erro claro, sem cadastro pela metade")
+    void celularDeOutraConta() {
+        ContasDeTeste.Conta outra = new ContasDeTeste(jdbc, codificador).criar(Papel.CLIENTE);
+        ExemplosLocais.Exemplo base = exemplo(true, SOBRE);
+        ExemplosLocais.Exemplo repetido = new ExemplosLocais.Exemplo(
+                base.usuario(),
+                base.profissional(),
+                base.nome(),
+                outra.celular(),
+                base.email(),
+                base.cpf(),
+                base.nascimento(),
+                base.profissao(),
+                base.outras(),
+                base.servicos(),
+                base.anos(),
+                base.ferramentas(),
+                base.mei(),
+                base.valor(),
+                base.meia(),
+                base.horario(),
+                base.cidade(),
+                base.raio(),
+                base.outrasCidades(),
+                base.dias(),
+                base.sobre(),
+                base.pix(),
+                base.ativo(),
+                base.nr10(),
+                base.cor(),
+                base.fotos());
+
+        assertThatThrownBy(() -> seeder(List.of(repetido), "local").semear())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("já usados por outra conta");
+        assertThat(profissionais.findByUsuarioId(base.usuario())).isEmpty();
+    }
+
+    @Test
     @DisplayName("os 15 exemplos do protótipo: 12 ativos com o papel, 3 em análise na fila do admin")
     void semeiaOsExemplosDoPrototipo() throws Exception {
         seeder(ExemplosLocais.TODOS, "local").semear();
@@ -185,6 +277,18 @@ class SeederLocalTest extends IntegracaoTest {
         assertThat(todos.stream().filter(e -> e.ativo() && e.nr10())).isNotEmpty();
         assertThat(todos.stream().map(ExemplosLocais.Exemplo::profissao).distinct())
                 .containsExactlyInAnyOrder("pedreiro", "pintor", "eletricista", "jardineiro", "diarista");
+
+        // pela API, como o próprio profissional: conta sem contato pendente (RN61) e cadastro do dono
+        for (ExemplosLocais.Exemplo e : List.of(todos.get(0), todos.get(14))) {
+            Papel[] papeis = e.ativo() ? new Papel[] {Papel.CLIENTE, Papel.PROFISSIONAL} : new Papel[] {Papel.CLIENTE};
+            mockMvc.perform(get("/api/contas/eu").header("Authorization", bearer(e.usuario(), papeis)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.contatoPendente").value(false))
+                    .andExpect(jsonPath("$.emailConfirmado").value(true));
+            mockMvc.perform(get("/api/profissional/cadastro").header("Authorization", bearer(e.usuario(), papeis)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.status").value(e.ativo() ? Profissional.ATIVO : Profissional.EM_ANALISE));
+        }
 
         // a fila do DOM-03 mostra os 3 em análise
         UUID admin = new ContasDeTeste(jdbc, codificador).criar(Papel.ADMIN).id();

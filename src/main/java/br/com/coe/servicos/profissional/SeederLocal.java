@@ -25,6 +25,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -45,7 +47,7 @@ import br.com.coe.servicos.config.ConfiguracaoNegocio;
  *
  * <p>Cada exemplo passa pelo mesmo caminho do cadastro (DOM-02), como se o próprio profissional preenchesse as
  * etapas: Bean Validation dos pedidos, censura, valor mínimo, idade com Clock e CPF/Pix cifrados pelos conversores
- * (nunca SQL com bytes cifrados). Dado de exemplo errado derruba a subida, para ser corrigido. Os arquivos
+ * (nunca SQL com bytes cifrados). Também recusa rodar com o perfil prod junto. Dado de exemplo errado derruba a subida, para ser corrigido. Os arquivos
  * (portfólio; documento e selfie de quem está em análise) são imagens geradas com "EXEMPLO"; sem o SeaweedFS, o
  * exemplo fica sem arquivo e o log avisa. Os ativos são aprovados direto (sem admin, {@code aprovado_por} nulo).
  * Idempotente: quem já saiu do rascunho é pulado.
@@ -62,6 +64,7 @@ class SeederLocal implements ApplicationRunner {
 
     private final List<ExemplosLocais.Exemplo> exemplos;
     private final String ambiente;
+    private final boolean comPerfilProd;
     private final CadastroProfissionalService cadastro;
     private final ArquivosDoCadastroService arquivos;
     private final ProfissionalRepository profissionais;
@@ -77,6 +80,7 @@ class SeederLocal implements ApplicationRunner {
     @Autowired
     SeederLocal(
             @Value("${spring.flyway.placeholders.ambiente:}") String ambiente,
+            Environment ambienteDoSpring,
             CadastroProfissionalService cadastro,
             ArquivosDoCadastroService arquivos,
             ProfissionalRepository profissionais,
@@ -91,6 +95,7 @@ class SeederLocal implements ApplicationRunner {
         this(
                 ExemplosLocais.TODOS,
                 ambiente,
+                ambienteDoSpring.acceptsProfiles(Profiles.of("prod")),
                 cadastro,
                 arquivos,
                 profissionais,
@@ -107,6 +112,7 @@ class SeederLocal implements ApplicationRunner {
     SeederLocal(
             List<ExemplosLocais.Exemplo> exemplos,
             String ambiente,
+            boolean comPerfilProd,
             CadastroProfissionalService cadastro,
             ArquivosDoCadastroService arquivos,
             ProfissionalRepository profissionais,
@@ -120,6 +126,7 @@ class SeederLocal implements ApplicationRunner {
             Clock clock) {
         this.exemplos = List.copyOf(exemplos);
         this.ambiente = ambiente;
+        this.comPerfilProd = comPerfilProd;
         this.cadastro = cadastro;
         this.arquivos = arquivos;
         this.profissionais = profissionais;
@@ -139,9 +146,9 @@ class SeederLocal implements ApplicationRunner {
     }
 
     Resultado semear() {
-        if (!AMBIENTE_LOCAL.equals(ambiente)) {
-            throw new IllegalStateException(
-                    "Os profissionais de exemplo só rodam no perfil local (ambiente = " + ambiente + ")");
+        if (!AMBIENTE_LOCAL.equals(ambiente) || comPerfilProd) {
+            throw new IllegalStateException("Os profissionais de exemplo só rodam no perfil local, nunca com o prod"
+                    + " (ambiente = " + ambiente + ")");
         }
         int criados = 0;
         int existentes = 0;
@@ -165,6 +172,13 @@ class SeederLocal implements ApplicationRunner {
             concluir(exemplo, comArquivos);
             criados++;
         }
+        if (semArquivo > 0) {
+            // quem saiu do rascunho não muda mais (em análise ou ativo): os arquivos não voltam numa nova subida
+            LOG.warn(
+                    "Dados locais: {} profissionais ficaram sem arquivo. Para tê-los, suba o SeaweedFS e recrie"
+                            + " o banco local (docker compose down -v; docker compose up -d)",
+                    semArquivo);
+        }
         LOG.info(
                 "Dados locais: {} profissionais de exemplo criados, {} já existiam, {} sem arquivo (logins no README)",
                 criados,
@@ -173,27 +187,48 @@ class SeederLocal implements ApplicationRunner {
         return new Resultado(criados, existentes, semArquivo);
     }
 
+    /**
+     * Só o rascunho é retomado (uma subida que caiu no meio). Qualquer outro status já foi semeado ou foi mexido
+     * por quem testa (correção pedida, recusa): nunca é desfeito.
+     */
     private boolean jaSemeado(ExemplosLocais.Exemplo exemplo) {
         return profissionais
                 .findByUsuarioId(exemplo.usuario())
-                .filter(p -> !p.editavel())
+                .filter(p -> !Profissional.RASCUNHO.equals(p.status()))
                 .isPresent();
     }
 
-    /** Conta com celular confirmado (o envio exige) e papel CLIENTE, como quem se cadastrou pelo app. */
+    /**
+     * Conta com celular e e-mail confirmados (sem os dois a conta fica com contato pendente, RN61; o envio exige o
+     * celular) e papel CLIENTE, como quem se cadastrou pelo app. Celular ou e-mail já de outra conta = erro claro.
+     */
     private void criarConta(ExemplosLocais.Exemplo exemplo, String hash) {
+        Timestamp agora = Timestamp.from(clock.instant());
         jdbc.update(
                 """
-                INSERT INTO usuario (id, nome, celular, celular_verificado_em, senha_hash, status, cidade_id)
-                VALUES (?, ?, ?, ?, ?, 'ativo', (SELECT id FROM cidade WHERE codigo_ibge = ?))
-                ON CONFLICT (id) DO NOTHING
+                INSERT INTO usuario (id, nome, celular, celular_verificado_em, email, email_verificado_em, senha_hash,
+                                     status, cidade_id)
+                SELECT ?, ?, ?, ?, ?, ?, ?, 'ativo', c.id FROM cidade c WHERE c.codigo_ibge = ?
+                ON CONFLICT DO NOTHING
                 """,
                 exemplo.usuario(),
                 exemplo.nome(),
                 exemplo.celular(),
-                Timestamp.from(clock.instant()),
+                agora,
+                exemplo.email(),
+                agora,
                 hash,
                 exemplo.cidade());
+        Integer contas = jdbc.queryForObject(
+                "SELECT count(*) FROM usuario WHERE id = ? AND celular = ? AND email = ?",
+                Integer.class,
+                exemplo.usuario(),
+                exemplo.celular(),
+                exemplo.email());
+        if (contas == null || contas == 0) {
+            throw new IllegalStateException("Exemplo local " + exemplo.profissional()
+                    + " sem conta: cidade fora do catálogo, ou celular/e-mail já usados por outra conta");
+        }
         jdbc.update(
                 "INSERT INTO usuario_papel (usuario_id, papel) VALUES (?, 'CLIENTE') ON CONFLICT DO NOTHING",
                 exemplo.usuario());
@@ -223,18 +258,24 @@ class SeederLocal implements ApplicationRunner {
      * cadastro recusada derruba; falha do armazenamento (SeaweedFS desligado) só avisa.
      */
     private boolean enviarArquivos(ExemplosLocais.Exemplo e) {
+        // as imagens antes do try: erro ao desenhar não é o armazenamento fora do ar
+        List<byte[]> imagensDasFotos =
+                e.fotos().stream().map(foto -> imagem(foto.legenda(), e.cor())).toList();
+        byte[] documento = imagem("Documento", 0x5A5A5A);
+        byte[] selfie = imagem("Selfie", e.cor());
+        byte[] certificado = imagem("Certificado NR-10", 0x3B3DC4);
         try {
             if (fotos.countByProfissionalId(e.profissional()) == 0) {
-                for (ExemplosLocais.Foto foto : e.fotos()) {
-                    arquivos.enviarFoto(foto.servico(), foto.legenda(), imagem(foto.legenda(), e.cor()));
+                for (int i = 0; i < e.fotos().size(); i++) {
+                    ExemplosLocais.Foto foto = e.fotos().get(i);
+                    arquivos.enviarFoto(foto.servico(), foto.legenda(), imagensDasFotos.get(i));
                 }
             }
             if (!e.ativo()) {
-                arquivos.enviarDocumento(TipoDeDocumento.RG_FRENTE.codigo(), imagem("Documento", 0x5A5A5A));
-                arquivos.enviarDocumento(TipoDeDocumento.SELFIE.codigo(), imagem("Selfie", e.cor()));
+                arquivos.enviarDocumento(TipoDeDocumento.RG_FRENTE.codigo(), documento);
+                arquivos.enviarDocumento(TipoDeDocumento.SELFIE.codigo(), selfie);
                 if (e.nr10()) {
-                    arquivos.enviarDocumento(
-                            TipoDeDocumento.CERTIFICADO_NR10.codigo(), imagem("Certificado NR-10", 0x3B3DC4));
+                    arquivos.enviarDocumento(TipoDeDocumento.CERTIFICADO_NR10.codigo(), certificado);
                 }
             }
             return true;
@@ -242,10 +283,10 @@ class SeederLocal implements ApplicationRunner {
             throw regra;
         } catch (RuntimeException armazenamento) {
             LOG.warn(
-                    "Dados locais: profissional {} sem arquivos ({}). O SeaweedFS está no ar? "
-                            + "(docker compose up -d seaweedfs)",
+                    "Dados locais: profissional {} sem arquivos. O SeaweedFS está no ar? (docker compose up -d"
+                            + " seaweedfs)",
                     e.profissional(),
-                    armazenamento.getClass().getSimpleName());
+                    armazenamento);
             return false;
         }
     }
@@ -285,6 +326,7 @@ class SeederLocal implements ApplicationRunner {
     /** Roda como o dono do exemplo: os serviços do cadastro leem o usuário do token (UsuarioAutenticado). */
     private <T> T como(ExemplosLocais.Exemplo e, Supplier<T> acao) {
         SecurityContext anterior = SecurityContextHolder.getContext();
+        boolean haviaAutenticacao = anterior.getAuthentication() != null;
         SecurityContext contexto = SecurityContextHolder.createEmptyContext();
         Jwt token = Jwt.withTokenValue("dados-locais")
                 .header("alg", "none")
@@ -295,7 +337,11 @@ class SeederLocal implements ApplicationRunner {
         try {
             return acao.get();
         } finally {
-            SecurityContextHolder.setContext(anterior);
+            if (haviaAutenticacao) {
+                SecurityContextHolder.setContext(anterior);
+            } else {
+                SecurityContextHolder.clearContext();
+            }
         }
     }
 

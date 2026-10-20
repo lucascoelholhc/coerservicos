@@ -291,9 +291,12 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
   - **Ativos aprovados direto**: entidade, sem admin (`aprovado_por` nulo), sem SMS nem auditoria de admin; o NR-10 dos eletricistas ativos fica `verificado` sem certificado guardado (desfazer: aprovar pelo `VerificacaoService` como o admin do seed, que exige documentos para todos).
   - **Celulares `479000501NN`** em vez de `4790000010N`: essa faixa colide com os celulares dos testes de integração (`CadastroClienteTest` começa em 47900000101) e o seeder roda também no banco do Testcontainers.
   - **CPFs fictícios** de bases `999000101…` com DV válido (acima da faixa do `CpfsDeTeste`); **Pix** aleatória fixa `00000000-0000-4000-8000-…`.
-  - **Contas** sem e-mail, com celular confirmado e papel CLIENTE (como quem se cadastra pelo app); idade e valores do protótipo; experiência na faixa do cadastro (22 anos → 20).
+  - **Contas** com celular e e-mail (`profissionalNN@coe.local`) confirmados e papel CLIENTE (como quem se cadastra pelo app); idade e valores do protótipo; experiência na faixa do cadastro (22 anos → 20).
   - **Nelson Kraus**: no protótipo o "Sobre" tinha telefone (para o admin recusar); aqui passa pela censura, então o texto é limpo.
   - **Arquivos**: 2 fotos de portfólio por exemplo e, nos em análise, RG frente, selfie e certificado (Nelson); imagens geradas 640×480 com "EXEMPLO". Sem SeaweedFS: sem arquivo, aviso no log, em análise entra direto no status (desfazer: exigir o armazenamento).
+  - **Retomada**: só o rascunho é retomado numa nova subida; correção pedida ou recusa feita por quem testa nunca é desfeita; sem arquivos (SeaweedFS fora) = aviso no log para recriar o banco local.
+  - **ArchUnit** só nos runners (`ApplicationRunner`/`CommandLineRunner`): `@EventListener`, `@PostConstruct` e `SmartInitializingSingleton` têm usos legítimos de checagem na subida; a convenção (dado de exemplo = runner com `@Profile("local")`) está no CLAUDE.md.
+- **Revisões** (java-reviewer, security-reviewer, database-reviewer): sem CRITICAL nem HIGH. Corrigido: e-mail confirmado (sem ele a conta ficava com contato pendente, achado no teste local), retomar só rascunho, celular/e-mail de outra conta = erro claro, cidade fora do catálogo = erro claro, imagens geradas fora do `try` do armazenamento e exceção no log, recusa com o perfil prod junto, contexto de segurança limpo depois, precedência da regra do ArchUnit.
   - **Sem histórico** (avaliações, contratos) até existirem as tabelas e os serviços (DOM-05 em diante).
 
 **Casos de teste obrigatórios do CORE-03 e CORE-04** (PA03):

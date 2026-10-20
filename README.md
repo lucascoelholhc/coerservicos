@@ -59,7 +59,7 @@ CREATE ROLE coe_app NOLOGIN;
 
 O Flyway aplica as migrações e o seed local (admin e cliente de teste); na subida, o `SeederLocal` (DB-11) cria os 15 profissionais de exemplo do protótipo pelo mesmo caminho do cadastro (CPF e Pix cifrados). Reiniciar não duplica nada. Com o SeaweedFS no ar (`docker compose up -d seaweedfs`), eles ganham fotos de portfólio e, os em análise, documento e selfie gerados (imagens com "EXEMPLO"); sem ele, sobem sem arquivo e o log avisa.
 
-Logins locais (todos com a senha `coe-local-123`; celulares fictícios):
+Logins locais (todos com a senha `coe-local-123`; celulares e e-mails fictícios, `profissionalNN@coe.local`). **Só para a sua máquina**: nunca use esses dados num ambiente compartilhado.
 
 | Quem | Login | Situação |
 |---|---|---|

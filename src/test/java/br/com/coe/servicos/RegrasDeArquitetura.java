@@ -93,9 +93,10 @@ final class RegrasDeArquitetura {
             .that()
             .resideInAPackage("br.com.coe.servicos..")
             .and()
-            .areAssignableTo(ApplicationRunner.class)
-            .or()
-            .areAssignableTo(CommandLineRunner.class)
+            // um predicado só: com .and().x().or().y() o ArchUnit leria (pacote e x) ou y
+            .areAssignableTo(DescribedPredicate.or(
+                    JavaClass.Predicates.assignableTo(ApplicationRunner.class),
+                    JavaClass.Predicates.assignableTo(CommandLineRunner.class)))
             .should()
             .beAnnotatedWith(DescribedPredicate.describe(
                     "@Profile(\"local\")",
