@@ -4,11 +4,14 @@ import java.math.BigDecimal;
 import java.net.URI;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.QueryTimeoutException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,12 +21,14 @@ import br.com.coe.servicos.compartilhado.armazenamento.PropriedadesDoArmazenamen
 import br.com.coe.servicos.compartilhado.dinheiro.Dinheiro;
 import br.com.coe.servicos.compartilhado.erro.RecursoNaoEncontradoException;
 import br.com.coe.servicos.compartilhado.erro.RegraDeNegocioException;
+import br.com.coe.servicos.compartilhado.erro.ServicoInstavelException;
 
 /**
  * Busca e perfil público (DOM-04, RF08, RF09, RF12, RN18 a RN23), sem login. Dias livres a partir de amanhã (no
  * fuso de negócio), em quatro semanas; o filtro de dia aceita até 90 dias. O nome sai como "Primeiro S." (sem
  * sobrenome completo, menos dado pessoal num endpoint público). Fotos com URL assinada curta, nunca documento ou
- * selfie (RN16).
+ * selfie, nem foto ocultada pelo admin (RN16). Cada consulta tem teto de tempo
+ * ({@code coe.busca.tempo-maximo}); passou = 503.
  */
 @Service
 class BuscaPublicaService {
@@ -36,21 +41,26 @@ class BuscaPublicaService {
 
     static final int DIA_MAXIMO = 90;
     static final int FOTOS_NO_PERFIL = 12;
+    /** Maior código de profissão ou nome de serviço do catálogo, com folga. */
+    static final int TEXTO_MAXIMO = 80;
 
     private final BuscaDeProfissionais consultas;
     private final Armazenamento armazenamento;
     private final Clock clock;
     private final Duration validadeDaFoto;
+    private final Duration tempoMaximo;
 
     BuscaPublicaService(
             BuscaDeProfissionais consultas,
             Armazenamento armazenamento,
             Clock clock,
-            PropriedadesDoArmazenamento propriedades) {
+            PropriedadesDoArmazenamento propriedades,
+            @Value("${coe.busca.tempo-maximo:2s}") Duration tempoMaximo) {
         this.consultas = consultas;
         this.armazenamento = armazenamento;
         this.clock = clock;
         this.validadeDaFoto = propriedades.validadeUrl();
+        this.tempoMaximo = tempoMaximo;
     }
 
     /** O pedido como veio na URL (texto ou nulo); a validação fica aqui. */
@@ -62,6 +72,7 @@ class BuscaPublicaService {
             String valorMaximo,
             Integer experienciaMinima,
             boolean meiaDiaria,
+            String ferramentas,
             String ordem,
             int pagina) {}
 
@@ -73,6 +84,7 @@ class BuscaPublicaService {
             throw new RegraDeNegocioException(
                     "dia-invalido", "Escolha um dia a partir de amanhã, até " + DIA_MAXIMO + " dias para a frente.");
         }
+        exigirFaixa(pedido);
         int pagina = Math.clamp(pedido.pagina(), 0, PAGINA_MAXIMA);
         BuscaDeProfissionais.Filtro filtro = new BuscaDeProfissionais.Filtro(
                 textoOuNulo(pedido.profissao()),
@@ -82,13 +94,21 @@ class BuscaPublicaService {
                 valorMaximo(pedido.valorMaximo()),
                 pedido.experienciaMinima(),
                 pedido.meiaDiaria(),
+                ferramentas(pedido.ferramentas()),
                 ordem(pedido.ordem()),
                 // um a mais para saber se há outra página
                 POR_PAGINA + 1,
                 (long) pagina * POR_PAGINA,
                 amanha,
                 amanha.plusDays(JANELA_DE_DIAS - 1L));
-        List<BuscaResposta.Item> itens = consultas.buscar(filtro).stream()
+        List<BuscaDeProfissionais.Linha> linhas;
+        try {
+            consultas.limitarTempo(tempoMaximo);
+            linhas = consultas.buscar(filtro);
+        } catch (QueryTimeoutException demorou) {
+            throw new ServicoInstavelException("A busca demorou demais. Tente de novo em instantes.", demorou);
+        }
+        List<BuscaResposta.Item> itens = linhas.stream()
                 .map(linha -> new BuscaResposta.Item(
                         linha.id(),
                         nomeDeExibicao(linha.nome()),
@@ -112,16 +132,14 @@ class BuscaPublicaService {
         BuscaDeProfissionais.Dados dados = consultas
                 .dados(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Profissional não encontrado."));
+        consultas.limitarTempo(tempoMaximo);
         LocalDate amanha = FusoDeNegocio.hoje(clock).plusDays(1);
         List<BuscaResposta.Foto> fotos = consultas.fotos(id, FOTOS_NO_PERFIL).stream()
                 .map(foto -> {
+                    // expiraEm é o limite de cima: o instante é tomado antes de assinar
+                    Instant expira = clock.instant().plus(validadeDaFoto);
                     URI url = armazenamento.urlAssinada(foto.chave(), validadeDaFoto);
-                    return new BuscaResposta.Foto(
-                            foto.id(),
-                            foto.servico(),
-                            foto.legenda(),
-                            url.toString(),
-                            clock.instant().plus(validadeDaFoto));
+                    return new BuscaResposta.Foto(foto.id(), foto.servico(), foto.legenda(), url.toString(), expira);
                 })
                 .toList();
         return new BuscaResposta.Perfil(
@@ -165,7 +183,7 @@ class BuscaPublicaService {
 
     /** RN23: sem avaliações, "Novo na COE" e nota nula, nunca uma nota inventada. */
     private static BuscaResposta.Avaliacoes avaliacoes(int total, BigDecimal nota) {
-        return total == 0
+        return total == 0 || nota == null
                 ? new BuscaResposta.Avaliacoes(0, null, true)
                 : new BuscaResposta.Avaliacoes(total, nota, false);
     }
@@ -184,12 +202,39 @@ class BuscaPublicaService {
         };
     }
 
+    /** Texto de filtro com tamanho limitado e números não negativos (pedido público, nunca confiar no front). */
+    private static void exigirFaixa(Pedido pedido) {
+        if (longo(pedido.profissao()) || longo(pedido.servico())) {
+            throw new RegraDeNegocioException("filtro-invalido", "Use um filtro mais curto.");
+        }
+        if (pedido.experienciaMinima() != null && pedido.experienciaMinima() < 0) {
+            throw new RegraDeNegocioException("filtro-invalido", "A experiência mínima não pode ser negativa.");
+        }
+    }
+
+    private static boolean longo(String texto) {
+        return texto != null && texto.length() > TEXTO_MAXIMO;
+    }
+
+    /** "sim" = traz todas as ferramentas; "parte" = traz ao menos parte. */
+    private static String ferramentas(String texto) {
+        String valor = textoOuNulo(texto);
+        if (valor == null || valor.equals("sim") || valor.equals("parte")) {
+            return valor;
+        }
+        throw new RegraDeNegocioException("filtro-invalido", "Filtre as ferramentas por \"sim\" ou \"parte\".");
+    }
+
     private static Dinheiro valorMaximo(String texto) {
         if (texto == null || texto.isBlank()) {
             return null;
         }
         try {
-            return Dinheiro.de(texto.strip());
+            Dinheiro valor = Dinheiro.de(texto.strip());
+            if (valor.compareTo(Dinheiro.ZERO) <= 0) {
+                throw new IllegalArgumentException("valor máximo sem sentido");
+            }
+            return valor;
         } catch (RuntimeException invalido) {
             throw new RegraDeNegocioException("valor-invalido", "Escreva o valor máximo assim: 250.00.");
         }

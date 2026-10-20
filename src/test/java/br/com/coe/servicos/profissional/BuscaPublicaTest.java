@@ -100,6 +100,7 @@ class BuscaPublicaTest extends IntegracaoTest {
         String sobre = "Cuido de jardins com capricho e levo minhas ferramentas.";
         boolean ativo = true;
         boolean nr10 = false;
+        String ferramentas = "sim";
         final String celular = String.valueOf(47_900_000_000L + n);
         final String email = "busca" + n + "@teste.coe.local";
         final String cpf = CpfsDeTeste.unico().digitos();
@@ -119,7 +120,7 @@ class BuscaPublicaTest extends IntegracaoTest {
                     outras,
                     servicos,
                     anos,
-                    "sim",
+                    ferramentas,
                     false,
                     valor,
                     meia,
@@ -172,7 +173,13 @@ class BuscaPublicaTest extends IntegracaoTest {
     private Map<String, Map<String, Object>> buscar(String... parametros) throws Exception {
         Map<String, Map<String, Object>> achados = new LinkedHashMap<>();
         for (int pagina = 0; pagina < 50; pagina++) {
-            MockHttpServletRequestBuilder pedido = get(BUSCA).param("pagina", String.valueOf(pagina));
+            String ip = "10.46." + (SEQUENCIA.incrementAndGet() % 250) + "." + (pagina + 1);
+            MockHttpServletRequestBuilder pedido = get(BUSCA)
+                    .param("pagina", String.valueOf(pagina))
+                    .with(requisicao -> {
+                        requisicao.setRemoteAddr(ip);
+                        return requisicao;
+                    });
             for (int i = 0; i < parametros.length; i += 2) {
                 pedido.param(parametros[i], parametros[i + 1]);
             }
@@ -269,6 +276,28 @@ class BuscaPublicaTest extends IntegracaoTest {
                 .doesNotContainKey(pp);
         // profissão desconhecida: ninguém
         assertThat(buscar("profissao", "astronauta")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("filtro de ferramentas: sim = traz todas; parte = traz ao menos parte")
+    void ferramentas() throws Exception {
+        Molde todas = criar(m -> m.cidade = BALNEARIO_CAMBORIU);
+        Molde parte = criar(m -> {
+            m.cidade = BALNEARIO_CAMBORIU;
+            m.ferramentas = "parte";
+        });
+        Molde nenhuma = criar(m -> {
+            m.cidade = BALNEARIO_CAMBORIU;
+            m.ferramentas = "nao";
+        });
+        String cidade = String.valueOf(BALNEARIO_CAMBORIU);
+
+        assertThat(buscar("cidade", cidade, "ferramentas", "sim"))
+                .containsKey(todas.profissional.toString())
+                .doesNotContainKeys(parte.profissional.toString(), nenhuma.profissional.toString());
+        assertThat(buscar("cidade", cidade, "ferramentas", "parte"))
+                .containsKeys(todas.profissional.toString(), parte.profissional.toString())
+                .doesNotContainKey(nenhuma.profissional.toString());
     }
 
     @Test
@@ -369,6 +398,18 @@ class BuscaPublicaTest extends IntegracaoTest {
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.type").value("urn:coe:erro:ordem-invalida"));
         mockMvc.perform(get(BUSCA).param("dia", "amanha")).andExpect(status().isBadRequest());
+        mockMvc.perform(get(BUSCA).param("valorMaximo", "0.00"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:valor-invalido"));
+        mockMvc.perform(get(BUSCA).param("experienciaMinima", "-1"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:filtro-invalido"));
+        mockMvc.perform(get(BUSCA).param("servico", "x".repeat(81)))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:filtro-invalido"));
+        mockMvc.perform(get(BUSCA).param("ferramentas", "talvez"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:filtro-invalido"));
         // página fora da faixa é ajustada, não dá erro
         mockMvc.perform(get(BUSCA).param("pagina", "-3")).andExpect(status().isOk());
         mockMvc.perform(get(BUSCA).param("pagina", "999999")).andExpect(status().isOk());
@@ -421,6 +462,18 @@ class BuscaPublicaTest extends IntegracaoTest {
         assertThat((List<String>) JsonPath.read(corpo, "$.fotos[*].legenda")).containsExactly("Jardim da frente");
         assertThat((String) JsonPath.read(corpo, "$.fotos[0].url")).contains("/portfolio/");
         assertThat((String) JsonPath.read(corpo, "$.fotos[0].expiraEm")).isNotBlank();
+    }
+
+    @Test
+    @DisplayName("foto ocultada pelo admin não sai no perfil; a resposta não fica em cache (URL assinada)")
+    void fotoOcultaENoStore() throws Exception {
+        Molde p = criar(m -> m.cidade = NAVEGANTES);
+        jdbc.update("UPDATE foto_portfolio SET visivel = false WHERE profissional_id = ?", p.profissional);
+
+        mockMvc.perform(get(BUSCA + "/" + p.profissional))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.fotos").isEmpty())
+                .andExpect(header().string("Cache-Control", org.hamcrest.Matchers.containsString("no-store")));
     }
 
     @Test

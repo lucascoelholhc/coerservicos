@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
@@ -19,7 +20,7 @@ import br.com.coe.servicos.compartilhado.dinheiro.Dinheiro;
 /**
  * Consultas públicas da busca e do perfil (DOM-04, RN18 a RN23). Só perfil {@code ativo} de conta ativa (RN20).
  * Cidade atendida = dentro do raio da cidade base (Haversine, V10) ou marcada em {@code profissional_cidade}
- * (RN17). Dia livre = dia da semana que trabalha, sem bloqueio na agenda e sem diária ativa (a mesma regra do
+ * (RN17); profissão principal ativa. Dia livre = dia da semana que trabalha, sem bloqueio na agenda e sem diária ativa (a mesma regra do
  * índice {@code uq_diaria_agenda_profissional}). Os filtros entram no SQL só quando vêm no pedido, sempre como
  * parâmetro. Nenhuma coluna de contato ou dado pessoal é lida.
  */
@@ -47,6 +48,7 @@ class BuscaDeProfissionais {
             Dinheiro valorMaximo,
             Integer experienciaMinima,
             boolean meiaDiaria,
+            String ferramentas,
             Ordem ordem,
             int limite,
             long deslocamento,
@@ -91,8 +93,13 @@ class BuscaDeProfissionais {
             ARRAY(SELECT o.codigo FROM profissional_profissao pp JOIN profissao o ON o.id = pp.profissao_id
                    WHERE pp.profissional_id = p.id AND o.ativa ORDER BY o.ordem, o.codigo)""";
 
-    private static final String PROXIMO_LIVRE = "(SELECT min(g::date) FROM generate_series(CAST(:inicio AS date),"
-            + " CAST(:fim AS date), INTERVAL '1 day') AS g WHERE " + livre("p.id", "g::date") + ")";
+    /** Dias da janela como date + n (sem timestamptz: não depende do fuso da sessão). */
+    private static final String DIAS_DA_JANELA =
+            "(SELECT CAST(:inicio AS date) + n AS dia FROM generate_series(0, CAST(:fim AS date) - CAST(:inicio AS"
+                    + " date)) AS n) AS janela";
+
+    private static final String PROXIMO_LIVRE =
+            "(SELECT min(janela.dia) FROM " + DIAS_DA_JANELA + " WHERE " + livre("p.id", "janela.dia") + ")";
 
     private final NamedParameterJdbcTemplate jdbc;
 
@@ -108,6 +115,14 @@ class BuscaDeProfissionais {
                  AND NOT EXISTS (SELECT 1 FROM bloqueio_agenda b WHERE b.profissional_id = %1$s AND b.data = %2$s)
                  AND NOT EXISTS (SELECT 1 FROM diaria d WHERE d.profissional_id = %1$s AND d.data = %2$s
                                     AND d.status NOT IN ('cancelada', 'reembolsada')))""".formatted(id, dia);
+    }
+
+    /**
+     * Teto de tempo das consultas da transação aberta ({@code SET LOCAL}: some no fim dela); passou =
+     * {@code QueryTimeoutException}.
+     */
+    void limitarTempo(Duration maximo) {
+        jdbc.getJdbcTemplate().execute("SET LOCAL statement_timeout = " + maximo.toMillis());
     }
 
     List<Linha> buscar(Filtro filtro) {
@@ -131,7 +146,7 @@ class BuscaDeProfissionais {
         sql.append(" ").append("""
                  FROM profissional p
                  JOIN usuario u ON u.id = p.usuario_id AND u.status = 'ativo'
-                 JOIN profissao pr ON pr.id = p.profissao_principal_id
+                 JOIN profissao pr ON pr.id = p.profissao_principal_id AND pr.ativa
                  JOIN cidade cb ON cb.id = p.cidade_base_id""");
         if (filtro.cidade() != null) {
             sql.append(" JOIN cidade alvo ON alvo.codigo_ibge = :cidade AND alvo.ativa");
@@ -166,6 +181,11 @@ class BuscaDeProfissionais {
         if (filtro.meiaDiaria()) {
             sql.append(" AND p.aceita_meia_diaria");
         }
+        if ("sim".equals(filtro.ferramentas())) {
+            sql.append(" AND p.ferramentas = 'sim'");
+        } else if ("parte".equals(filtro.ferramentas())) {
+            sql.append(" AND p.ferramentas IN ('sim', 'parte')");
+        }
         if (filtro.dia() != null) {
             sql.append(" AND ").append(livre("p.id", "CAST(:dia AS date)"));
             parametros.addValue("dia", filtro.dia());
@@ -198,7 +218,7 @@ class BuscaDeProfissionais {
                 + """
                    FROM profissional p
                    JOIN usuario u ON u.id = p.usuario_id AND u.status = 'ativo'
-                   JOIN profissao pr ON pr.id = p.profissao_principal_id
+                   JOIN profissao pr ON pr.id = p.profissao_principal_id AND pr.ativa
                    JOIN cidade cb ON cb.id = p.cidade_base_id
                   WHERE p.id = :id AND p.status = 'ativo'""";
         return jdbc
@@ -258,8 +278,8 @@ class BuscaDeProfissionais {
 
     List<LocalDate> diasLivres(UUID id, LocalDate inicio, LocalDate fim) {
         return jdbc.queryForList(
-                "SELECT g::date FROM generate_series(CAST(:inicio AS date), CAST(:fim AS date), INTERVAL '1 day') AS g"
-                        + " WHERE " + livre("CAST(:id AS uuid)", "g::date") + " ORDER BY 1",
+                "SELECT janela.dia FROM " + DIAS_DA_JANELA + " WHERE " + livre("CAST(:id AS uuid)", "janela.dia")
+                        + " ORDER BY 1",
                 new MapSqlParameterSource("id", id).addValue("inicio", inicio).addValue("fim", fim),
                 LocalDate.class);
     }
@@ -269,7 +289,7 @@ class BuscaDeProfissionais {
                 """
                 SELECT f.id, s.nome AS servico, f.legenda, f.chave_arquivo
                   FROM foto_portfolio f LEFT JOIN servico s ON s.id = f.servico_id
-                 WHERE f.profissional_id = :id
+                 WHERE f.profissional_id = :id AND f.visivel
                  ORDER BY f.ordem, f.id
                  LIMIT :maximo""",
                 new MapSqlParameterSource("id", id).addValue("maximo", maximo),

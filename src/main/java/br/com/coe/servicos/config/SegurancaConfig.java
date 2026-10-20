@@ -89,9 +89,12 @@ public class SegurancaConfig {
      * Rotas públicas não leem o header Authorization (um token vencido não pode barrá-las). Por padrão de caminho:
      * rota com variável ({@code /{id}}) também.
      */
-    private static final List<PathPattern> ROTAS_SEM_BEARER = ROTAS_PUBLICAS.stream()
-            .map(rota -> PathPatternParser.defaultInstance.parse(rota.caminho()))
+    private static final List<RotaSemBearer> ROTAS_SEM_BEARER = ROTAS_PUBLICAS.stream()
+            .map(rota ->
+                    new RotaSemBearer(rota.metodo().name(), PathPatternParser.defaultInstance.parse(rota.caminho())))
             .toList();
+
+    private record RotaSemBearer(String metodo, PathPattern caminho) {}
 
     @Bean
     SecurityFilterChain cadeiaDaApi(
@@ -184,12 +187,19 @@ public class SegurancaConfig {
      */
     private static BearerTokenResolver tokenForaDoLogin() {
         DefaultBearerTokenResolver padrao = new DefaultBearerTokenResolver();
-        return requisicao -> semBearer(CaminhoDaRequisicao.de(requisicao)) ? null : padrao.resolve(requisicao);
+        return requisicao -> semBearer(requisicao.getMethod(), CaminhoDaRequisicao.de(requisicao))
+                ? null
+                : padrao.resolve(requisicao);
     }
 
-    private static boolean semBearer(String caminho) {
+    /**
+     * Método e caminho da lista pública: o mesmo caminho com outro método continua lendo o token. O parser padrão
+     * (desde o Spring 6) não casa barra final opcional.
+     */
+    private static boolean semBearer(String metodo, String caminho) {
         PathContainer caminhoAnalisado = PathContainer.parsePath(caminho);
-        return ROTAS_SEM_BEARER.stream().anyMatch(rota -> rota.matches(caminhoAnalisado));
+        return ROTAS_SEM_BEARER.stream()
+                .anyMatch(rota -> rota.metodo().equals(metodo) && rota.caminho().matches(caminhoAnalisado));
     }
 
     /** Claim "papeis" vira ROLE_CLIENTE, ROLE_PROFISSIONAL, ROLE_ADMIN; o nome é o id (sub). */

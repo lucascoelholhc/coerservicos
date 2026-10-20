@@ -36,10 +36,20 @@ class BuscaPublicaController {
             @RequestParam(required = false) String valorMaximo,
             @RequestParam(required = false) Integer experienciaMinima,
             @RequestParam(defaultValue = "false") boolean meiaDiaria,
+            @RequestParam(required = false) String ferramentas,
             @RequestParam(required = false) String ordem,
             @RequestParam(defaultValue = "0") int pagina) {
         return busca.buscar(new BuscaPublicaService.Pedido(
-                profissao, servico, cidade, dia, valorMaximo, experienciaMinima, meiaDiaria, ordem, pagina));
+                profissao,
+                servico,
+                cidade,
+                dia,
+                valorMaximo,
+                experienciaMinima,
+                meiaDiaria,
+                ferramentas,
+                ordem,
+                pagina));
     }
 
     @GetMapping("/{id}")
