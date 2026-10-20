@@ -282,7 +282,19 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 - Sem migração (V4/V11 já tinham `correcao_pedida`, motivos, `nr10_status` e a análise do documento). Fila paginada (50, teto da página 200) pelo índice parcial `ix_profissional_fila_analise`.
 - **Decisões tomadas sozinho** (como desfazer): o detalhe mostra o **CPF completo** ao admin (necessário para conferir com o documento; auditado; limite próprio de 120/h); Pix continua mascarado (conferido no repasse, RN15); URL da foto do portfólio **sem** auditoria (vai ser pública no perfil); NR-10 recusado **não** impede a aprovação do cadastro (só tira o selo); recusa é definitiva no MVP (o cadastro não muda mais; reabrir fica com o admin numa tarefa futura); o motivo passa pela censura de contato e não entra na auditoria; SMS só para celular confirmado; o papel PROFISSIONAL vale no próximo token (até 15 min; o front chama `atualizarSessao()` quando souber da aprovação).
 - **Revisões** (java-reviewer, security-reviewer): sem CRITICAL nem HIGH. Corrigido: motivo com censura e sem quebra de linha; SMS só para celular confirmado; limites na fila e no detalhe; `nr10_status` volta a `nao_tem` se o certificado saiu na correção; teto da página; varredura de logs do fluxo do admin.
-- **Ficou**: exigir que o admin tenha aberto documento e selfie antes de aprovar (hoje o checklist é declarado; a auditoria registra o que foi aberto) — decidir no FE-07; recusar aprovação de conta suspensa ou excluída (409) junto com a suspensão do admin (FE-07/DOM-09); teste de corrida com dois admins em threads; seeder local de profissionais em análise (DB-11, precisa cifrar o CPF em Java).
+- **Ficou**: exigir que o admin tenha aberto documento e selfie antes de aprovar (hoje o checklist é declarado; a auditoria registra o que foi aberto) — decidir no FE-07; recusar aprovação de conta suspensa ou excluída (409) junto com a suspensão do admin (FE-07/DOM-09); teste de corrida com dois admins em threads.
+
+**DB-11 (dia 17, noite de 19/10): decisões (conferir)**
+- `SeederLocal` (pacote `profissional`) no lugar de SQL: CPF e Pix só cifram em Java. Roda como `ApplicationRunner` com `@Profile("local")` e confere o placeholder `ambiente = local`; o ArchUnit exige `@Profile("local")` em todo `ApplicationRunner`/`CommandLineRunner`.
+- **Decisões tomadas sozinho** (como desfazer):
+  - **Mesmo caminho do cadastro**: as etapas vão pelo `CadastroProfissionalService` como o dono (token em memória) e com a Bean Validation dos pedidos; exemplo que fere regra derruba a subida (desfazer: logar e pular).
+  - **Ativos aprovados direto**: entidade, sem admin (`aprovado_por` nulo), sem SMS nem auditoria de admin; o NR-10 dos eletricistas ativos fica `verificado` sem certificado guardado (desfazer: aprovar pelo `VerificacaoService` como o admin do seed, que exige documentos para todos).
+  - **Celulares `479000501NN`** em vez de `4790000010N`: essa faixa colide com os celulares dos testes de integração (`CadastroClienteTest` começa em 47900000101) e o seeder roda também no banco do Testcontainers.
+  - **CPFs fictícios** de bases `999000101…` com DV válido (acima da faixa do `CpfsDeTeste`); **Pix** aleatória fixa `00000000-0000-4000-8000-…`.
+  - **Contas** sem e-mail, com celular confirmado e papel CLIENTE (como quem se cadastra pelo app); idade e valores do protótipo; experiência na faixa do cadastro (22 anos → 20).
+  - **Nelson Kraus**: no protótipo o "Sobre" tinha telefone (para o admin recusar); aqui passa pela censura, então o texto é limpo.
+  - **Arquivos**: 2 fotos de portfólio por exemplo e, nos em análise, RG frente, selfie e certificado (Nelson); imagens geradas 640×480 com "EXEMPLO". Sem SeaweedFS: sem arquivo, aviso no log, em análise entra direto no status (desfazer: exigir o armazenamento).
+  - **Sem histórico** (avaliações, contratos) até existirem as tabelas e os serviços (DOM-05 em diante).
 
 **Casos de teste obrigatórios do CORE-03 e CORE-04** (PA03):
 - Token de acesso expirado (Clock adiantado 15 min) é recusado com 401; renovação devolve um novo par

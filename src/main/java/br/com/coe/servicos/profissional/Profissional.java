@@ -47,6 +47,7 @@ class Profissional implements Persistable<UUID> {
     static final String RECUSADO = "recusado";
     static final String NR10_NAO_TEM = "nao_tem";
     static final String NR10_EM_ANALISE = "em_analise";
+    static final String NR10_VERIFICADO = "verificado";
     static final String NR10_RECUSADO = "recusado";
 
     @Id

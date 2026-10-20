@@ -68,6 +68,47 @@ class ArquiteturaTest {
     }
 
     @Test
+    @DisplayName("código que roda sozinho na subida (dados de exemplo) só existe no perfil local")
+    void rodarNaSubidaSoNoLocal() {
+        JavaClasses producao = new ClassFileImporter()
+                .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+                .importPackages("br.com.coe.servicos");
+
+        RegrasDeArquitetura.RODAR_NA_SUBIDA_SO_NO_LOCAL.check(producao);
+    }
+
+    @Test
+    @DisplayName("a regra pega runner sem perfil ou de outro perfil")
+    void regraPegaRunnerForaDoLocal() {
+        JavaClasses classes = new ClassFileImporter().importClasses(RunnerSemPerfil.class, RunnerDoProd.class);
+
+        assertThatThrownBy(() -> RegrasDeArquitetura.RODAR_NA_SUBIDA_SO_NO_LOCAL.check(classes))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("RunnerSemPerfil")
+                .hasMessageContaining("RunnerDoProd");
+        assertThatCode(() -> RegrasDeArquitetura.RODAR_NA_SUBIDA_SO_NO_LOCAL.check(
+                        new ClassFileImporter().importClasses(RunnerDoLocal.class)))
+                .doesNotThrowAnyException();
+    }
+
+    static class RunnerSemPerfil implements org.springframework.boot.ApplicationRunner {
+        @Override
+        public void run(org.springframework.boot.ApplicationArguments argumentos) {}
+    }
+
+    @org.springframework.context.annotation.Profile("prod")
+    static class RunnerDoProd implements org.springframework.boot.CommandLineRunner {
+        @Override
+        public void run(String... argumentos) {}
+    }
+
+    @org.springframework.context.annotation.Profile("local")
+    static class RunnerDoLocal implements org.springframework.boot.ApplicationRunner {
+        @Override
+        public void run(org.springframework.boot.ApplicationArguments argumentos) {}
+    }
+
+    @Test
     @DisplayName("a regra pega outra classe usando o SDK da AWS")
     void regraPegaQuemUsaOSdk() {
         JavaClasses classes = new ClassFileImporter().importClasses(UsaOSdkDaAws.class);

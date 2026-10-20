@@ -57,7 +57,22 @@ CREATE ROLE coe_app NOLOGIN;
 ./mvnw spring-boot:run "-Dspring-boot.run.profiles=local"
 ```
 
-O Flyway aplica as migrações e o seed local (dois usuários de teste, senha `coe-local-123`). Confira:
+O Flyway aplica as migrações e o seed local (admin e cliente de teste); na subida, o `SeederLocal` (DB-11) cria os 15 profissionais de exemplo do protótipo pelo mesmo caminho do cadastro (CPF e Pix cifrados). Reiniciar não duplica nada. Com o SeaweedFS no ar (`docker compose up -d seaweedfs`), eles ganham fotos de portfólio e, os em análise, documento e selfie gerados (imagens com "EXEMPLO"); sem ele, sobem sem arquivo e o log avisa.
+
+Logins locais (todos com a senha `coe-local-123`; celulares fictícios):
+
+| Quem | Login | Situação |
+|---|---|---|
+| Admin COE (local) | `47900000001` | ADMIN: senha + código por SMS (no log) |
+| Juliana (cliente de teste) | `47900000002` | CLIENTE |
+| Valdir Schmitt, Anderson Pereira, Jair Hoffmann (pedreiros) | `47900050101` a `47900050103` | PROFISSIONAL ativo |
+| Marcos Lenzi, Fábio Rosa (pintores) | `47900050104`, `47900050105` | PROFISSIONAL ativo |
+| Cristiano Wagner, Edson Tomio (eletricistas, NR-10 verificado) | `47900050106`, `47900050107` | PROFISSIONAL ativo |
+| Osni Beduschi, Gilmar Theiss (jardineiros) | `47900050108`, `47900050109` | PROFISSIONAL ativo |
+| Rosângela Werner, Márcia dos Santos, Ivone Kreutzfeld (diaristas) | `47900050110` a `47900050112` | PROFISSIONAL ativo |
+| Cleusa Rodrigues, Ricardo Deschamps, Nelson Kraus (NR-10 enviado) | `47900050113` a `47900050115` | em análise (fila do admin) |
+
+Confira:
 
 ```bash
 curl http://localhost:8081/actuator/health    # {"status":"UP"} (perfil local na 8081)
