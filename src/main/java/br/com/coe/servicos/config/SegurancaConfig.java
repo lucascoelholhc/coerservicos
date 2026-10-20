@@ -2,8 +2,6 @@ package br.com.coe.servicos.config;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -12,6 +10,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.server.PathContainer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -32,6 +31,8 @@ import org.springframework.security.web.header.writers.StaticHeadersWriter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
+import org.springframework.web.util.pattern.PathPattern;
+import org.springframework.web.util.pattern.PathPatternParser;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -50,6 +51,8 @@ public class SegurancaConfig {
     public static final List<RotaPublica> ROTAS_PUBLICAS = List.of(
             new RotaPublica(HttpMethod.GET, "/api/publico/catalogo"),
             new RotaPublica(HttpMethod.GET, "/api/publico/regras"),
+            new RotaPublica(HttpMethod.GET, "/api/publico/profissionais"),
+            new RotaPublica(HttpMethod.GET, "/api/publico/profissionais/{id}"),
             new RotaPublica(HttpMethod.POST, "/api/contas/cliente"),
             new RotaPublica(HttpMethod.POST, "/api/contas/email/confirmar"),
             new RotaPublica(HttpMethod.POST, "/api/contas/posse/celular"),
@@ -82,9 +85,13 @@ public class SegurancaConfig {
     private static final int CUSTO_BCRYPT = 12;
     private static final long HSTS_UM_ANO = 31_536_000L;
     private static final long CORS_CACHE_SEGUNDOS = 3_600L;
-    /** Rotas públicas não leem o header Authorization (um token vencido não pode barrá-las). */
-    private static final Set<String> ROTAS_SEM_BEARER =
-            ROTAS_PUBLICAS.stream().map(RotaPublica::caminho).collect(Collectors.toUnmodifiableSet());
+    /**
+     * Rotas públicas não leem o header Authorization (um token vencido não pode barrá-las). Por padrão de caminho:
+     * rota com variável ({@code /{id}}) também.
+     */
+    private static final List<PathPattern> ROTAS_SEM_BEARER = ROTAS_PUBLICAS.stream()
+            .map(rota -> PathPatternParser.defaultInstance.parse(rota.caminho()))
+            .toList();
 
     @Bean
     SecurityFilterChain cadeiaDaApi(
@@ -177,8 +184,12 @@ public class SegurancaConfig {
      */
     private static BearerTokenResolver tokenForaDoLogin() {
         DefaultBearerTokenResolver padrao = new DefaultBearerTokenResolver();
-        return requisicao ->
-                ROTAS_SEM_BEARER.contains(CaminhoDaRequisicao.de(requisicao)) ? null : padrao.resolve(requisicao);
+        return requisicao -> semBearer(CaminhoDaRequisicao.de(requisicao)) ? null : padrao.resolve(requisicao);
+    }
+
+    private static boolean semBearer(String caminho) {
+        PathContainer caminhoAnalisado = PathContainer.parsePath(caminho);
+        return ROTAS_SEM_BEARER.stream().anyMatch(rota -> rota.matches(caminhoAnalisado));
     }
 
     /** Claim "papeis" vira ROLE_CLIENTE, ROLE_PROFISSIONAL, ROLE_ADMIN; o nome é o id (sub). */
