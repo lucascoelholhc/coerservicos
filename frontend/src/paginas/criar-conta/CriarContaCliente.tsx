@@ -21,7 +21,7 @@ export function CriarContaCliente() {
         </header>
         <FormularioDoCliente />
         <p className={estilos.rodape}>
-          Quer oferecer seus serviços? <Link to={CAMINHOS.paraProfissionais}>Cadastro de profissional</Link>
+          Quer oferecer seus serviços? <Link to={CAMINHOS.criarContaProfissional}>Cadastro de profissional</Link>
         </p>
       </div>
     </section>

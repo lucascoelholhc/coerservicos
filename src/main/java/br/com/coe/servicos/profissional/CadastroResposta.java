@@ -10,7 +10,8 @@ import br.com.coe.servicos.compartilhado.dinheiro.Dinheiro;
 
 /**
  * O rascunho do próprio cadastro, com quais etapas estão completas. CPF e chave Pix só mascarados; documentos
- * e fotos só por id (a chave do arquivo nunca sai da API).
+ * e fotos só por id (a chave do arquivo nunca sai da API). {@code motivoCorrecao} só com a correção pedida (o
+ * texto do SMS, que já passou pela censura).
  */
 record CadastroResposta(
         String status,
@@ -37,7 +38,8 @@ record CadastroResposta(
         List<String> frases,
         String bio,
         String chavePixTipo,
-        String chavePix) {
+        String chavePix,
+        String motivoCorrecao) {
 
     record DocumentoResposta(UUID id, String tipo, String status) {}
 

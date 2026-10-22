@@ -151,7 +151,8 @@ class MontadorDoCadastro {
                 p.frases(),
                 p.bio(),
                 p.chavePixTipo(),
-                ChavesPix.mascarar(p.chavePixTipo(), p.chavePix()));
+                ChavesPix.mascarar(p.chavePixTipo(), p.chavePix()),
+                Profissional.CORRECAO_PEDIDA.equals(p.status()) ? p.motivoCorrecao() : null);
     }
 
     String nomeDoServico(FotoPortfolio foto) {

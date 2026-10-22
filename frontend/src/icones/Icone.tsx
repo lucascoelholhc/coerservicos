@@ -49,6 +49,34 @@ const DESENHOS = {
       <path d="M12 10v5M12 18v.5" />
     </>
   ),
+  camera: (
+    <>
+      <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
+      <circle cx="12" cy="13" r="3.5" />
+    </>
+  ),
+  shield: (
+    <>
+      <path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z" />
+      <path d="M9 12l2 2 4-4" />
+    </>
+  ),
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </>
+  ),
+  wallet: (
+    <>
+      <rect x="3" y="6" width="18" height="14" rx="2" />
+      <path d="M3 10h18" />
+      <circle cx="16.5" cy="15" r="1.2" />
+    </>
+  ),
+  next: <path d="M9 5l7 7-7 7" />,
+  back: <path d="M15 5l-7 7 7 7" />,
+  trash: <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" />,
 } satisfies Record<string, ReactElement>;
 
 export type NomeDoIcone = keyof typeof DESENHOS;

@@ -1,0 +1,392 @@
+/* Cadastro do profissional (protótipo: .wizard, .etapas-mini, .wizard-foot, .stepper-valor, .revisao). */
+
+.pagina {
+  padding-block: 24px 40px;
+}
+
+.assistente {
+  display: grid;
+  gap: 18px;
+  max-width: 640px;
+  margin-inline: auto;
+}
+
+.topo {
+  display: grid;
+  gap: 10px;
+}
+
+.topo h1:focus {
+  outline: none;
+}
+
+.topo h1:focus-visible {
+  outline: 3px solid var(--carimbo);
+  outline-offset: 4px;
+}
+
+.chamada {
+  color: var(--carimbo-txt);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.progresso {
+  display: flex;
+  gap: 4px;
+}
+
+.progresso span {
+  flex: 1;
+  height: 6px;
+  border-radius: var(--r-pilula);
+  background: var(--line);
+}
+
+.progresso span[data-estado="feito"] {
+  background: var(--ok);
+}
+
+.progresso span[data-estado="atual"] {
+  background: var(--carimbo);
+}
+
+.formulario {
+  display: grid;
+  gap: 20px;
+}
+
+.rodape {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.rodape > :last-child {
+  flex: 1;
+}
+
+.voltar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 58px;
+  min-height: 58px;
+  border: 1.5px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--tinta);
+  cursor: pointer;
+}
+
+.voltar:hover {
+  border-color: var(--tinta-3);
+}
+
+.depois {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  text-align: center;
+}
+
+.depois a {
+  padding-block: 10px;
+  color: var(--carimbo-txt);
+  font-weight: 700;
+}
+
+.depois span,
+.apagado {
+  color: var(--tinta-2);
+  font-size: 0.92rem;
+  font-weight: 400;
+}
+
+.erroDoGrupo {
+  color: var(--bad-txt);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.subtitulo {
+  margin-top: 10px;
+  font-size: 1.6rem;
+}
+
+/* Valor: − campo + */
+.ajuste {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) 58px;
+  gap: 8px;
+  align-items: end;
+}
+
+.passo {
+  min-height: 54px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--tinta);
+  color: var(--surface);
+  font-size: 1.7rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.passo:hover {
+  background: var(--tinta-hover);
+}
+
+.interruptor {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-block: 8px;
+  cursor: pointer;
+}
+
+.interruptor label {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  cursor: pointer;
+}
+
+.interruptor input {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  accent-color: var(--carimbo);
+}
+
+/* Documentos e fotos */
+.enviado {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.miniatura {
+  flex: none;
+  width: 72px;
+  height: 72px;
+  border-radius: var(--r-sm);
+  object-fit: cover;
+}
+
+.fotos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.foto {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+
+.imagemDaFoto,
+.semPrevia {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--r-sm);
+  object-fit: cover;
+}
+
+.semPrevia {
+  display: grid;
+  gap: 6px;
+  place-content: center;
+  justify-items: center;
+  background: var(--surface-2);
+  color: var(--tinta-2);
+  font-weight: 700;
+}
+
+.semPrevia a {
+  color: var(--carimbo-txt);
+}
+
+.linkBotao {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--carimbo-txt);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.tirar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  border: 1.5px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--bad-txt);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tirar:disabled {
+  color: var(--tinta-3);
+  cursor: not-allowed;
+}
+
+/* Sobre */
+.previa {
+  display: grid;
+  gap: 6px;
+}
+
+.previa p {
+  padding: 14px 16px;
+  border-radius: var(--r);
+  background: var(--surface-2);
+}
+
+.rotuloDaPrevia {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+/* Pix e revisão */
+.revisao {
+  display: grid;
+  margin: 0;
+}
+
+.revisao > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  align-items: center;
+  padding-block: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.revisao > div:first-child {
+  border-top: 0;
+}
+
+.revisao dt {
+  grid-column: 1 / -1;
+  color: var(--tinta-2);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.revisao dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.falta {
+  color: var(--warn);
+}
+
+.aceites {
+  display: grid;
+  gap: 12px;
+}
+
+.aceite {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.aceite input {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  margin-top: 2px;
+  accent-color: var(--carimbo);
+}
+
+.aceite a {
+  color: var(--carimbo-txt);
+  font-weight: 700;
+}
+
+/* Depois de enviar */
+.situacao {
+  justify-items: center;
+  padding-block: 14px;
+  text-align: center;
+}
+
+.selo {
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: var(--ok);
+  color: var(--surface);
+}
+
+.situacao[data-situacao="recusado"] .selo,
+.situacao[data-situacao="suspenso"] .selo {
+  background: var(--tinta-2);
+}
+
+.textoDaSituacao {
+  max-width: 44ch;
+  font-size: 1.1rem;
+}
+
+.linhaDoTempo {
+  display: grid;
+  gap: 14px;
+  width: 100%;
+  max-width: 420px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.linhaDoTempo li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.linhaDoTempo li svg {
+  flex: none;
+  box-sizing: content-box;
+  padding: 6px;
+  border-radius: 50%;
+}
+
+.linhaDoTempo li[data-estado="feito"] svg {
+  background: var(--ok);
+  color: var(--surface);
+}
+
+.linhaDoTempo li[data-estado="agora"] svg {
+  background: var(--sinal);
+  color: var(--tinta);
+}
+
+.linhaDoTempo li[data-estado="depois"] svg {
+  background: var(--surface-2);
+  color: var(--tinta-2);
+}

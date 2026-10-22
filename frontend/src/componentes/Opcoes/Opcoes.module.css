@@ -1,0 +1,166 @@
+.grupo {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.legenda {
+  margin-bottom: 4px;
+  padding: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.dica {
+  color: var(--tinta-2);
+  font-size: 0.92rem;
+}
+
+.erro {
+  color: var(--bad-txt);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.opcoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.opcoes[data-forma="cartao"] {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: 10px;
+}
+
+.opcoes[data-forma="dia"] {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.opcoes[data-forma="lista"] {
+  display: grid;
+  gap: 8px;
+}
+
+.opcao {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 8px 16px;
+  border: 1.5px solid var(--line-2);
+  border-radius: var(--r-pilula);
+  background: var(--surface);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.opcao:hover {
+  border-color: var(--tinta-3);
+}
+
+.opcao[data-forma="cartao"] {
+  display: flex;
+  gap: 14px;
+  min-height: 62px;
+  padding: 14px 16px;
+  border-radius: var(--r);
+}
+
+.opcao[data-forma="lista"] {
+  justify-content: flex-start;
+  min-height: 54px;
+  border-radius: var(--r-sm);
+  text-align: left;
+}
+
+.opcao[data-forma="dia"] {
+  flex-direction: column;
+  justify-content: center;
+  min-height: 64px;
+  padding: 8px 0;
+  border-radius: var(--r-sm);
+  font-size: 1.05rem;
+  font-weight: 800;
+  font-stretch: var(--largura-titulo);
+}
+
+/* O input cobre a opção inteira (transparente, por cima do desenho): o toque sempre cai nele. */
+.entrada {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.entrada:disabled {
+  cursor: not-allowed;
+}
+
+.opcao:has(.entrada:checked) {
+  border-color: var(--carimbo);
+  background: var(--carimbo);
+  color: var(--surface);
+}
+
+.opcao[data-forma="cartao"]:has(.entrada:checked) {
+  background: var(--carimbo-soft);
+  box-shadow: inset 0 0 0 1.5px var(--carimbo);
+  color: var(--tinta);
+}
+
+.opcao:has(.entrada:focus-visible) {
+  outline: 3px solid var(--carimbo);
+  outline-offset: 2px;
+}
+
+.opcao:has(.entrada:disabled) {
+  border-color: var(--line);
+  color: var(--tinta-3);
+  cursor: not-allowed;
+}
+
+.texto {
+  display: grid;
+  gap: 2px;
+}
+
+.opcao[data-forma="cartao"] .texto b {
+  font-size: 1.06rem;
+}
+
+.detalhe {
+  color: var(--tinta-2);
+  font-size: 0.92rem;
+  font-weight: 400;
+}
+
+.imagem {
+  flex: none;
+  width: 78px;
+}
+
+.visto {
+  display: none;
+  flex: none;
+}
+
+.opcao[data-forma="cartao"] .visto {
+  margin-left: auto;
+  color: var(--carimbo);
+}
+
+.opcao:has(.entrada:checked) .visto {
+  display: inline;
+}

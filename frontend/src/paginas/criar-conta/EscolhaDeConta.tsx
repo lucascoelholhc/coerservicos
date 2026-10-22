@@ -23,7 +23,7 @@ export function EscolhaDeConta() {
             <span className={estilos.chamada}>Criar conta de cliente</span>
           </span>
         </Link>
-        <Link className={estilos.opcao} to={CAMINHOS.paraProfissionais}>
+        <Link className={estilos.opcao} to={CAMINHOS.criarContaProfissional}>
           <Ilustracao profissao="pintor" />
           <span className={estilos.texto}>
             <b>Quero trabalhar</b>

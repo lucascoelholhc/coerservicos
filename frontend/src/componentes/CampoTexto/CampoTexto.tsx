@@ -7,9 +7,9 @@ export interface CampoTextoProps {
   rotulo: string;
   valor: string;
   aoMudar: (valor: string) => void;
-  tipo?: 'text' | 'email' | 'tel' | 'password';
+  tipo?: 'text' | 'email' | 'tel' | 'password' | 'date';
   autoComplete?: string;
-  inputMode?: 'text' | 'email' | 'tel' | 'numeric';
+  inputMode?: 'text' | 'email' | 'tel' | 'numeric' | 'decimal';
   maxLength?: number;
   /** Ajuda curta, sempre visível e lida pelo leitor de tela. */
   dica?: string;

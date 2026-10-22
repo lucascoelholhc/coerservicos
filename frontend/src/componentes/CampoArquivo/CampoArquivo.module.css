@@ -1,0 +1,80 @@
+.campo {
+  display: grid;
+  gap: 8px;
+}
+
+.rotulo {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.dica {
+  color: var(--tinta-2);
+  font-size: 0.92rem;
+}
+
+.erro {
+  color: var(--bad-txt);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.botao {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  border: 2px dashed var(--line-2);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--tinta);
+  cursor: pointer;
+}
+
+.botao:hover {
+  border-color: var(--carimbo);
+  background: var(--carimbo-soft);
+}
+
+.botao small {
+  display: block;
+  color: var(--tinta-2);
+  font-size: 0.88rem;
+}
+
+.icone {
+  flex: none;
+  color: var(--carimbo);
+}
+
+.botao[data-grande="true"] {
+  flex-direction: column;
+  justify-content: center;
+  min-height: 150px;
+  border: 0;
+  background: var(--carimbo);
+  color: var(--surface);
+  text-align: center;
+}
+
+.botao[data-grande="true"]:hover {
+  background: var(--carimbo-2);
+}
+
+.botao[data-grande="true"] small {
+  color: var(--carimbo-soft-2);
+}
+
+.botao[data-grande="true"] .icone {
+  color: var(--sinal);
+}
+
+.botao[data-desabilitado="true"] {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.campo:has(input:focus-visible) .botao {
+  outline: 3px solid var(--carimbo);
+  outline-offset: 2px;
+}

@@ -7,6 +7,7 @@ export const TEMPO_LIMITE_MS = 15_000;
 
 export interface OpcoesDaChamada {
   metodo?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  /** Objeto vira JSON; FormData vai como multipart (upload). */
   corpo?: unknown;
   /** Sinal de quem chamou (ex.: tela desmontada); vira erro "cancelado". */
   sinal?: AbortSignal;
@@ -159,7 +160,9 @@ function sinalComLimite(tempoLimiteMs: number, sinalDeQuemChamou?: AbortSignal):
 async function enviar(caminho: string, opcoes: OpcoesDaChamada, token: string | null): Promise<Response> {
   // navigator.onLine não bloqueia: em alguns celulares e VPNs ele diz "offline" com rede funcionando.
   const cabecalhos: Record<string, string> = { Accept: 'application/json' };
-  if (opcoes.corpo !== undefined) {
+  // FormData (upload) vai como multipart: o navegador põe o Content-Type com o boundary.
+  const multipart = opcoes.corpo instanceof FormData;
+  if (opcoes.corpo !== undefined && !multipart) {
     cabecalhos['Content-Type'] = 'application/json';
   }
   if (token !== null) {
@@ -170,7 +173,7 @@ async function enviar(caminho: string, opcoes: OpcoesDaChamada, token: string | 
     return await fetch(`/api${caminho}`, {
       method: opcoes.metodo ?? 'GET',
       headers: cabecalhos,
-      body: opcoes.corpo === undefined ? undefined : JSON.stringify(opcoes.corpo),
+      body: corpoDoPedido(opcoes.corpo),
       credentials: 'same-origin',
       signal: sinal,
     });
@@ -179,6 +182,13 @@ async function enviar(caminho: string, opcoes: OpcoesDaChamada, token: string | 
   } finally {
     soltar();
   }
+}
+
+function corpoDoPedido(corpo: unknown): BodyInit | undefined {
+  if (corpo === undefined) {
+    return undefined;
+  }
+  return corpo instanceof FormData ? corpo : JSON.stringify(corpo);
 }
 
 async function lerCorpo<T>(resposta: Response): Promise<T> {

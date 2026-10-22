@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { semViolacoes } from '../../teste/axe';
 import { CampoSelecao } from './CampoSelecao';
@@ -48,5 +48,30 @@ describe('CampoSelecao', () => {
     await userEvent.selectOptions(screen.getByRole('combobox'), 'pintor');
 
     expect(screen.getByRole('combobox')).toHaveValue('pintor');
+  });
+});
+
+describe('CampoSelecao controlado', () => {
+  it('valor de quem usa, troca em aoMudar e erro ligado ao campo', async () => {
+    const aoMudar = vi.fn();
+    render(
+      <CampoSelecao
+        nome="cidade"
+        rotulo="Cidade"
+        opcoes={[
+          { valor: '', texto: 'Escolha…' },
+          { valor: '4202404', texto: 'Blumenau' },
+        ]}
+        valor=""
+        aoMudar={aoMudar}
+        erro="Escolha a cidade."
+      />,
+    );
+
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Cidade' }), '4202404');
+
+    expect(aoMudar).toHaveBeenCalledWith('4202404');
+    expect(screen.getByRole('combobox', { name: 'Cidade' })).toHaveAccessibleDescription('Escolha a cidade.');
+    expect(screen.getByRole('combobox', { name: 'Cidade' })).toHaveAttribute('aria-invalid', 'true');
   });
 });

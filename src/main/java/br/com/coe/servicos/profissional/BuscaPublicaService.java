@@ -158,7 +158,7 @@ class BuscaPublicaService {
                 consultas.outrasCidades(id),
                 consultas.diasDaSemana(id),
                 consultas.diasLivres(id, amanha, amanha.plusDays(JANELA_DE_DIAS - 1L)),
-                sobre(dados.frases(), dados.bio()),
+                textoDoSobre(dados.frases(), dados.bio()),
                 dados.selo(),
                 avaliacoes(dados.totalAvaliacoes(), dados.notaMedia()),
                 fotos);
@@ -174,11 +174,24 @@ class BuscaPublicaService {
         return partes[0] + " " + ultimo.substring(0, 1).toUpperCase(Locale.ROOT) + ".";
     }
 
-    /** O mesmo texto do "Sobre você" do cadastro (frases prontas + texto livre, já passados pela censura). */
-    private static String sobre(List<String> frases, String bio) {
-        String juntas = String.join(" ", frases);
-        String texto = bio == null ? "" : bio.strip();
-        return (juntas + " " + texto).strip();
+    /**
+     * O "Sobre você" como a prévia do cadastro mostra (FE-04): cada frase pronta com ponto final, depois o texto
+     * livre (tudo já passado pela censura).
+     */
+    static String textoDoSobre(List<String> frases, String bio) {
+        StringBuilder texto = new StringBuilder();
+        for (String frase : frases) {
+            String limpa = frase.strip();
+            texto.append(limpa);
+            if (!limpa.endsWith(".") && !limpa.endsWith("!") && !limpa.endsWith("?")) {
+                texto.append('.');
+            }
+            texto.append(' ');
+        }
+        if (bio != null) {
+            texto.append(bio.strip());
+        }
+        return texto.toString().strip();
     }
 
     /** RN23: sem avaliações, "Novo na COE" e nota nula, nunca uma nota inventada. */

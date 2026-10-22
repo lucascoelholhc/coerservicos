@@ -1,0 +1,5 @@
+.area {
+  min-height: 120px;
+  resize: vertical;
+  font: inherit;
+}

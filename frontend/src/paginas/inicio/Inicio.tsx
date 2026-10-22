@@ -208,7 +208,7 @@ function ConviteAoProfissional({ regras, carregando }: { regras: Regras | undefi
           <h2 id="h-pro">{CONVITE_PROFISSIONAL.titulo}</h2>
           <p>{CONVITE_PROFISSIONAL.texto}</p>
           <span>
-            <Botao para={CAMINHOS.paraProfissionais} variante="escuro" tamanho="lg" sobreFundoEscuro>
+            <Botao para={CAMINHOS.criarContaProfissional} variante="escuro" tamanho="lg" sobreFundoEscuro>
               {CONVITE_PROFISSIONAL.botao}
             </Botao>
           </span>

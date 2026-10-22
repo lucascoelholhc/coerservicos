@@ -48,3 +48,13 @@
   transform: translateY(-50%);
   pointer-events: none;
 }
+
+.select[aria-invalid="true"] {
+  border-color: var(--bad);
+}
+
+.erro {
+  color: var(--bad-txt);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
