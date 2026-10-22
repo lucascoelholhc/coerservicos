@@ -119,15 +119,10 @@
   font-size: 1.6rem;
 }
 
-/* Valor: − campo + */
-.ajuste {
-  display: grid;
-  grid-template-columns: 58px minmax(0, 1fr) 58px;
-  gap: 8px;
-  align-items: end;
-}
-
+/* Valor: − campo + (os botões ficam na caixa do campo, sempre na linha do input) */
 .passo {
+  flex: none;
+  width: 58px;
   min-height: 54px;
   border: 0;
   border-radius: var(--r-sm);

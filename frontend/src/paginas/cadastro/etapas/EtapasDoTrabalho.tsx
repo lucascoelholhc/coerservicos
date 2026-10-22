@@ -292,23 +292,25 @@ export function EtapaValor({ numero, cadastro, regras, aoSalvar, aoVoltar }: Pro
   return (
     <QuadroDaEtapa numero={numero} cadastro={cadastro} aoEnviar={enviar} aoVoltar={aoVoltar} enviando={enviando} erro={erro} campos={campos}>
       <p className={estilos.apagado}>Use − e + para ajustar, ou digite o valor.</p>
-      <div className={estilos.ajuste}>
-        <button type="button" className={estilos.passo} onClick={() => ajustar(-PASSO_DO_VALOR)} aria-label="Diminuir 10 reais">
-          −
-        </button>
-        <CampoTexto
-          nome="valorDiaria"
-          rotulo="Valor da diária (R$)"
-          valor={valor}
-          aoMudar={setValor}
-          inputMode="decimal"
-          maxLength={10}
-          erro={campos.valor}
-        />
-        <button type="button" className={estilos.passo} onClick={() => ajustar(PASSO_DO_VALOR)} aria-label="Aumentar 10 reais">
-          +
-        </button>
-      </div>
+      <CampoTexto
+        nome="valorDiaria"
+        rotulo="Valor da diária (R$)"
+        valor={valor}
+        aoMudar={setValor}
+        inputMode="decimal"
+        maxLength={10}
+        erro={campos.valor}
+        prefixo={
+          <button type="button" className={estilos.passo} onClick={() => ajustar(-PASSO_DO_VALOR)} aria-label="Diminuir 10 reais">
+            −
+          </button>
+        }
+        acessorio={
+          <button type="button" className={estilos.passo} onClick={() => ajustar(PASSO_DO_VALOR)} aria-label="Aumentar 10 reais">
+            +
+          </button>
+        }
+      />
       <PreviaDoValor centavos={centavosDoTexto(valor)} regras={regras} />
       <div className={estilos.interruptor}>
         <label htmlFor={idDaMeia}>
