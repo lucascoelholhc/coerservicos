@@ -358,6 +358,16 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 | FE-09 | Testes | Vitest nos componentes; Playwright no caminho feliz em 360 px e desktop |
 | FE-10 | Acessibilidade | axe nas telas principais + teste só com teclado |
 
+**FE-07, parte da verificação (dia 20, feito em 22/10): decisões (conferir)**
+- **Telas:** `/admin/verificacao` (fila do DOM-03, mais antiga primeiro, "Ver mais") e `/admin/verificacao/:id` (dados para conferir com o CPF completo, documentos e fotos, "Sobre", checklist da RN12, NR-10, mensagem por SMS e a decisão). Só ADMIN (`RotaPrivada papeis`; o backend decide). Minha conta do ADMIN ganhou "Painel da equipe" com o atalho.
+- **Decisões tomadas sozinho** (como desfazer):
+  - **Documento e foto por link, não por imagem na tela:** "Ver RG (frente)" pede a URL assinada (auditada no backend, 2 min) e mostra "Abrir RG (frente)" em nova aba (`rel="noreferrer"`); sem `<img>` do bucket, a CSP não ganha o host do bucket agora. Desfazer: mostrar a imagem e pôr o host do bucket no `img-src` (decisão do FE da busca).
+  - **Aprovar com checklist conferido na tela:** o botão fica sempre ativo e avisa "Marque todos os itens…" (o protótipo usava `aria-disabled`); o servidor exige de novo (422 `checklist-incompleto`).
+  - **Recusar pede confirmação** na própria tela ("Recusar de vez?"), porque a recusa é definitiva no MVP (decisão do DOM-03); pedir correção não pede.
+  - **Uma mensagem só** para correção e recusa (até 160 letras, vai por SMS); o NR-10 recusado tem o motivo dele.
+  - **"Meta: responder em até 24 horas"** do protótipo fora (prazo não decidido); os painéis de visão geral, disputas, moderação, financeiro etc. do protótipo ficam para as fatias seguintes do FE-07.
+- **Ficou:** exigir que o admin abra documento e selfie antes de aprovar (decisão do DOM-03, ainda aberta); contador da fila no menu; o resto do painel (visão geral, disputas, moderação, usuários, financeiro, configuração).
+
 **FE-04 (dias 19–20, feito em 22/10): decisões (conferir)**
 - **Onde fica:** `/cadastro` (privada, qualquer logado), assistente das 11 etapas do protótipo com a etapa no endereço (`?etapa=N`; sem ela, a `etapaAtual` da API). Cada "Continuar" salva a etapa no servidor (PUT do DOM-02); dá para ir e voltar entre as etapas e o envio confere tudo de novo. Depois do envio o assistente some e fica a tela da situação (em análise, aprovado, recusado, suspenso); correção pedida volta a editar com o motivo no topo.
 - **Decisões tomadas sozinho** (como desfazer):
