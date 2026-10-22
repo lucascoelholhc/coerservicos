@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 
 import { buscarCadastro, enviarDocumento, salvarEtapa } from '../../../api/cadastroProfissional';
-import { comoErroDaApi } from '../../../api/erros';
 import type { TipoDeDocumento } from '../../../api/tipos';
 import { CAMINHOS } from '../../../caminhos';
 import { CampoArquivo } from '../../../componentes/CampoArquivo/CampoArquivo';
@@ -11,7 +10,7 @@ import { Nota } from '../../../componentes/Nota/Nota';
 import { Opcoes } from '../../../componentes/Opcoes/Opcoes';
 import estilos from '../Cadastro.module.css';
 import { QuadroDaEtapa } from '../QuadroDaEtapa';
-import { umaSo, usePrevias, useSalvarEtapa, type PropsDaEtapa } from './comum';
+import { mensagemDoEnvio, umaSo, usePrevias, useSalvarEtapa, type PropsDaEtapa } from './comum';
 
 const CAMPOS_DOS_DADOS = {
   'cpf-invalido': 'cpf',
@@ -54,7 +53,7 @@ export function EtapaDados({ numero, cadastro, conta, aoSalvar, aoVoltar }: Prop
   }
 
   return (
-    <QuadroDaEtapa numero={numero} cadastro={cadastro} aoEnviar={enviar} aoVoltar={aoVoltar} enviando={enviando} erro={erro}>
+    <QuadroDaEtapa numero={numero} cadastro={cadastro} aoEnviar={enviar} aoVoltar={aoVoltar} enviando={enviando} erro={erro} campos={campos}>
       <CampoTexto nome="nome" rotulo="Nome completo" valor={cadastro.nome} aoMudar={() => undefined} somenteLeitura dica="É o nome da sua conta." />
       <CampoTexto
         nome="celular"
@@ -130,7 +129,7 @@ export function EtapaDocumentos({ numero, cadastro, aoSalvar, aoAtualizar, aoVol
         aoAtualizar(atualizado);
       }
     } catch (falha) {
-      setErrosDoEnvio((anteriores) => ({ ...anteriores, [tipo]: comoErroDaApi(falha).message }));
+      setErrosDoEnvio((anteriores) => ({ ...anteriores, [tipo]: mensagemDoEnvio(falha) }));
     } finally {
       setMandando(null);
     }

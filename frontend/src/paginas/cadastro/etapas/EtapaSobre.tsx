@@ -29,7 +29,7 @@ export function EtapaSobre({ numero, cadastro, aoSalvar, aoVoltar }: PropsDaEtap
   }
 
   return (
-    <QuadroDaEtapa numero={numero} cadastro={cadastro} aoEnviar={enviar} aoVoltar={aoVoltar} enviando={enviando} erro={erro}>
+    <QuadroDaEtapa numero={numero} cadastro={cadastro} aoEnviar={enviar} aoVoltar={aoVoltar} enviando={enviando} erro={erro} campos={campos}>
       <Opcoes
         legenda="Toque nas frases que combinam com você"
         dica="Não precisa escrever nada se não quiser."

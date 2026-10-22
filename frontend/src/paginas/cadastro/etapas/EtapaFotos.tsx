@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { apagarFoto, buscarCadastro, descreverFoto, enviarFoto, urlDaFoto } from '../../../api/cadastroProfissional';
 import { comoErroDaApi, ErroDaApi } from '../../../api/erros';
@@ -9,7 +9,7 @@ import { CampoTexto } from '../../../componentes/CampoTexto/CampoTexto';
 import { Icone } from '../../../icones/Icone';
 import estilos from '../Cadastro.module.css';
 import { QuadroDaEtapa } from '../QuadroDaEtapa';
-import { usePrevias, useSalvarEtapa, type PropsDaEtapa } from './comum';
+import { enderecoSeguro, mensagemDoEnvio, usePrevias, useSalvarEtapa, type PropsDaEtapa } from './comum';
 
 interface Descricao {
   servico: string;
@@ -36,7 +36,10 @@ export function EtapaFotos({ numero, cadastro, aoSalvar, aoAtualizar, aoVoltar }
   const [mandando, setMandando] = useState(false);
   const [erroDoEnvio, setErroDoEnvio] = useState<string | undefined>();
   const [enderecos, setEnderecos] = useState<Record<string, string>>({});
-  const { previas, guardar } = usePrevias();
+  const [aviso, setAviso] = useState('');
+  const adicionar = useRef<HTMLInputElement>(null);
+  const devolverFoco = useRef(false);
+  const { previas, guardar, ativa } = usePrevias();
   const { enviando, erro, salvar, avisar } = useSalvarEtapa(aoSalvar);
   const servicos = [...new Set(cadastro.servicos.map((s) => s.nome))];
 
@@ -54,13 +57,17 @@ export function EtapaFotos({ numero, cadastro, aoSalvar, aoAtualizar, aoVoltar }
   async function mandar(arquivos: File[]) {
     setMandando(true);
     setErroDoEnvio(undefined);
+    setAviso('');
     try {
       for (const arquivo of arquivos) {
+        if (!ativa()) {
+          return;
+        }
         const foto = await enviarFoto(arquivo, {});
         guardar(foto.id, arquivo);
       }
     } catch (falha) {
-      setErroDoEnvio(comoErroDaApi(falha).message);
+      setErroDoEnvio(mensagemDoEnvio(falha));
     }
     try {
       atualizar(await rascunhoAtual());
@@ -77,6 +84,8 @@ export function EtapaFotos({ numero, cadastro, aoSalvar, aoAtualizar, aoVoltar }
     try {
       await apagarFoto(id);
       atualizar(await rascunhoAtual());
+      setAviso('Foto tirada.');
+      devolverFoco.current = true;
     } catch (falha) {
       setErroDoEnvio(comoErroDaApi(falha).message);
     } finally {
@@ -84,11 +93,19 @@ export function EtapaFotos({ numero, cadastro, aoSalvar, aoAtualizar, aoVoltar }
     }
   }
 
+  // O botão que tinha o foco sumiu com a foto: o foco volta para "Adicionar fotos" (já habilitado).
+  useEffect(() => {
+    if (devolverFoco.current && !mandando) {
+      devolverFoco.current = false;
+      adicionar.current?.focus();
+    }
+  }, [mandando]);
+
   async function ver(id: string) {
     try {
       const { url } = await urlDaFoto(id);
-      // Só endereço http(s): o link nunca vira javascript: ou outro esquema, mesmo com resposta estranha.
-      if (!/^https?:\/\//i.test(url)) {
+      // Só https (ou o armazenamento local): o link nunca vira javascript: ou outro esquema.
+      if (!enderecoSeguro(url)) {
         throw new ErroDaApi('resposta');
       }
       setEnderecos((anteriores) => ({ ...anteriores, [id]: url }));
@@ -137,6 +154,7 @@ export function EtapaFotos({ numero, cadastro, aoSalvar, aoAtualizar, aoVoltar }
     <QuadroDaEtapa numero={numero} cadastro={cadastro} aoEnviar={enviar} aoVoltar={aoVoltar} enviando={enviando || mandando} erro={erro}>
       <p className={estilos.apagado}>Quem mostra trabalhos é mais contratado. Mande pelo menos 1 foto. O ideal são 4 ou mais.</p>
       <CampoArquivo
+        ref={adicionar}
         rotulo="Fotos de trabalhos que você já fez"
         botao={mandando ? 'Mandando…' : 'Adicionar fotos'}
         varios
@@ -145,11 +163,17 @@ export function EtapaFotos({ numero, cadastro, aoSalvar, aoAtualizar, aoVoltar }
         erro={erroDoEnvio}
         aoEscolher={(arquivos) => void mandar(arquivos)}
       />
+      <p className="sr-only" role="status">
+        {aviso}
+      </p>
       {cadastro.fotos.length > 0 && (
         <ul className={estilos.fotos}>
           {cadastro.fotos.map((foto, indice) => {
             const descricao = descricoes[foto.id] ?? descricaoDe(foto);
             const previa = previas[foto.id];
+            // Serviço que saiu da lista (mudou a profissão) continua aparecendo até a pessoa trocar.
+            const opcoesDoServico =
+              descricao.servico === '' || servicos.includes(descricao.servico) ? servicos : [descricao.servico, ...servicos];
             return (
               <li key={foto.id} className={estilos.foto}>
                 {previa ? (
@@ -171,7 +195,7 @@ export function EtapaFotos({ numero, cadastro, aoSalvar, aoAtualizar, aoVoltar }
                 <CampoSelecao
                   nome={`servico-${foto.id}`}
                   rotulo={`Que serviço é a foto ${indice + 1}?`}
-                  opcoes={[{ valor: '', texto: 'Escolha…' }, ...servicos.map((nome) => ({ valor: nome, texto: nome }))]}
+                  opcoes={[{ valor: '', texto: 'Escolha…' }, ...opcoesDoServico.map((nome) => ({ valor: nome, texto: nome }))]}
                   valor={descricao.servico}
                   aoMudar={(valor) => mudar(foto.id, 'servico', valor)}
                 />

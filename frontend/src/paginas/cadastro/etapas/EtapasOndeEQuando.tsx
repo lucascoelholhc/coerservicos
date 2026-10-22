@@ -42,7 +42,7 @@ export function EtapaOnde({ numero, cadastro, catalogo, aoSalvar, aoVoltar }: Pr
   }
 
   return (
-    <QuadroDaEtapa numero={numero} cadastro={cadastro} aoEnviar={enviar} aoVoltar={aoVoltar} enviando={enviando} erro={erro}>
+    <QuadroDaEtapa numero={numero} cadastro={cadastro} aoEnviar={enviar} aoVoltar={aoVoltar} enviando={enviando} erro={erro} campos={campos}>
       <CampoSelecao
         nome="cidade"
         rotulo="Em que cidade você mora?"
@@ -100,7 +100,7 @@ export function EtapaDias({ numero, cadastro, aoSalvar, aoVoltar }: PropsDaEtapa
   }
 
   return (
-    <QuadroDaEtapa numero={numero} cadastro={cadastro} aoEnviar={enviar} aoVoltar={aoVoltar} enviando={enviando} erro={erro}>
+    <QuadroDaEtapa numero={numero} cadastro={cadastro} aoEnviar={enviar} aoVoltar={aoVoltar} enviando={enviando} erro={erro} campos={campos}>
       <Opcoes
         legenda="Dias da semana"
         legendaOculta

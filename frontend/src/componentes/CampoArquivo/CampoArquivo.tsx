@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react';
+import { useId, type ReactNode, type Ref } from 'react';
 
 import { Icone } from '../../icones/Icone';
 import estilos from './CampoArquivo.module.css';
@@ -21,6 +21,7 @@ interface CampoArquivoProps {
   aoEscolher: (arquivos: File[]) => void;
   /** Situação e miniaturas do que já foi mandado. */
   children?: ReactNode;
+  ref?: Ref<HTMLInputElement>;
 }
 
 /** Foto pela câmera ou pela galeria (protótipo: uplField). O input nativo fica escondido sob o botão. */
@@ -35,6 +36,7 @@ export function CampoArquivo({
   erro,
   aoEscolher,
   children,
+  ref,
 }: CampoArquivoProps) {
   const id = useId();
   const idDoRotulo = `${id}-rotulo`;
@@ -54,10 +56,11 @@ export function CampoArquivo({
         <Icone nome="camera" tamanho={grande ? 44 : 30} className={estilos.icone} />
         <span>
           <b id={idDoBotao}>{botao}</b>
-          <small>Abre a câmera ou a galeria do celular</small>
+          <small>{captura ? 'Abre a câmera do celular' : 'Abre a câmera ou a galeria do celular'}</small>
         </span>
       </label>
       <input
+        ref={ref}
         className="sr-only"
         type="file"
         id={id}
@@ -79,7 +82,7 @@ export function CampoArquivo({
       />
       {children}
       {erro && (
-        <p className={estilos.erro} id={`${id}-erro`}>
+        <p className={estilos.erro} id={`${id}-erro`} role="alert">
           {erro}
         </p>
       )}

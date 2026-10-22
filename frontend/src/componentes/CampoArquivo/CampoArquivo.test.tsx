@@ -20,6 +20,7 @@ describe('CampoArquivo', () => {
     await userEvent.upload(campo, new File(['x'], 'eu.jpg', { type: 'image/jpeg' }));
 
     expect(aoEscolher).toHaveBeenCalledWith([expect.objectContaining({ name: 'eu.jpg' })]);
+    expect(screen.getByText('Abre a câmera do celular')).toBeInTheDocument();
     expect(campo).toHaveValue('');
     await semViolacoes(container);
   });
@@ -32,6 +33,7 @@ describe('CampoArquivo', () => {
     await userEvent.upload(campo, [new File(['a'], 'a.jpg', { type: 'image/jpeg' }), new File(['b'], 'b.png', { type: 'image/png' })]);
 
     expect(campo).toHaveAttribute('multiple');
+    expect(screen.getByText('Abre a câmera ou a galeria do celular')).toBeInTheDocument();
     expect(campo).not.toHaveAttribute('capture');
     expect(aoEscolher.mock.calls[0]?.[0]).toHaveLength(2);
     expect(campo).toHaveAccessibleDescription('Mande pelo menos 1 foto.');

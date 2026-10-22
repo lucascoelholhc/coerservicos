@@ -47,7 +47,32 @@ describe('/cadastro: o assistente', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Continuar' }));
 
     expect(screen.getByRole('group', { name: 'Profissão' })).toHaveAccessibleDescription('Escolha o seu trabalho.');
+    // o foco vai para o campo com erro (o leitor de tela lê o rótulo e o erro)
+    expect(screen.getByRole('radio', { name: /Pedreiro/ })).toHaveFocus();
     expect(api.escritas()).toHaveLength(0);
+  });
+
+  it('enquanto salva, Voltar fica desabilitado (a tela não pula depois)', async () => {
+    let terminar: (resposta: Response) => void = () => undefined;
+    simularCadastro({
+      cadastro: { ...CADASTRO_VAZIO, profissao: 'pedreiro' },
+      escrita: () => new Promise<Response>((pronto) => (terminar = pronto)),
+    });
+    abrirCadastro(8);
+
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'Segunda-feira' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Continuar' }));
+
+    expect(screen.getByRole('button', { name: 'Voltar' })).toBeDisabled();
+    terminar(json({ ...CADASTRO_VAZIO, profissao: 'pedreiro', dias: [1] }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Fotos dos seus trabalhos' })).toBeInTheDocument();
+  });
+
+  it('?etapa= que não é número: abre onde parou', async () => {
+    simularCadastro({ cadastro: { ...CADASTRO_VAZIO, etapaAtual: 2 } });
+    abrirCadastro('abc');
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Seus dados' })).toBeInTheDocument();
   });
 
   it('abre na etapa em que a pessoa parou (etapaAtual da API)', async () => {
@@ -124,7 +149,7 @@ describe('/cadastro: depois de enviar', () => {
     simularCadastro({ cadastro: { ...CADASTRO_COMPLETO, status: 'em_analise' } });
     const { container } = abrirCadastro(2);
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Cadastro enviado' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Cadastro enviado' })).toHaveFocus();
     expect(screen.getByText(/Você recebe um SMS quando seu perfil estiver no ar/)).toBeInTheDocument();
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
     await semViolacoes(container);

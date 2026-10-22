@@ -83,6 +83,11 @@
   border-color: var(--tinta-3);
 }
 
+.voltar:disabled {
+  color: var(--tinta-3);
+  cursor: progress;
+}
+
 .depois {
   display: grid;
   gap: 4px;
@@ -326,6 +331,15 @@
 }
 
 /* Depois de enviar */
+.situacao h1:focus {
+  outline: none;
+}
+
+.situacao h1:focus-visible {
+  outline: 3px solid var(--carimbo);
+  outline-offset: 4px;
+}
+
 .situacao {
   justify-items: center;
   padding-block: 14px;

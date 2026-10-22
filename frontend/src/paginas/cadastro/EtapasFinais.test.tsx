@@ -114,6 +114,53 @@ describe('etapa 9: fotos', () => {
     expect(screen.queryByText('Foto 1')).not.toBeInTheDocument();
   });
 
+  it('a segunda foto falha: a primeira continua na lista, com a mensagem do servidor', async () => {
+    let enviadas = 0;
+    const api = simularCadastro({
+      cadastro: COM_TRABALHO,
+      escrita: (pedido) => {
+        if (pedido.metodo !== 'POST') {
+          return undefined;
+        }
+        enviadas += 1;
+        return enviadas === 1
+          ? json({ id: 'f1', servico: null, legenda: null }, 201)
+          : problema(422, 'limite-de-fotos', 'Você já mandou o máximo de fotos.');
+      },
+    });
+    abrirCadastro(9);
+    api.definir({ ...COM_TRABALHO, fotos: [{ id: 'f1', servico: null, legenda: null }], etapas: { ...COM_TRABALHO.etapas, fotos: true } });
+
+    await userEvent.upload(await screen.findByLabelText(/Fotos de trabalhos/), [
+      new File(['a'], 'a.jpg', { type: 'image/jpeg' }),
+      new File(['b'], 'b.jpg', { type: 'image/jpeg' }),
+    ]);
+
+    expect(await screen.findByText('Você já mandou o máximo de fotos.')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Que serviço é a foto 1?' })).toBeInTheDocument();
+  });
+
+  it('tirar a foto avisa e devolve o foco ao botão de adicionar', async () => {
+    const api = simularCadastro({
+      cadastro: { ...COM_TRABALHO, fotos: [{ id: 'f1', servico: null, legenda: null }] },
+      escrita: () => new Response(null, { status: 204 }),
+    });
+    abrirCadastro(9);
+
+    api.definir(COM_TRABALHO);
+    await userEvent.click(await screen.findByRole('button', { name: 'Tirar a foto 1' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Foto tirada.');
+    expect(screen.getByLabelText(/Fotos de trabalhos/)).toHaveFocus();
+  });
+
+  it('serviço salvo na foto que saiu da lista continua como opção', async () => {
+    simularCadastro({ cadastro: { ...COM_TRABALHO, fotos: [{ id: 'f1', servico: 'Reboco', legenda: null }] } });
+    abrirCadastro(9);
+
+    expect(await screen.findByRole('combobox', { name: 'Que serviço é a foto 1?' })).toHaveValue('Reboco');
+  });
+
   it('legenda com contato (422) diz qual foto', async () => {
     simularCadastro({
       cadastro: { ...COM_TRABALHO, fotos: [{ id: 'f1', servico: null, legenda: null }] },
@@ -202,6 +249,38 @@ describe('etapa 11: Pix, revisão e envio', () => {
     expect(api.escritas().map((p) => p.url)).toEqual(['/api/profissional/cadastro/pix', '/api/profissional/cadastro/envio']);
     expect(corpoDe(api.escritas()[0])).toEqual({ tipo: 'aleatoria', chave: '123e4567-e89b-12d3-a456-426614174000' });
     expect(corpoDe(api.escritas()[1])).toEqual({ versaoTermosAceita: '1.0', aceitoRegraDeContato: true });
+  });
+
+  it('Pix salvo e envio recusado: tentar de novo não pede a chave outra vez', async () => {
+    let envios = 0;
+    const api = simularCadastro({
+      cadastro: PRONTO_SEM_PIX,
+      escrita: (pedido) => {
+        if (pedido.url.endsWith('/pix')) {
+          return json(CADASTRO_COMPLETO);
+        }
+        envios += 1;
+        return envios === 1
+          ? problema(409, 'edicao-concorrente', 'Seu cadastro está sendo salvo em outro aparelho. Tente de novo.')
+          : json({ ...CADASTRO_COMPLETO, status: 'em_analise' });
+      },
+    });
+    abrirCadastro(11);
+
+    await userEvent.click(await screen.findByRole('radio', { name: 'Chave aleatória' }));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Sua chave Pix' }), '123e4567-e89b-12d3-a456-426614174000');
+    await userEvent.click(screen.getByRole('checkbox', { name: /Li e aceito/ }));
+    await userEvent.click(screen.getByRole('checkbox', { name: /não posso passar meu telefone/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar cadastro' }));
+    expect(await screen.findByText(/sendo salvo em outro aparelho/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar cadastro' }));
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Cadastro enviado' })).toBeInTheDocument();
+    expect(api.escritas().map((p) => p.url)).toEqual([
+      '/api/profissional/cadastro/pix',
+      '/api/profissional/cadastro/envio',
+      '/api/profissional/cadastro/envio',
+    ]);
   });
 
   it('Pix já guardado: mostra mascarado e envia sem novo PUT', async () => {

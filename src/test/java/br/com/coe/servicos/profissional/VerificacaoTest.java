@@ -294,6 +294,11 @@ class VerificacaoTest extends IntegracaoTest {
         assertThat(statusDe(enviado.profissional())).isEqualTo("em_analise");
         mockMvc.perform(get(CadastroDeTeste.BASE).header("Authorization", dono))
                 .andExpect(jsonPath("$.motivoCorrecao").value(org.hamcrest.Matchers.nullValue()));
+        // fora da correção pedida o motivo nunca sai, mesmo se ficasse gravado na linha
+        jdbc.update("UPDATE profissional SET motivo_correcao = 'antigo' WHERE id = ?", enviado.profissional());
+        mockMvc.perform(get(CadastroDeTeste.BASE).header("Authorization", dono))
+                .andExpect(jsonPath("$.status").value("em_analise"))
+                .andExpect(jsonPath("$.motivoCorrecao").value(org.hamcrest.Matchers.nullValue()));
         assertThat(papeisDe(enviado.usuario())).doesNotContain("PROFISSIONAL");
     }
 

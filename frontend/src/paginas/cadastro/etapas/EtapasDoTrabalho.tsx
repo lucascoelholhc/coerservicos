@@ -41,7 +41,7 @@ export function EtapaTrabalho({ numero, cadastro, catalogo, aoSalvar, aoVoltar }
   }
 
   return (
-    <QuadroDaEtapa numero={numero} cadastro={cadastro} aoEnviar={enviar} aoVoltar={aoVoltar} enviando={enviando} erro={erro}>
+    <QuadroDaEtapa numero={numero} cadastro={cadastro} aoEnviar={enviar} aoVoltar={aoVoltar} enviando={enviando} erro={erro} campos={campos}>
       <Nota>
         Este cadastro é para quem quer <b>oferecer serviços</b>. Para contratar alguém, use a busca com esta mesma
         conta.
@@ -131,7 +131,7 @@ export function EtapaServicos({ numero, cadastro, catalogo, aoSalvar, aoVoltar, 
   }
 
   return (
-    <QuadroDaEtapa numero={numero} cadastro={cadastro} aoEnviar={enviar} aoVoltar={aoVoltar} enviando={enviando} erro={erro}>
+    <QuadroDaEtapa numero={numero} cadastro={cadastro} aoEnviar={enviar} aoVoltar={aoVoltar} enviando={enviando} erro={erro} campos={campos}>
       {profissoes.length === 0 ? (
         <FaltaOTrabalho irPara={irPara} />
       ) : (
@@ -194,7 +194,7 @@ export function EtapaExperiencia({ numero, cadastro, aoSalvar, aoVoltar }: Props
   }
 
   return (
-    <QuadroDaEtapa numero={numero} cadastro={cadastro} aoEnviar={enviar} aoVoltar={aoVoltar} enviando={enviando} erro={erro}>
+    <QuadroDaEtapa numero={numero} cadastro={cadastro} aoEnviar={enviar} aoVoltar={aoVoltar} enviando={enviando} erro={erro} campos={campos}>
       <Opcoes
         legenda="Há quanto tempo trabalha nisso?"
         nome="anos"
@@ -290,7 +290,7 @@ export function EtapaValor({ numero, cadastro, regras, aoSalvar, aoVoltar }: Pro
   }
 
   return (
-    <QuadroDaEtapa numero={numero} cadastro={cadastro} aoEnviar={enviar} aoVoltar={aoVoltar} enviando={enviando} erro={erro}>
+    <QuadroDaEtapa numero={numero} cadastro={cadastro} aoEnviar={enviar} aoVoltar={aoVoltar} enviando={enviando} erro={erro} campos={campos}>
       <p className={estilos.apagado}>Use − e + para ajustar, ou digite o valor.</p>
       <div className={estilos.ajuste}>
         <button type="button" className={estilos.passo} onClick={() => ajustar(-PASSO_DO_VALOR)} aria-label="Diminuir 10 reais">

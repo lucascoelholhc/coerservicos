@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+
 import type { SituacaoDoCadastro as Situacao } from '../../api/tipos';
 import { CAMINHOS } from '../../caminhos';
 import { Botao } from '../../componentes/Botao/Botao';
@@ -34,13 +36,20 @@ const TELAS: Record<SituacaoDoCadastroProps['situacao'], { icone: NomeDoIcone; t
 /** Depois do envio o assistente some: o cadastro está com a COE (protótipo: "Cadastro enviado"). */
 export function SituacaoDoCadastro({ situacao }: SituacaoDoCadastroProps) {
   const tela = TELAS[situacao];
+  const titulo = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    titulo.current?.focus();
+    window.scrollTo?.({ top: 0 });
+  }, []);
   return (
     <section className={`largura ${estilos.pagina}`}>
       <div className={`${estilos.assistente} ${estilos.situacao}`} data-situacao={situacao}>
         <span className={estilos.selo}>
           <Icone nome={tela.icone} tamanho={44} />
         </span>
-        <h1>{tela.titulo}</h1>
+        <h1 ref={titulo} tabIndex={-1}>
+          {tela.titulo}
+        </h1>
         <p className={estilos.textoDaSituacao}>{tela.texto}</p>
         {situacao === 'em_analise' && (
           <ol className={estilos.linhaDoTempo}>

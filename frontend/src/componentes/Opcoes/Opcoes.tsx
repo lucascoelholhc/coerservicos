@@ -54,8 +54,9 @@ export function Opcoes({
   const id = useId();
   const idDoErro = `${id}-erro`;
   const idDaDica = `${id}-dica`;
-  const descricao = [erro ? idDoErro : '', dica ? idDaDica : ''].filter(Boolean).join(' ');
+  const idDoMaximo = `${id}-maximo`;
   const cheio = tipo === 'varias' && maximo !== undefined && selecionadas.length >= maximo;
+  const descricao = [erro ? idDoErro : '', dica ? idDaDica : '', cheio ? idDoMaximo : ''].filter(Boolean).join(' ');
 
   function trocar(valor: string, marcada: boolean) {
     if (tipo === 'unica') {
@@ -87,6 +88,7 @@ export function Opcoes({
                 value={opcao.valor}
                 checked={marcada}
                 disabled={cheio && !marcada}
+                aria-invalid={erro ? true : undefined}
                 onChange={(evento) => trocar(opcao.valor, evento.target.checked)}
               />
               {opcao.imagem && <span className={estilos.imagem}>{opcao.imagem}</span>}
@@ -106,6 +108,11 @@ export function Opcoes({
           );
         })}
       </div>
+      {cheio && (
+        <p className={estilos.dica} id={idDoMaximo}>
+          {`Você já escolheu o máximo (${maximo}).`}
+        </p>
+      )}
       {erro && (
         <p className={estilos.erro} id={idDoErro}>
           {erro}

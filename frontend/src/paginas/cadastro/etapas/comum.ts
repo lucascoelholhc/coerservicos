@@ -1,6 +1,6 @@
 import { createContext, useCallback, useEffect, useRef, useState } from 'react';
 
-import type { ErroDaApi } from '../../../api/erros';
+import { comoErroDaApi, type ErroDaApi } from '../../../api/erros';
 import type { CadastroDoProfissional, Catalogo, MinhaConta, Regras } from '../../../api/tipos';
 import { useEnvioUnico } from '../../conta/useEnvioUnico';
 
@@ -74,21 +74,53 @@ export function useSalvarEtapa(
   return { enviando, erro, campos, salvar, avisar };
 }
 
+/**
+ * Mensagem de um envio de arquivo que falhou. Passou do tempo: o servidor pode ter gravado mesmo assim,
+ * então a pessoa confere antes de mandar de novo (a lista é atualizada logo depois).
+ */
+export function mensagemDoEnvio(falha: unknown): string {
+  const problema = comoErroDaApi(falha);
+  return problema.tipo === 'tempo' ? `${problema.message} Confira se a foto já aparece antes de mandar de novo.` : problema.message;
+}
+
+/** URL assinada só com https (http só para o armazenamento local da máquina); outra coisa nunca vira link. */
+export function enderecoSeguro(url: string): boolean {
+  try {
+    const endereco = new URL(url);
+    const local = endereco.hostname === 'localhost' || endereco.hostname === '127.0.0.1';
+    return endereco.protocol === 'https:' || (endereco.protocol === 'http:' && local);
+  } catch {
+    return false;
+  }
+}
+
 /** Prévia da foto escolhida (só no navegador, blob:); some ao sair da etapa. */
 export function usePrevias() {
   const [previas, setPrevias] = useState<Partial<Record<string, string>>>({});
-  const todas = useRef<string[]>([]);
+  const urls = useRef(new Map<string, string>());
+  const montada = useRef(true);
   useEffect(() => {
-    const urls = todas.current;
-    return () => urls.forEach((url) => URL.revokeObjectURL(url));
+    const abertas = urls.current;
+    montada.current = true;
+    return () => {
+      montada.current = false;
+      abertas.forEach((url) => URL.revokeObjectURL(url));
+      abertas.clear();
+    };
   }, []);
+  /** Ainda na etapa? O envio em série para quando a pessoa sai. */
+  const ativa = useCallback(() => montada.current, []);
   function guardar(chave: string, arquivo: File) {
-    if (typeof URL.createObjectURL !== 'function') {
+    if (!montada.current || typeof URL.createObjectURL !== 'function') {
       return;
     }
+    const anterior = urls.current.get(chave);
+    if (anterior) {
+      URL.revokeObjectURL(anterior);
+    }
     const url = URL.createObjectURL(arquivo);
-    todas.current.push(url);
+    urls.current.set(chave, url);
     setPrevias((anteriores) => ({ ...anteriores, [chave]: url }));
   }
-  return { previas, guardar };
+  return { previas, guardar, ativa };
 }

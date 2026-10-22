@@ -77,5 +77,6 @@ describe('Opcoes', () => {
 
     expect(screen.getByRole('checkbox', { name: /Pintor/ })).toBeDisabled();
     expect(screen.getByRole('checkbox', { name: 'Pedreiro' })).toBeEnabled();
+    expect(screen.getByRole('group', { name: 'Outras' })).toHaveAccessibleDescription('Você já escolheu o máximo (1).');
   });
 });

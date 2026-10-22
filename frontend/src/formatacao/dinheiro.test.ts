@@ -44,4 +44,12 @@ describe('dinheiro no front (só exibição; o backend decide)', () => {
   it('comissão fora do formato = erro (nunca inventa um número)', () => {
     expect(() => previaDaDiaria(28000, '10%', 'CLIENTE')).toThrow();
   });
+
+  it('mesmos vetores da CalculadoraDiariaTest do backend (paridade da prévia)', () => {
+    expect(previaDaDiaria(28000, '0.10', 'CLIENTE')).toEqual({ recebe: 28000, clientePaga: 30800 });
+    expect(previaDaDiaria(28000, '0.10', 'PROFISSIONAL')).toEqual({ recebe: 25200, clientePaga: 28000 });
+    expect(previaDaDiaria(28000, '0.0000', 'CLIENTE')).toEqual({ recebe: 28000, clientePaga: 28000 });
+    // 105,05 x 10% = 10,505 -> 10,50 (HALF_EVEN): o backend soma 3 x 10,50 = 31,50
+    expect(previaDaDiaria(10505, '0.10', 'CLIENTE').clientePaga).toBe(11555);
+  });
 });

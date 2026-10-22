@@ -24,7 +24,7 @@ const MODO_DO_TECLADO: Record<TipoDeChavePix, 'numeric' | 'tel' | 'email' | 'tex
 const CAMPOS_DO_PIX = { 'pix-invalido': 'chave' };
 
 /** Etapa 11: chave Pix, revisão de tudo, as duas confirmações e o envio para análise. */
-export function EtapaPix({ numero, cadastro, catalogo, regras, conta, aoSalvar, aoVoltar, irPara }: PropsDaEtapa) {
+export function EtapaPix({ numero, cadastro, catalogo, regras, conta, aoSalvar, aoAtualizar, aoVoltar, irPara }: PropsDaEtapa) {
   const [tipo, setTipo] = useState<TipoDeChavePix | ''>(cadastro.chavePixTipo ?? '');
   const [chave, setChave] = useState('');
   const [termos, setTermos] = useState(false);
@@ -49,7 +49,7 @@ export function EtapaPix({ numero, cadastro, catalogo, regras, conta, aoSalvar, 
     }
     salvar(async () => {
       if (!mantemAGuardada) {
-        await salvarEtapa('pix', { tipo, chave: chave.trim() });
+        aoAtualizar(await salvarEtapa('pix', { tipo, chave: chave.trim() }));
         setChave('');
       }
       return enviarCadastro({ versaoTermosAceita: regras.versaoTermos, aceitoRegraDeContato: true });
@@ -64,6 +64,7 @@ export function EtapaPix({ numero, cadastro, catalogo, regras, conta, aoSalvar, 
       aoVoltar={aoVoltar}
       enviando={enviando}
       erro={erro}
+      campos={campos}
       acao="Enviar cadastro"
     >
       {!conta.celularConfirmado && (

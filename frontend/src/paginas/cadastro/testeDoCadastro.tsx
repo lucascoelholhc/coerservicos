@@ -13,9 +13,9 @@ function OndeEstou() {
 }
 
 /** Abre /cadastro (com ?etapa=N, se dado) dentro de um roteador de teste. */
-export function abrirCadastro(etapa?: number) {
+export function abrirCadastro(etapa?: number | string) {
   return render(
-    <MemoryRouter initialEntries={[etapa ? `/cadastro?etapa=${etapa}` : '/cadastro']}>
+    <MemoryRouter initialEntries={[etapa === undefined ? '/cadastro' : `/cadastro?etapa=${etapa}`]}>
       <Routes>
         <Route path="/cadastro" element={<CadastroProfissional />} />
         <Route path="*" element={<OndeEstou />} />

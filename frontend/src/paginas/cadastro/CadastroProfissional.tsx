@@ -1,4 +1,4 @@
-import { useCallback, useState, type ComponentType } from 'react';
+import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { buscarCadastro } from '../../api/cadastroProfissional';
@@ -121,6 +121,17 @@ function Assistente({ dados }: { dados: DadosDoCadastro }) {
   const numero = etapaDoEndereco(busca.get('etapa')) ?? Math.min(Math.max(cadastro.etapaAtual, 1), TOTAL_DE_ETAPAS);
 
   const [trocou, setTrocou] = useState(false);
+  // A etapa na tela agora (0 = saiu da página): um salvamento atrasado não leva a outra tela.
+  const etapaNaTela = useRef(numero);
+  useEffect(() => {
+    etapaNaTela.current = numero;
+  }, [numero]);
+  useEffect(
+    () => () => {
+      etapaNaTela.current = 0;
+    },
+    [],
+  );
 
   const irPara = useCallback(
     (destino: number) => {
@@ -132,7 +143,8 @@ function Assistente({ dados }: { dados: DadosDoCadastro }) {
   const aoSalvar = useCallback(
     (salvo: CadastroDoProfissional) => {
       setCadastro(salvo);
-      if (salvo.status === 'rascunho' || salvo.status === 'correcao_pedida') {
+      const editavel = salvo.status === 'rascunho' || salvo.status === 'correcao_pedida';
+      if (editavel && etapaNaTela.current === numero) {
         irPara(Math.min(numero + 1, TOTAL_DE_ETAPAS));
       }
     },

@@ -19,6 +19,8 @@ interface QuadroDaEtapaProps {
   enviando: boolean;
   /** Erro geral da etapa (da API ou do aviso antes de enviar). */
   erro?: string | null;
+  /** Erros por campo: ao aparecerem, o foco vai para o primeiro campo inválido (WCAG 3.3.1). */
+  campos?: Readonly<Record<string, string>>;
   /** Texto do botão principal (padrão "Continuar"). */
   acao?: string;
   children: ReactNode;
@@ -28,10 +30,21 @@ interface QuadroDaEtapaProps {
  * Moldura de cada etapa (protótipo: V.cadastro): "Passo N de 11", barra de progresso com as etapas já
  * completas na API, título que recebe o foco, o formulário e Voltar/Continuar. Uma pergunta por tela.
  */
-export function QuadroDaEtapa({ numero, cadastro, aoEnviar, aoVoltar, enviando, erro, acao = 'Continuar', children }: QuadroDaEtapaProps) {
+export function QuadroDaEtapa({
+  numero,
+  cadastro,
+  aoEnviar,
+  aoVoltar,
+  enviando,
+  erro,
+  campos,
+  acao = 'Continuar',
+  children,
+}: QuadroDaEtapaProps) {
   const descricao = ETAPAS[numero - 1] ?? { chave: 'trabalho', titulo: '', grupo: '' };
   const titulo = useRef<HTMLHeadingElement>(null);
   const trocou = useContext(TrocouDeEtapa);
+  const formulario = useRef<HTMLFormElement>(null);
 
   // Troca de etapa é troca de tela: o foco vai para o título (a primeira tela fica com o foco do <main>).
   useEffect(() => {
@@ -40,6 +53,13 @@ export function QuadroDaEtapa({ numero, cadastro, aoEnviar, aoVoltar, enviando, 
       window.scrollTo?.({ top: 0 });
     }
   }, [trocou, numero]);
+
+  // Erro de campo depois de "Continuar": o foco vai para o primeiro campo inválido (o leitor de tela lê o erro).
+  useEffect(() => {
+    if (campos && Object.keys(campos).length > 0) {
+      formulario.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+    }
+  }, [campos]);
 
   function enviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
@@ -77,7 +97,7 @@ export function QuadroDaEtapa({ numero, cadastro, aoEnviar, aoVoltar, enviando, 
             último passo.
           </Nota>
         )}
-        <form className={estilos.formulario} onSubmit={enviar} noValidate>
+        <form ref={formulario} className={estilos.formulario} onSubmit={enviar} noValidate>
           {children}
           {erro && (
             <Nota tipo="erro" anunciar>
@@ -86,7 +106,7 @@ export function QuadroDaEtapa({ numero, cadastro, aoEnviar, aoVoltar, enviando, 
           )}
           <div className={estilos.rodape}>
             {numero > 1 && (
-              <button type="button" className={estilos.voltar} onClick={aoVoltar} aria-label="Voltar">
+              <button type="button" className={estilos.voltar} onClick={aoVoltar} aria-label="Voltar" disabled={enviando}>
                 <Icone nome="back" />
               </button>
             )}
