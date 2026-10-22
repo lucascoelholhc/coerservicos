@@ -7,6 +7,7 @@ export const CAMINHOS = {
   criarContaCliente: '/criar-conta/cliente',
   criarContaProfissional: '/criar-conta/profissional',
   cadastro: '/cadastro',
+  adminVerificacao: '/admin/verificacao',
   conta: '/conta',
   confirmarCelular: '/conta/confirmar-celular',
   codigoNoLogin: '/conta/codigo-no-login',
@@ -40,4 +41,9 @@ export function caminhoDaBusca(filtros: { profissao?: string; cidade?: string })
   }
   const texto = consulta.toString();
   return texto === '' ? CAMINHOS.busca : `${CAMINHOS.busca}?${texto}`;
+}
+
+/** Detalhe de um cadastro na verificação do admin. */
+export function caminhoDaVerificacao(id: string): string {
+  return `${CAMINHOS.adminVerificacao}/${encodeURIComponent(id)}`;
 }

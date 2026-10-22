@@ -52,7 +52,11 @@ export function MinhaConta() {
               <ConfirmarEmail aoAtualizar={conta.tentarDeNovo} aoResponder={setRetornoDoEmail} />
             )}
             <Seguranca conta={conta.dados} />
-            {!conta.dados.papeis.includes('ADMIN') && <TrabalharNaCoe profissional={conta.dados.papeis.includes('PROFISSIONAL')} />}
+            {conta.dados.papeis.includes('ADMIN') ? (
+              <EquipeDaCoe />
+            ) : (
+              <TrabalharNaCoe profissional={conta.dados.papeis.includes('PROFISSIONAL')} />
+            )}
             <Sair />
           </>
         )}
@@ -96,6 +100,22 @@ function situacaoDoCodigo(conta: Conta): string {
     return 'Obrigatório';
   }
   return conta.mfaAtivo ? 'Ligado' : 'Desligado';
+}
+
+/** Atalhos da equipe (ADMIN): a fila de verificação (FE-07). */
+function EquipeDaCoe() {
+  return (
+    <section className={estilos.secao} aria-labelledby="titulo-equipe">
+      <h2 id="titulo-equipe">Painel da equipe</h2>
+      <ul className={estilos.itens}>
+        <li className={estilos.item}>
+          <Link className={estilos.linkDoItem} to={CAMINHOS.adminVerificacao}>
+            Verificação de cadastros
+          </Link>
+        </li>
+      </ul>
+    </section>
+  );
 }
 
 /** O cadastro de profissional (FE-04): começar, continuar ou ver a situação. */

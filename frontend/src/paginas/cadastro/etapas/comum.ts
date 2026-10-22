@@ -83,16 +83,7 @@ export function mensagemDoEnvio(falha: unknown): string {
   return problema.tipo === 'tempo' ? `${problema.message} Confira se a foto já aparece antes de mandar de novo.` : problema.message;
 }
 
-/** URL assinada só com https (http só para o armazenamento local da máquina); outra coisa nunca vira link. */
-export function enderecoSeguro(url: string): boolean {
-  try {
-    const endereco = new URL(url);
-    const local = endereco.hostname === 'localhost' || endereco.hostname === '127.0.0.1';
-    return endereco.protocol === 'https:' || (endereco.protocol === 'http:' && local);
-  } catch {
-    return false;
-  }
-}
+export { enderecoSeguro } from '../../../api/urlAssinada';
 
 /** Prévia da foto escolhida (só no navegador, blob:); some ao sair da etapa. */
 export function usePrevias() {

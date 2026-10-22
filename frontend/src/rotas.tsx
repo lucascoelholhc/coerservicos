@@ -8,6 +8,8 @@ import { ConfirmarCelular } from './paginas/conta/ConfirmarCelular';
 import { MinhaConta } from './paginas/conta/MinhaConta';
 import { RecolocarContato } from './paginas/conta/RecolocarContato';
 import { TrocarSenha } from './paginas/conta/TrocarSenha';
+import { FilaDeVerificacao } from './paginas/admin/FilaDeVerificacao';
+import { VerificacaoDoCadastro } from './paginas/admin/VerificacaoDoCadastro';
 import { CadastroProfissional } from './paginas/cadastro/CadastroProfissional';
 import { CriarContaCliente } from './paginas/criar-conta/CriarContaCliente';
 import { CriarContaProfissional } from './paginas/criar-conta/CriarContaProfissional';
@@ -76,6 +78,22 @@ export function Rotas() {
           element={
             <RotaPrivada>
               <RecolocarContato />
+            </RotaPrivada>
+          }
+        />
+        <Route
+          path={CAMINHOS.adminVerificacao}
+          element={
+            <RotaPrivada papeis={['ADMIN']}>
+              <FilaDeVerificacao />
+            </RotaPrivada>
+          }
+        />
+        <Route
+          path={`${CAMINHOS.adminVerificacao}/:id`}
+          element={
+            <RotaPrivada papeis={['ADMIN']}>
+              <VerificacaoDoCadastro />
             </RotaPrivada>
           }
         />

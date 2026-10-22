@@ -68,6 +68,18 @@ describe('/conta (Minha conta)', () => {
     expect(await screen.findByText(texto)).toBeInTheDocument();
   });
 
+  it('ADMIN vê o atalho da verificação; quem não é ADMIN vê o cadastro de profissional', async () => {
+    simular({ ...CONTA_PADRAO, papeis: ['ADMIN'] });
+    const { unmount } = abrir();
+    expect(await screen.findByRole('link', { name: 'Verificação de cadastros' })).toHaveAttribute('href', '/admin/verificacao');
+    expect(screen.queryByRole('link', { name: 'Cadastro de profissional' })).not.toBeInTheDocument();
+    unmount();
+
+    simular();
+    abrir();
+    expect(await screen.findByRole('link', { name: 'Cadastro de profissional' })).toHaveAttribute('href', '/cadastro');
+  });
+
   it('aviso vindo do cadastro aparece no topo', async () => {
     simular();
     abrir({ aviso: 'Enviamos um link para o seu e-mail. Confirme para conseguir recuperar a senha.' });
