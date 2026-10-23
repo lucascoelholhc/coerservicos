@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
 import { buscarCatalogo } from '../../api/catalogo';
-import { comoErroDaApi, type ErroDaApi } from '../../api/erros';
+import { comoErroDaApi, ErroDaApi } from '../../api/erros';
 import type { Catalogo, DetalheDaVerificacao, ItensDaConferencia, TipoDeDocumento, UrlAssinada } from '../../api/tipos';
 import { enderecoSeguro } from '../../api/urlAssinada';
 import { useRecurso } from '../../api/useRecurso';
@@ -33,6 +33,11 @@ import estilos from './Admin.module.css';
 /** O motivo vai por SMS (PedidosDaVerificacao.MOTIVO_MAXIMO). */
 const MOTIVO_MAXIMO = 160;
 
+const VALIDADE_MAXIMA_DA_URL_MS = 15 * 60_000;
+
+/** O CPF completo some da tela sozinho depois de um tempo (aba esquecida aberta). */
+const CPF_VISIVEL_MS = 2 * 60_000;
+
 /** O checklist da RN12, na ordem do protótipo (ADM.verif). */
 const ITENS: readonly { chave: keyof ItensDaConferencia; texto: string }[] = [
   { chave: 'cpf', texto: 'CPF válido e no nome da pessoa' },
@@ -55,10 +60,20 @@ interface Dados {
   catalogo: Catalogo;
 }
 
+/** O SMS é uma linha só (o servidor recusa quebra de linha): espaços e quebras viram um espaço. */
+function umaLinha(texto: string): string {
+  return texto.replace(/\s+/g, ' ').trim();
+}
+
 /** Conferir um cadastro e decidir (FE-07, protótipo ADM.verif; API do DOM-03). */
 export function VerificacaoDoCadastro() {
   useTitulo('Verificar cadastro');
   const { id = '' } = useParams();
+  // Outro id na mesma rota = outra conferência: nada do cadastro anterior (checklist, mensagem) fica.
+  return <Verificacao key={id} id={id} />;
+}
+
+function Verificacao({ id }: { id: string }) {
   const recurso = useRecurso(
     async (sinal): Promise<Dados> => {
       const [detalhe, catalogo] = await Promise.all([buscarDetalheDaVerificacao(id, sinal), buscarCatalogo(sinal)]);
@@ -92,22 +107,31 @@ function Conferencia({ dados }: { dados: Dados }) {
         </header>
         <section className={estilos.bloco} aria-labelledby="h-documentos">
           <h2 id="h-documentos">Documentos</h2>
-          <p className={estilos.apagado}>Cada abertura fica registrada. O link vale 2 minutos.</p>
-          <ul className={estilos.arquivos}>
-            {cadastro.documentos.map((documento) => (
-              <li key={documento.id}>
-                <ArquivoPorLink
-                  rotulo={NOMES_DOS_DOCUMENTOS[documento.tipo]}
-                  buscar={() => urlDoDocumentoParaAdmin(detalhe.id, documento.id)}
-                />
-              </li>
-            ))}
-          </ul>
+          <p className={estilos.apagado}>Cada abertura fica registrada. O link vale poucos minutos.</p>
+          {cadastro.documentos.length === 0 ? (
+            <p>Nenhum documento enviado.</p>
+          ) : (
+            <ul className={estilos.arquivos}>
+              {cadastro.documentos.map((documento) => (
+                <li key={documento.id}>
+                  <ArquivoPorLink
+                    rotulo={NOMES_DOS_DOCUMENTOS[documento.tipo]}
+                    buscar={() => urlDoDocumentoParaAdmin(detalhe.id, documento.id)}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
         <section className={estilos.bloco} aria-labelledby="h-dados">
           <h2 id="h-dados">Dados informados</h2>
           <dl className={estilos.dados}>
-            <Linha rotulo="CPF" valor={detalhe.cpf} />
+            <div>
+              <dt>CPF</dt>
+              <dd>
+                <CpfParaConferir cpf={detalhe.cpf} />
+              </dd>
+            </div>
             <Linha rotulo="Nascimento" valor={cadastro.dataNascimento ? formatarData(cadastro.dataNascimento) : '—'} />
             <Linha rotulo="Celular" valor={detalhe.celularConfirmado ? 'Confirmado' : 'Não confirmado'} />
             <Linha rotulo="Trabalho" valor={linhas.trabalho} />
@@ -128,14 +152,20 @@ function Conferencia({ dados }: { dados: Dados }) {
         </section>
         <section className={estilos.bloco} aria-labelledby="h-fotos">
           <h2 id="h-fotos">{`Fotos de trabalhos (${cadastro.fotos.length})`}</h2>
-          <ul className={estilos.arquivos}>
-            {cadastro.fotos.map((foto, indice) => (
-              <li key={foto.id}>
-                <ArquivoPorLink rotulo={`a foto ${indice + 1}`} buscar={() => urlDaFotoParaAdmin(detalhe.id, foto.id)} />
-                <span className={estilos.apagado}>{[foto.servico, foto.legenda].filter(Boolean).join(' · ') || 'Sem descrição'}</span>
-              </li>
-            ))}
-          </ul>
+          {cadastro.fotos.length === 0 ? (
+            <p>Nenhuma foto enviada.</p>
+          ) : (
+            <ul className={estilos.arquivos}>
+              {cadastro.fotos.map((foto, indice) => (
+                <li key={foto.id}>
+                  <ArquivoPorLink rotulo={`a foto ${indice + 1}`} buscar={() => urlDaFotoParaAdmin(detalhe.id, foto.id)} />
+                  <span className={estilos.apagado}>
+                    {[foto.servico, foto.legenda].filter(Boolean).join(' · ') || 'Sem descrição'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       </div>
       <Decisao detalhe={detalhe} />
@@ -152,50 +182,110 @@ function Linha({ rotulo, valor }: { rotulo: string; valor: string }) {
   );
 }
 
-/** "Ver X" busca a URL assinada (curta) e vira um link "Abrir X" (nova aba): nada de imagem do bucket na CSP. */
+/** "***.***.***-35" (os 2 últimos dígitos, como a Mascara do backend). */
+function mascararCpf(cpf: string): string {
+  return `***.***.***-${cpf.replace(/\D/g, '').slice(-2)}`;
+}
+
+/** CPF completo só quando o admin pede (para conferir com o documento) e por pouco tempo. */
+function CpfParaConferir({ cpf }: { cpf: string }) {
+  const [visivel, setVisivel] = useState(false);
+  useEffect(() => {
+    if (!visivel) {
+      return undefined;
+    }
+    const relogio = setTimeout(() => setVisivel(false), CPF_VISIVEL_MS);
+    return () => clearTimeout(relogio);
+  }, [visivel]);
+  return (
+    <span className={estilos.cpf}>
+      <span>{visivel ? cpf : mascararCpf(cpf)}</span>
+      <button type="button" className={estilos.ver} onClick={() => setVisivel(!visivel)}>
+        {visivel ? 'Esconder CPF' : 'Mostrar CPF'}
+      </button>
+    </span>
+  );
+}
+
+/**
+ * "Ver X" busca a URL assinada (curta) e vira o link "Abrir X" (nova aba), que recebe o foco; quando a
+ * URL vence, volta a ser "Ver X". Nada de imagem do bucket na tela (nem na CSP).
+ */
 function ArquivoPorLink({ rotulo, buscar }: { rotulo: string; buscar: () => Promise<UrlAssinada> }) {
-  const [url, setUrl] = useState<string | null>(null);
+  const [assinada, setAssinada] = useState<UrlAssinada | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const link = useRef<HTMLAnchorElement>(null);
+  const botao = useRef<HTMLButtonElement>(null);
+  const venceu = useRef(false);
   const { enviando, executar } = useEnvioUnico();
+
+  useEffect(() => {
+    if (assinada === null) {
+      if (venceu.current) {
+        venceu.current = false;
+        botao.current?.focus();
+      }
+      return undefined;
+    }
+    link.current?.focus();
+    // A URL assinada vale no máximo 15 min (coe.armazenamento); o teto também evita estourar o setTimeout.
+    const restante = Math.min(Math.max(0, new Date(assinada.expiraEm).getTime() - Date.now()), VALIDADE_MAXIMA_DA_URL_MS);
+    const relogio = setTimeout(() => {
+      venceu.current = document.activeElement === link.current;
+      setAssinada(null);
+    }, restante);
+    return () => clearTimeout(relogio);
+  }, [assinada]);
 
   function ver() {
     setErro(null);
     void executar(
       async () => {
-        const assinada = await buscar();
-        if (!enderecoSeguro(assinada.url)) {
-          throw new Error('URL fora do esperado');
+        const resposta = await buscar();
+        if (!enderecoSeguro(resposta.url)) {
+          throw new ErroDaApi('resposta');
         }
-        setUrl(assinada.url);
+        setAssinada(resposta);
       },
       (falha) => setErro(comoErroDaApi(falha).message),
     );
   }
 
-  if (url) {
+  if (assinada) {
     return (
-      <a className={estilos.abrir} href={url} target="_blank" rel="noreferrer">
+      <a ref={link} className={estilos.abrir} href={assinada.url} target="_blank" rel="noreferrer">
         {`Abrir ${rotulo}`}
+        <span className="sr-only"> (abre em nova aba)</span>
       </a>
     );
   }
   return (
     <>
-      <button type="button" className={estilos.ver} onClick={ver} disabled={enviando}>
+      <button ref={botao} type="button" className={estilos.ver} onClick={ver} disabled={enviando}>
         {`Ver ${rotulo}`}
       </button>
-      {erro && <span className={estilos.erro}>{erro}</span>}
+      {erro && (
+        <span className={estilos.erro} role="alert">
+          {erro}
+        </span>
+      )}
     </>
   );
 }
 
-const CAMPOS_POR_CODIGO: Record<string, string> = {
-  'texto-com-contato': 'motivo',
-  'nr10-sem-decisao': 'nr10',
-  'nr10-sem-motivo': 'motivoNr10',
-};
-
 type Acao = 'aprovar' | 'correcao' | 'recusar';
+
+/** Onde cada código da API aparece: o texto com contato é o motivo da ação (o do NR-10, na aprovação). */
+const CAMPOS_POR_CODIGO: Record<Acao, Record<string, string>> = {
+  aprovar: {
+    'texto-com-contato': 'motivoNr10',
+    'nr10-sem-decisao': 'nr10',
+    'nr10-sem-motivo': 'motivoNr10',
+    'checklist-incompleto': 'itens',
+  },
+  correcao: { 'texto-com-contato': 'motivo' },
+  recusar: { 'texto-com-contato': 'motivo' },
+};
 
 const AVISOS: Record<Acao, string> = {
   aprovar: 'Cadastro aprovado. O profissional já aparece na busca.',
@@ -213,12 +303,37 @@ function Decisao({ detalhe }: { detalhe: DetalheDaVerificacao }) {
   const [confirmarRecusa, setConfirmarRecusa] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [campos, setCampos] = useState<Record<string, string>>({});
+  const painel = useRef<HTMLElement>(null);
+  const nao = useRef<HTMLButtonElement>(null);
+  const recusarBotao = useRef<HTMLButtonElement>(null);
+  const voltarParaRecusar = useRef(false);
   const { enviando, executar } = useEnvioUnico();
   const temNr10 = detalhe.nr10 === 'em_analise';
 
+  // Erro de campo: o foco vai para o primeiro campo inválido (o leitor de tela lê o erro dele).
+  useEffect(() => {
+    if (Object.keys(campos).length > 0) {
+      painel.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+    }
+  }, [campos]);
+
+  // A confirmação recebe o foco ao abrir; "Não" devolve o foco a "Recusar cadastro".
+  useEffect(() => {
+    if (confirmarRecusa) {
+      nao.current?.focus();
+    } else if (voltarParaRecusar.current) {
+      voltarParaRecusar.current = false;
+      recusarBotao.current?.focus();
+    }
+  }, [confirmarRecusa]);
+
+  function mostrar(porCampo: Record<string, string>, geral: string | null = null) {
+    setCampos(porCampo);
+    setErro(geral);
+  }
+
   function decidir(acao: Acao, chamada: () => Promise<unknown>) {
-    setErro(null);
-    setCampos({});
+    mostrar({});
     void executar(
       async () => {
         await chamada();
@@ -226,11 +341,13 @@ function Decisao({ detalhe }: { detalhe: DetalheDaVerificacao }) {
       },
       (problema: ErroDaApi) => {
         setConfirmarRecusa(false);
-        const campo = problema.codigo ? CAMPOS_POR_CODIGO[problema.codigo] : undefined;
+        const campo = problema.codigo ? CAMPOS_POR_CODIGO[acao][problema.codigo] : undefined;
         if (campo) {
-          setCampos({ [campo]: problema.message });
+          mostrar({ [campo]: problema.message });
+        } else if (Object.keys(problema.campos).length > 0) {
+          mostrar({ ...problema.campos }, problema.message);
         } else {
-          setErro(problema.message);
+          mostrar({}, problema.message);
         }
       },
     );
@@ -239,18 +356,15 @@ function Decisao({ detalhe }: { detalhe: DetalheDaVerificacao }) {
   function aprovar() {
     setConfirmarRecusa(false);
     if (marcados.length < ITENS.length) {
-      setCampos({});
-      setErro('Marque todos os itens da conferência para aprovar.');
+      mostrar({ itens: 'Marque todos os itens da conferência para aprovar.' });
       return;
     }
     if (temNr10 && nr10 === '') {
-      setErro(null);
-      setCampos({ nr10: 'Decida o certificado de NR-10.' });
+      mostrar({ nr10: 'Decida o certificado de NR-10.' });
       return;
     }
-    if (temNr10 && nr10 === 'recusado' && motivoNr10.trim() === '') {
-      setErro(null);
-      setCampos({ motivoNr10: 'Escreva por que o certificado não foi aceito.' });
+    if (temNr10 && nr10 === 'recusado' && umaLinha(motivoNr10) === '') {
+      mostrar({ motivoNr10: 'Escreva por que o certificado não foi aceito.' });
       return;
     }
     const itens = Object.fromEntries(ITENS.map((item) => [item.chave, true])) as unknown as ItensDaConferencia;
@@ -258,16 +372,15 @@ function Decisao({ detalhe }: { detalhe: DetalheDaVerificacao }) {
     if (temNr10) {
       pedido.nr10 = nr10 as 'verificado' | 'recusado';
       if (nr10 === 'recusado') {
-        pedido.motivoNr10 = motivoNr10.trim();
+        pedido.motivoNr10 = umaLinha(motivoNr10);
       }
     }
     decidir('aprovar', () => aprovarCadastro(detalhe.id, pedido));
   }
 
   function exigirMotivo(falta: string): boolean {
-    if (motivo.trim() === '') {
-      setErro(null);
-      setCampos({ motivo: falta });
+    if (umaLinha(motivo) === '') {
+      mostrar({ motivo: falta });
       return false;
     }
     return true;
@@ -276,20 +389,30 @@ function Decisao({ detalhe }: { detalhe: DetalheDaVerificacao }) {
   function corrigir() {
     setConfirmarRecusa(false);
     if (exigirMotivo('Escreva o que o profissional precisa corrigir.')) {
-      decidir('correcao', () => pedirCorrecao(detalhe.id, motivo.trim()));
+      decidir('correcao', () => pedirCorrecao(detalhe.id, umaLinha(motivo)));
     }
   }
 
   function recusar() {
     if (exigirMotivo('Escreva o motivo da recusa.')) {
-      setErro(null);
-      setCampos({});
+      mostrar({});
       setConfirmarRecusa(true);
     }
   }
 
+  function desistirDaRecusa() {
+    voltarParaRecusar.current = true;
+    setConfirmarRecusa(false);
+  }
+
+  function mudarMotivo(texto: string) {
+    // O que vai por SMS é o que foi confirmado: mudar a mensagem fecha a confirmação.
+    setMotivo(texto);
+    setConfirmarRecusa(false);
+  }
+
   return (
-    <aside className={estilos.decisao} aria-labelledby="h-conferencia">
+    <aside ref={painel} className={estilos.decisao} aria-labelledby="h-conferencia">
       <h2 id="h-conferencia">Conferência</h2>
       <Opcoes
         legenda="Itens conferidos"
@@ -300,6 +423,7 @@ function Decisao({ detalhe }: { detalhe: DetalheDaVerificacao }) {
         opcoes={ITENS.map((item) => ({ valor: item.chave, texto: item.texto }))}
         selecionadas={marcados}
         aoMudar={setMarcados}
+        erro={campos.itens}
       />
       {temNr10 && (
         <>
@@ -331,7 +455,7 @@ function Decisao({ detalhe }: { detalhe: DetalheDaVerificacao }) {
         nome="motivo"
         rotulo="Mensagem para o profissional (se pedir correção ou recusar)"
         valor={motivo}
-        aoMudar={setMotivo}
+        aoMudar={mudarMotivo}
         maxLength={MOTIVO_MAXIMO}
         dica="Vai por SMS: uma frase curta, sem telefone."
         erro={campos.motivo}
@@ -350,17 +474,21 @@ function Decisao({ detalhe }: { detalhe: DetalheDaVerificacao }) {
       {confirmarRecusa ? (
         <div className={estilos.confirmar} role="group" aria-labelledby="pergunta-recusa">
           <p id="pergunta-recusa">Recusar de vez? Depois disso o cadastro não pode mais ser mudado.</p>
-          <Botao variante="perigo" onClick={() => decidir('recusar', () => recusarCadastro(detalhe.id, motivo.trim()))} desabilitado={enviando}>
+          <Botao
+            variante="perigo"
+            onClick={() => decidir('recusar', () => recusarCadastro(detalhe.id, umaLinha(motivo)))}
+            desabilitado={enviando}
+          >
             Sim, recusar
           </Botao>
-          <Botao variante="suave" onClick={() => setConfirmarRecusa(false)} desabilitado={enviando}>
+          <button ref={nao} type="button" className={estilos.nao} onClick={desistirDaRecusa} disabled={enviando}>
             Não
-          </Botao>
+          </button>
         </div>
       ) : (
-        <Botao variante="perigo" onClick={recusar} desabilitado={enviando}>
+        <button ref={recusarBotao} type="button" className={estilos.recusar} onClick={recusar} disabled={enviando}>
           Recusar cadastro
-        </Botao>
+        </button>
       )}
     </aside>
   );

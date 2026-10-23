@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 
 import { buscarCatalogo, profissoesDoCatalogo } from '../../api/catalogo';
@@ -55,7 +55,16 @@ function Lista({ inicio }: { inicio: Inicio }) {
   const [temMais, setTemMais] = useState(inicio.temMais);
   const [pagina, setPagina] = useState(0);
   const [erro, setErro] = useState<string | null>(null);
+  const [focar, setFocar] = useState<string | null>(null);
+  const lista = useRef<HTMLUListElement>(null);
   const { enviando, executar } = useEnvioUnico();
+
+  // "Ver mais" some quando acaba a fila: o foco vai para o primeiro cadastro que chegou.
+  useEffect(() => {
+    if (focar !== null) {
+      lista.current?.querySelector<HTMLElement>(`[data-cadastro="${CSS.escape(focar)}"]`)?.focus();
+    }
+  }, [focar]);
   const profissoes = profissoesDoCatalogo(inicio.catalogo);
   const nomeDaProfissao = (codigo: string) => profissoes.find((p) => p.codigo === codigo)?.nome ?? codigo;
 
@@ -64,7 +73,9 @@ function Lista({ inicio }: { inicio: Inicio }) {
     void executar(
       async () => {
         const proxima = await buscarFila(pagina + 1, new AbortController().signal);
-        setItens((anteriores) => [...anteriores, ...proxima.itens.filter((novo) => !anteriores.some((i) => i.id === novo.id))]);
+        const novos = proxima.itens.filter((novo) => !itens.some((i) => i.id === novo.id));
+        setItens([...itens, ...novos]);
+        setFocar(novos[0]?.id ?? null);
         setTemMais(proxima.temMais);
         setPagina(pagina + 1);
       },
@@ -82,7 +93,7 @@ function Lista({ inicio }: { inicio: Inicio }) {
   }
   return (
     <>
-      <ul className={estilos.cartoes}>
+      <ul ref={lista} className={estilos.cartoes}>
         {itens.map((item) => (
           <li key={item.id}>
             <article className={estilos.cartao} aria-labelledby={`fila-${item.id}`}>
@@ -93,6 +104,7 @@ function Lista({ inicio }: { inicio: Inicio }) {
                 className={estilos.analisar}
                 to={caminhoDaVerificacao(item.id)}
                 aria-label={`Analisar o cadastro de ${item.nome}`}
+                data-cadastro={item.id}
               >
                 Analisar o cadastro
               </Link>

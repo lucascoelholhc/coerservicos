@@ -39,7 +39,7 @@ function simular(opcoes: { fila?: (pedido: Pedido) => Resposta; detalhe?: unknow
       return opcoes.fila ? opcoes.fila(pedido) : json(FILA_DA_VERIFICACAO);
     }
     if (pedido.url.endsWith('/url')) {
-      return json({ url: 'https://bucket.exemplo/documento/1.jpg?assinatura', expiraEm: '2026-10-22T12:02:00Z' });
+      return json({ url: 'https://bucket.exemplo/documento/1.jpg?assinatura', expiraEm: '2099-01-01T00:00:00Z' });
     }
     if (pedido.metodo === 'POST') {
       return opcoes.decisao ? opcoes.decisao(pedido) : json({ id: 'p1', status: 'ativo', nr10: 'nao_tem' });
@@ -102,6 +102,7 @@ describe('/admin/verificacao: a fila', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Ver mais' }));
 
     expect(await screen.findByRole('heading', { name: 'Cristiano Weber' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Analisar o cadastro de Cristiano Weber' })).toHaveFocus();
     expect(screen.getAllByRole('article')).toHaveLength(2);
     expect(screen.queryByRole('button', { name: 'Ver mais' })).not.toBeInTheDocument();
     expect(pedidos.filter((p) => p.url.includes('pagina')).map((p) => p.url)).toEqual([
@@ -140,19 +141,25 @@ describe('/admin/verificacao/:id: conferir e decidir', () => {
     const { container } = abrir('/admin/verificacao/p1');
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Valdir Schmitt' })).toBeInTheDocument();
-    expect(screen.getByText('111.444.777-35')).toBeInTheDocument();
+    expect(screen.queryByText('111.444.777-35')).not.toBeInTheDocument();
+    expect(screen.getByText('***.***.***-35')).toBeInTheDocument();
     expect(screen.getByText('Pedreiro, Pintor')).toBeInTheDocument();
     expect(screen.getByText('R$ 280,00 · meia R$ 160,00')).toBeInTheDocument();
     expect(screen.getByText('Blumenau · até 20 km · + Gaspar')).toBeInTheDocument();
     expect(screen.getByText(/Chego no horário combinado\./)).toBeInTheDocument();
     await semViolacoes(container);
 
+    await userEvent.click(screen.getByRole('button', { name: 'Mostrar CPF' }));
+    expect(screen.getByText('111.444.777-35')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Esconder CPF' }));
+    expect(screen.queryByText('111.444.777-35')).not.toBeInTheDocument();
+
     await userEvent.click(screen.getByRole('button', { name: 'Ver RG (frente)' }));
 
-    expect(await screen.findByRole('link', { name: 'Abrir RG (frente)' })).toHaveAttribute(
-      'href',
-      'https://bucket.exemplo/documento/1.jpg?assinatura',
-    );
+    const link = await screen.findByRole('link', { name: /^Abrir RG \(frente\)/ });
+    expect(link).toHaveTextContent('(abre em nova aba)');
+    expect(link).toHaveAttribute('href', 'https://bucket.exemplo/documento/1.jpg?assinatura');
+    expect(link).toHaveFocus();
     expect(pedidos.some((p) => p.url === '/api/admin/verificacao/p1/documentos/doc-rg/url')).toBe(true);
   });
 
@@ -161,7 +168,10 @@ describe('/admin/verificacao/:id: conferir e decidir', () => {
     abrir('/admin/verificacao/p1');
 
     await userEvent.click(await screen.findByRole('button', { name: 'Aprovar e publicar' }));
-    expect(screen.getByRole('alert')).toHaveTextContent('Marque todos os itens da conferência para aprovar.');
+    expect(screen.getByRole('group', { name: 'Itens conferidos' })).toHaveAccessibleDescription(
+      'Marque todos os itens da conferência para aprovar.',
+    );
+    expect(screen.getByRole('checkbox', { name: /CPF válido/ })).toHaveFocus();
     expect(pedidos.filter((p) => p.metodo === 'POST')).toHaveLength(0);
 
     await marcarTudo();
@@ -220,11 +230,106 @@ describe('/admin/verificacao/:id: conferir e decidir', () => {
     await userEvent.type(await screen.findByRole('textbox', { name: /Mensagem para o profissional/ }), 'Documento de outra pessoa.');
     await userEvent.click(screen.getByRole('button', { name: 'Recusar cadastro' }));
     expect(screen.getByText('Recusar de vez? Depois disso o cadastro não pode mais ser mudado.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Não' })).toHaveFocus();
     expect(pedidos.filter((p) => p.metodo === 'POST')).toHaveLength(0);
     await userEvent.click(screen.getByRole('button', { name: 'Sim, recusar' }));
 
     expect(await screen.findByText('Cadastro recusado. O profissional recebe o motivo por SMS.')).toBeInTheDocument();
     expect(JSON.parse(pedidos.find((p) => p.metodo === 'POST')?.corpo ?? '{}')).toEqual({ motivo: 'Documento de outra pessoa.' });
+  });
+
+  it('recusa: "Não" devolve o foco; mudar a mensagem fecha a confirmação (vai o que foi confirmado)', async () => {
+    const { pedidos } = simular();
+    abrir('/admin/verificacao/p1');
+
+    await userEvent.type(await screen.findByRole('textbox', { name: /Mensagem para o profissional/ }), 'Documento ilegível.');
+    await userEvent.click(screen.getByRole('button', { name: 'Recusar cadastro' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Não' }));
+    expect(screen.getByRole('button', { name: 'Recusar cadastro' })).toHaveFocus();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Recusar cadastro' }));
+    await userEvent.type(screen.getByRole('textbox', { name: /Mensagem para o profissional/ }), ' Mande de novo.');
+    expect(screen.queryByRole('button', { name: 'Sim, recusar' })).not.toBeInTheDocument();
+    expect(pedidos.filter((p) => p.metodo === 'POST')).toHaveLength(0);
+  });
+
+  it('mensagem com quebra de linha vai numa linha só (o SMS não aceita)', async () => {
+    const { pedidos } = simular({ decisao: () => json({ id: 'p1', status: 'correcao_pedida', nr10: 'nao_tem' }) });
+    abrir('/admin/verificacao/p1');
+
+    await userEvent.type(await screen.findByRole('textbox', { name: /Mensagem para o profissional/ }), 'Selfie escura.{Enter}Tire outra.');
+    await userEvent.click(screen.getByRole('button', { name: 'Pedir correção' }));
+
+    await screen.findByText(/Correção pedida/);
+    expect(JSON.parse(pedidos.find((p) => p.metodo === 'POST')?.corpo ?? '{}')).toEqual({ motivo: 'Selfie escura. Tire outra.' });
+  });
+
+  it('NR-10 conferido vai como verificado', async () => {
+    const { pedidos } = simular({ detalhe: { ...DETALHE_DA_VERIFICACAO, nr10: 'em_analise' } });
+    abrir('/admin/verificacao/p1');
+
+    await screen.findByRole('group', { name: 'Certificado de NR-10' });
+    await marcarTudo();
+    await userEvent.click(screen.getByRole('radio', { name: /Conferido/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Aprovar e publicar' }));
+
+    await screen.findByText(/Cadastro aprovado/);
+    expect(JSON.parse(pedidos.find((p) => p.metodo === 'POST')?.corpo ?? '{}')).toEqual({
+      itens: { cpf: true, documento: true, selfie: true, fotos: true, texto: true },
+      nr10: 'verificado',
+    });
+  });
+
+  it('contato no motivo do NR-10 (422 na aprovação): erro no campo do NR-10', async () => {
+    simular({
+      detalhe: { ...DETALHE_DA_VERIFICACAO, nr10: 'em_analise' },
+      decisao: () => problema(422, 'texto-com-contato', 'Tire o telefone da mensagem.'),
+    });
+    abrir('/admin/verificacao/p1');
+
+    await screen.findByRole('group', { name: 'Certificado de NR-10' });
+    await marcarTudo();
+    await userEvent.click(screen.getByRole('radio', { name: /Não aceito/ }));
+    await userEvent.type(screen.getByRole('textbox', { name: /Por que o certificado/ }), 'liga 47 99999-0000');
+    await userEvent.click(screen.getByRole('button', { name: 'Aprovar e publicar' }));
+
+    expect(await screen.findByText('Tire o telefone da mensagem.')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /Por que o certificado/ })).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('textbox', { name: /Por que o certificado/ })).toHaveFocus();
+  });
+
+  it('o próprio cadastro (403): mensagem do servidor', async () => {
+    simular({ decisao: () => problema(403, 'verificacao-propria', 'Você não pode verificar o próprio cadastro.') });
+    abrir('/admin/verificacao/p1');
+
+    await screen.findByRole('heading', { level: 1, name: 'Valdir Schmitt' });
+    await marcarTudo();
+    await userEvent.click(screen.getByRole('button', { name: 'Aprovar e publicar' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Você não pode verificar o próprio cadastro.');
+  });
+
+  it('URL do documento que falha ou não é https: aviso anunciado, sem link', async () => {
+    simularFetch((pedido) => {
+      if (pedido.url === '/api/publico/catalogo') {
+        return json(CATALOGO_PADRAO);
+      }
+      if (pedido.url.endsWith('/doc-rg/url')) {
+        return json({ url: 'javascript:alert(1)', expiraEm: '2099-01-01T00:00:00Z' });
+      }
+      if (pedido.url.endsWith('/url')) {
+        return problema(429, 'muitas-tentativas', 'x');
+      }
+      return json(DETALHE_DA_VERIFICACAO);
+    });
+    abrir('/admin/verificacao/p1');
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Ver RG (frente)' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível entender a resposta da COE.');
+    expect(screen.queryByRole('link', { name: /Abrir RG/ })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Ver Selfie com o documento' }));
+    expect(await screen.findByText('Muitas tentativas seguidas. Espere um pouco e tente de novo.')).toBeInTheDocument();
   });
 
   it('cadastro já decidido por outra pessoa (409): mensagem do servidor', async () => {

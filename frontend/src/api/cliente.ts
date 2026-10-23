@@ -175,6 +175,7 @@ async function enviar(caminho: string, opcoes: OpcoesDaChamada, token: string | 
       headers: cabecalhos,
       body: corpoDoPedido(opcoes.corpo),
       credentials: 'same-origin',
+      cache: 'no-store',
       signal: sinal,
     });
   } catch (falha) {

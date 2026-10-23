@@ -204,3 +204,41 @@
 .confirmar p {
   font-weight: 700;
 }
+
+.cpf {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.nao,
+.recusar {
+  min-height: 52px;
+  border-radius: var(--r-sm);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.nao {
+  border: 1.5px solid var(--line-2);
+  background: var(--surface);
+  color: var(--tinta);
+}
+
+.recusar {
+  border: 1.5px solid var(--bad);
+  background: var(--surface);
+  color: var(--bad-txt);
+}
+
+.recusar:hover {
+  background: var(--bad-soft);
+}
+
+.nao:disabled,
+.recusar:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}

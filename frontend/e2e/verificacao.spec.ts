@@ -23,7 +23,7 @@ async function simularVerificacao(pagina: Page, papeis: string[] = ['ADMIN']) {
       return json(rota, { id: 'p1', status: 'ativo', nr10: 'nao_tem' });
     }
     if (caminho.endsWith('/url')) {
-      return json(rota, { url: 'https://bucket.exemplo/documento/rg.jpg?assinatura', expiraEm: '2026-10-22T12:02:00Z' });
+      return json(rota, { url: 'https://bucket.exemplo/documento/rg.jpg?assinatura', expiraEm: '2099-01-01T00:00:00Z' });
     }
     if (caminho === '/api/admin/verificacao') {
       return json(rota, decisoes.length > 0 ? { itens: [FILA_DA_VERIFICACAO.itens[1]], temMais: false } : FILA_DA_VERIFICACAO);
@@ -47,9 +47,11 @@ test.describe('Verificação de cadastros (admin)', () => {
 
     await page.getByRole('link', { name: 'Analisar o cadastro de Valdir Schmitt' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Valdir Schmitt' })).toBeVisible();
+    await expect(page.getByText('***.***.***-35')).toBeVisible();
+    await page.getByRole('button', { name: 'Mostrar CPF' }).click();
     await expect(page.getByText('111.444.777-35')).toBeVisible();
     await page.getByRole('button', { name: 'Ver RG (frente)' }).click();
-    await expect(page.getByRole('link', { name: 'Abrir RG (frente)' })).toHaveAttribute('target', '_blank');
+    await expect(page.getByRole('link', { name: /Abrir RG \(frente\)/ })).toHaveAttribute('target', '_blank');
     await semViolacoesAxe(page);
     await semRolagemLateral(page);
 
