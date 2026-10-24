@@ -430,4 +430,19 @@ class WebhookTest extends IntegracaoTest {
                         contrato))
                 .isEqualTo(1);
     }
+
+    @Test
+    @DisplayName("conversa aberta depois do pagamento já nasce com o contato liberado (achado no teste no navegador)")
+    void conversaDepoisDoPagamento() throws Exception {
+        String pagamento = cobrar("pix");
+        enviar(evento(novoEvento(), "PAYMENT_RECEIVED", pagamento, total()), token)
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/conversas")
+                        .header("Authorization", bearer(cliente, Papel.CLIENTE))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"profissionalId\":\"" + profissional.profissional() + "\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.contatoLiberado").value(true));
+    }
 }

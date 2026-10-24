@@ -129,7 +129,9 @@ function Valores({ contrato }: { contrato: Contrato }) {
         </div>
       </dl>
       <p className={estilos.apoio}>
-        Você paga agora e o dinheiro fica guardado. Cada dia só é liberado depois que você aprovar.
+        {contrato.status === 'aguardando_pagamento'
+          ? 'Você paga agora e o dinheiro fica guardado. Cada dia só é liberado depois que você aprovar.'
+          : 'O dinheiro fica guardado. Cada dia só é liberado depois que você aprovar.'}
       </p>
     </section>
   );

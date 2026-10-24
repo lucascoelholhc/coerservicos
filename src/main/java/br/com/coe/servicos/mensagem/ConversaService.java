@@ -84,7 +84,10 @@ class ConversaService {
                 .addValue("profissional", profissionalId)
                 .addValue("agora", agora());
         List<UUID> nova = jdbc.queryForList("""
-                INSERT INTO conversa (cliente_id, profissional_id, criado_em) VALUES (:cliente, :profissional, :agora)
+                INSERT INTO conversa (cliente_id, profissional_id, criado_em, contato_liberado_em)
+                VALUES (:cliente, :profissional, :agora,
+                        (SELECT min(c.contato_liberado_em) FROM contrato c
+                          WHERE c.cliente_id = :cliente AND c.profissional_id = :profissional))
                 ON CONFLICT (cliente_id, profissional_id) DO NOTHING RETURNING id
                 """, parametros, UUID.class);
         UUID id = nova.isEmpty()
@@ -93,6 +96,15 @@ class ConversaService {
                         parametros,
                         UUID.class)
                 : nova.get(0);
+        // conversa de antes do pagamento (ou aberta por outro caminho): o contato já pago fica liberado
+        jdbc.update("""
+                UPDATE conversa SET contato_liberado_em = (
+                         SELECT min(c.contato_liberado_em) FROM contrato c
+                          WHERE c.cliente_id = :cliente AND c.profissional_id = :profissional)
+                 WHERE id = :id AND contato_liberado_em IS NULL
+                   AND EXISTS (SELECT 1 FROM contrato c WHERE c.cliente_id = :cliente
+                                AND c.profissional_id = :profissional AND c.contato_liberado_em IS NOT NULL)
+                """, parametros.addValue("id", id));
         return new Aberta(minhas(eu, id).get(0), !nova.isEmpty());
     }
 
