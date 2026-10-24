@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
@@ -79,7 +80,12 @@ final class ArmazenamentoS3 implements Armazenamento, AutoCloseable {
             URI endpoint = URI.create(propriedades.endpoint().strip());
             StaticCredentialsProvider chaves = StaticCredentialsProvider.create(
                     AwsBasicCredentials.create(propriedades.chaveDeAcesso(), propriedades.chaveSecreta()));
-            cliente.endpointOverride(endpoint).forcePathStyle(true).credentialsProvider(chaves);
+            // O SeaweedFS recusa às vezes (400 "Content-Md5 not valid") o checksum que o SDK manda no
+            // trailer do aws-chunked; no S3 da AWS (sem endpoint próprio) o padrão do SDK continua.
+            cliente.endpointOverride(endpoint)
+                    .forcePathStyle(true)
+                    .credentialsProvider(chaves)
+                    .requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED);
             assinador
                     .endpointOverride(endpoint)
                     .serviceConfiguration(S3Configuration.builder()

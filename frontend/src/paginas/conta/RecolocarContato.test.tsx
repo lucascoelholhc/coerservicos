@@ -104,6 +104,7 @@ describe('/conta/recolocar-contato', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Mandar link' }));
     await screen.findByText(/Enviamos um link para nova@exemplo.com/);
 
+    await act(async () => {}); // roda o efeito que liga a contagem antes de adiantar o relógio
     act(() => vi.advanceTimersByTime(60_000));
     await userEvent.click(screen.getByRole('button', { name: 'Mandar o link de novo' }));
 
@@ -146,6 +147,7 @@ describe('/conta/recolocar-contato', () => {
     const codigo = await screen.findByRole('textbox', { name: 'Código' });
     await userEvent.type(codigo, '123');
 
+    await act(async () => {}); // roda o efeito que liga a contagem antes de adiantar o relógio
     act(() => vi.advanceTimersByTime(60_000));
     await userEvent.click(screen.getByRole('button', { name: 'Mandar outro código' }));
 

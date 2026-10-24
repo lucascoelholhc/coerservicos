@@ -284,9 +284,21 @@ class VerificacaoTest extends IntegracaoTest {
         assertThat(statusDe(enviado.profissional())).isEqualTo("correcao_pedida");
         assertThat(smsPara(enviado.celular())).anyMatch(texto -> texto.contains("A selfie está escura"));
         assertThat(acoesDe(admin, enviado.profissional())).contains("profissional.pedir-correcao");
+        // a tela do cadastro mostra o que corrigir (o mesmo texto do SMS, já passado pela censura)
+        String dono = bearer(enviado.usuario(), Papel.CLIENTE);
+        mockMvc.perform(get(CadastroDeTeste.BASE).header("Authorization", dono))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.motivoCorrecao").value("A selfie está escura. Tire outra com mais luz."));
         enviado.cadastro().documento("selfie").andExpect(status().isCreated());
         enviar(enviado.usuario()).andExpect(status().isOk());
         assertThat(statusDe(enviado.profissional())).isEqualTo("em_analise");
+        mockMvc.perform(get(CadastroDeTeste.BASE).header("Authorization", dono))
+                .andExpect(jsonPath("$.motivoCorrecao").value(org.hamcrest.Matchers.nullValue()));
+        // fora da correção pedida o motivo nunca sai, mesmo se ficasse gravado na linha
+        jdbc.update("UPDATE profissional SET motivo_correcao = 'antigo' WHERE id = ?", enviado.profissional());
+        mockMvc.perform(get(CadastroDeTeste.BASE).header("Authorization", dono))
+                .andExpect(jsonPath("$.status").value("em_analise"))
+                .andExpect(jsonPath("$.motivoCorrecao").value(org.hamcrest.Matchers.nullValue()));
         assertThat(papeisDe(enviado.usuario())).doesNotContain("PROFISSIONAL");
     }
 

@@ -69,3 +69,83 @@ export interface UsuarioDaSessao {
   papeis: string[];
   contatoPendente: boolean;
 }
+
+/** Situação do cadastro do profissional (coluna profissional.status). */
+export type SituacaoDoCadastro = 'rascunho' | 'em_analise' | 'correcao_pedida' | 'ativo' | 'suspenso' | 'recusado';
+
+/** As 11 etapas, na ordem do protótipo (as chaves de CadastroResposta.etapas). */
+export type EtapaDoCadastro =
+  | 'trabalho'
+  | 'dados'
+  | 'documentos'
+  | 'servicos'
+  | 'experiencia'
+  | 'valor'
+  | 'onde'
+  | 'dias'
+  | 'fotos'
+  | 'sobre'
+  | 'pix';
+
+export type TipoDeDocumento = 'rg_frente' | 'rg_verso' | 'cnh' | 'selfie' | 'certificado_nr10';
+
+export type Ferramentas = 'sim' | 'parte' | 'nao';
+
+export type TipoDeChavePix = 'cpf' | 'celular' | 'email' | 'aleatoria';
+
+export interface DocumentoDoCadastro {
+  id: string;
+  tipo: TipoDeDocumento;
+  status: string;
+}
+
+export interface FotoDoCadastro {
+  id: string;
+  servico: string | null;
+  legenda: string | null;
+}
+
+export interface ServicoDoCadastro {
+  profissao: string;
+  nome: string;
+}
+
+/**
+ * GET /api/profissional/cadastro (CadastroResposta): o rascunho do próprio cadastro. CPF e chave Pix
+ * chegam só mascarados; dinheiro em texto ("280.00"); cidades pelo código IBGE; dias 0 = domingo.
+ */
+export interface CadastroDoProfissional {
+  status: SituacaoDoCadastro;
+  etapaAtual: number;
+  etapas: Record<EtapaDoCadastro, boolean>;
+  nome: string;
+  profissao: string | null;
+  outrasProfissoes: string[];
+  cpf: string | null;
+  dataNascimento: string | null;
+  documentos: DocumentoDoCadastro[];
+  servicos: ServicoDoCadastro[];
+  experienciaAnos: number | null;
+  ferramentas: Ferramentas | null;
+  mei: boolean;
+  valorDiaria: string | null;
+  valorMeiaDiaria: string | null;
+  horario: string | null;
+  cidade: number | null;
+  raioKm: number | null;
+  outrasCidades: number[];
+  dias: number[];
+  fotos: FotoDoCadastro[];
+  frases: string[];
+  bio: string | null;
+  chavePixTipo: TipoDeChavePix | null;
+  chavePix: string | null;
+  /** O que a equipe pediu para corrigir (só com status correcao_pedida). */
+  motivoCorrecao: string | null;
+}
+
+/** URL assinada e curta de um arquivo do próprio cadastro. */
+export interface UrlAssinada {
+  url: string;
+  expiraEm: string;
+}

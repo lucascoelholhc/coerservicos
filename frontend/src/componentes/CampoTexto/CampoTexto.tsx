@@ -7,9 +7,9 @@ export interface CampoTextoProps {
   rotulo: string;
   valor: string;
   aoMudar: (valor: string) => void;
-  tipo?: 'text' | 'email' | 'tel' | 'password';
+  tipo?: 'text' | 'email' | 'tel' | 'password' | 'date';
   autoComplete?: string;
-  inputMode?: 'text' | 'email' | 'tel' | 'numeric';
+  inputMode?: 'text' | 'email' | 'tel' | 'numeric' | 'decimal';
   maxLength?: number;
   /** Ajuda curta, sempre visível e lida pelo leitor de tela. */
   dica?: string;
@@ -20,6 +20,8 @@ export interface CampoTextoProps {
   somenteLeitura?: boolean;
   /** Algo ao lado do campo (ex.: "Mostrar senha"). */
   acessorio?: ReactNode;
+  /** Algo antes do campo, na mesma linha (ex.: o "−" do valor). */
+  prefixo?: ReactNode;
   ref?: Ref<HTMLInputElement>;
 }
 
@@ -38,6 +40,7 @@ export function CampoTexto({
   desabilitado = false,
   somenteLeitura = false,
   acessorio,
+  prefixo,
   ref,
 }: CampoTextoProps) {
   const id = useId();
@@ -50,6 +53,7 @@ export function CampoTexto({
         {rotulo}
       </label>
       <div className={estilos.caixa}>
+        {prefixo}
         <input
           ref={ref}
           className={estilos.entrada}

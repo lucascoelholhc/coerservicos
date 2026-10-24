@@ -5,6 +5,8 @@ export const CAMINHOS = {
   entrar: '/entrar',
   criarConta: '/criar-conta',
   criarContaCliente: '/criar-conta/cliente',
+  criarContaProfissional: '/criar-conta/profissional',
+  cadastro: '/cadastro',
   conta: '/conta',
   confirmarCelular: '/conta/confirmar-celular',
   codigoNoLogin: '/conta/codigo-no-login',

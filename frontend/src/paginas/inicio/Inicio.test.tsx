@@ -272,5 +272,9 @@ describe('Início (visitante) com dados da API', () => {
       'data-fundo-escuro',
       'true',
     );
+    expect(within(convite).getByRole('link', { name: 'Quero trabalhar com a COE' })).toHaveAttribute(
+      'href',
+      '/criar-conta/profissional',
+    );
   });
 });

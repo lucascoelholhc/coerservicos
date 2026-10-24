@@ -30,7 +30,7 @@ class PoliticasDoNavegadorTest extends IntegracaoTest {
     // constante e o JSON juntos sem querer ainda quebre este teste.
 
     private static final String CSP = "default-src 'self'; script-src 'self'; style-src 'self'; "
-            + "img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; "
+            + "img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; "
             + "base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
     private static final String PERMISSOES = "camera=(), microphone=(), geolocation=(), payment=(), usb=()";
 

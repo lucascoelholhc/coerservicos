@@ -263,6 +263,10 @@ class Profissional implements Persistable<UUID> {
         }
     }
 
+    String motivoCorrecao() {
+        return motivoCorrecao;
+    }
+
     /** Volta a editar com o motivo (RN13); o reenvio limpa o motivo. */
     void pedirCorrecao(String motivo) {
         this.status = CORRECAO_PEDIDA;

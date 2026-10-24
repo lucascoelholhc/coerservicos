@@ -52,6 +52,7 @@ export function MinhaConta() {
               <ConfirmarEmail aoAtualizar={conta.tentarDeNovo} aoResponder={setRetornoDoEmail} />
             )}
             <Seguranca conta={conta.dados} />
+            {!conta.dados.papeis.includes('ADMIN') && <TrabalharNaCoe profissional={conta.dados.papeis.includes('PROFISSIONAL')} />}
             <Sair />
           </>
         )}
@@ -95,6 +96,23 @@ function situacaoDoCodigo(conta: Conta): string {
     return 'Obrigatório';
   }
   return conta.mfaAtivo ? 'Ligado' : 'Desligado';
+}
+
+/** O cadastro de profissional (FE-04): começar, continuar ou ver a situação. */
+function TrabalharNaCoe({ profissional }: { profissional: boolean }) {
+  return (
+    <section className={estilos.secao} aria-labelledby="titulo-trabalhar">
+      <h2 id="titulo-trabalhar">Trabalhar na COE</h2>
+      <ul className={estilos.itens}>
+        <li className={estilos.item}>
+          <Link className={estilos.linkDoItem} to={CAMINHOS.cadastro}>
+            {profissional ? 'Meu cadastro de profissional' : 'Cadastro de profissional'}
+          </Link>
+          {!profissional && <span>Ofereça seus serviços. O cadastro é grátis.</span>}
+        </li>
+      </ul>
+    </section>
+  );
 }
 
 /** Celular confirmado e código por SMS no login, com o caminho para cada ajuste. */

@@ -57,6 +57,8 @@ interface FormularioDoClienteProps {
   emailFixo?: string;
   /** Comprovante desse e-mail (só em memória). */
   comprovanteEmail?: string;
+  /** Para onde ir depois de entrar (padrão: Minha conta; a conta de quem vai trabalhar segue para o cadastro). */
+  destino?: string;
 }
 
 /**
@@ -65,7 +67,7 @@ interface FormularioDoClienteProps {
  * outra conta (409), oferece provar a posse (RN61). Depois de criar, entra com o celular e a senha
  * digitados (a senha é descartada logo em seguida) e vai para Minha conta.
  */
-export function FormularioDoCliente({ emailFixo, comprovanteEmail }: FormularioDoClienteProps) {
+export function FormularioDoCliente({ emailFixo, comprovanteEmail, destino = CAMINHOS.conta }: FormularioDoClienteProps) {
   const navegar = useNavigate();
   const regras = useRecurso(buscarRegras);
   const [valores, setValores] = useState({ nome: '', celular: '', email: emailFixo ?? '', cep: '', senha: '' });
@@ -184,7 +186,7 @@ export function FormularioDoCliente({ emailFixo, comprovanteEmail }: FormularioD
       iniciarSessao(await entrar({ login: celular, senha }));
       // Com o e-mail provado (RN61) ele já nasce confirmado e nenhum link é mandado.
       const estado = provas.email === undefined ? { aviso: AVISO_DO_EMAIL } : undefined;
-      void navegar(CAMINHOS.conta, { replace: true, state: estado });
+      void navegar(destino, { replace: true, state: estado });
     } catch {
       void navegar(CAMINHOS.entrar, {
         replace: true,
