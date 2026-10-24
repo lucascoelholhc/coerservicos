@@ -70,7 +70,9 @@ final class RotasLimitadas {
             new RotaLimitada(HttpMethod.POST, "/api/profissional/cadastro/documentos", Cobranca.porIp("upload-ip")),
             new RotaLimitada(HttpMethod.POST, "/api/profissional/cadastro/fotos", Cobranca.porIp("upload-ip")),
             // CPF e nascimento: limite curto para ninguém testar CPFs pelo 409 (enumeração)
-            new RotaLimitada(HttpMethod.PUT, "/api/profissional/cadastro/dados", Cobranca.porIp("dados-ip")));
+            new RotaLimitada(HttpMethod.PUT, "/api/profissional/cadastro/dados", Cobranca.porIp("dados-ip")),
+            // webhook do gateway (DOM-07): os IPs do gateway mudam; um teto global segura o abuso sem token
+            new RotaLimitada(HttpMethod.POST, "/api/webhooks/pagamento", Cobranca.global("webhook-global")));
 
     private RotasLimitadas() {}
 

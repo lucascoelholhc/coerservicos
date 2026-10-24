@@ -65,7 +65,9 @@ public class SegurancaConfig {
             new RotaPublica(HttpMethod.POST, "/api/auth/entrar-com-codigo"),
             new RotaPublica(HttpMethod.POST, "/api/auth/renovar"),
             new RotaPublica(HttpMethod.POST, "/api/auth/senha/esqueci"),
-            new RotaPublica(HttpMethod.POST, "/api/auth/senha/redefinir"));
+            new RotaPublica(HttpMethod.POST, "/api/auth/senha/redefinir"),
+            // webhook do gateway (DOM-07): sem login, autenticado pelo token do header
+            new RotaPublica(HttpMethod.POST, "/api/webhooks/pagamento"));
 
     /**
      * CSP de toda resposta: só recursos da própria origem, imagens também em data: (ilustrações

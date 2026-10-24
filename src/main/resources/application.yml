@@ -76,6 +76,10 @@ coe:
   cadastro:
     # URL assinada de documento e selfie: curta e só para o dono (o ADMIN tem a dele no DOM-03; RN16)
     validade-url-documento: 2m
+  gateway:
+    # Token que o gateway manda no header asaas-access-token do webhook (DOM-07). Obrigatório; no prod,
+    # 32 caracteres ou mais (COE_GATEWAY_TOKEN_WEBHOOK, o mesmo cadastrado no painel do Asaas).
+    token-webhook: ${COE_GATEWAY_TOKEN_WEBHOOK:}
   front:
     # Base dos links mandados por e-mail (token no fragmento #token=...). Obrigatória; em prod só https.
     url-base: ${COE_FRONT_URL_BASE:}
@@ -137,6 +141,7 @@ coe:
       # no Postgres, globais (fatias: a chave é dividida em N linhas sorteadas, H1)
       cadastro-global: { capacidade: 500, janela: 1h, fatias: 10 }
       envio-normal-global: { capacidade: 300, janela: 1h, fatias: 10 }
+      webhook-global: { capacidade: 3000, janela: 1h, fatias: 10 }   # webhook do gateway (DOM-07)
       # no Postgres, por login, celular e usuário (nos serviços)
       entrar-login-ip: { capacidade: 8, janela: 15m }
       entrar-login: { capacidade: 20, janela: 1h }

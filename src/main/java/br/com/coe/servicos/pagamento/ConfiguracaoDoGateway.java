@@ -11,6 +11,8 @@ import org.springframework.core.env.Environment;
 @Configuration(proxyBeanMethods = false)
 public class ConfiguracaoDoGateway {
 
+    private static final int TOKEN_MINIMO_NO_PROD = 32;
+
     ConfiguracaoDoGateway(ObjectProvider<GatewayPagamento> gateways, Environment ambiente) {
         GatewayPagamento gateway = gateways.getIfAvailable();
         if (gateway == null) {
@@ -19,6 +21,14 @@ public class ConfiguracaoDoGateway {
         }
         if (gateway instanceof GatewayFalso && ambiente.matchesProfiles("prod")) {
             throw new IllegalStateException("O gateway falso não pode subir com o perfil prod.");
+        }
+        String token = ambiente.getProperty("coe.gateway.token-webhook", "");
+        if (token.isBlank()) {
+            throw new IllegalStateException("Token do webhook do gateway ausente (COE_GATEWAY_TOKEN_WEBHOOK).");
+        }
+        if (ambiente.matchesProfiles("prod") && token.length() < TOKEN_MINIMO_NO_PROD) {
+            throw new IllegalStateException("Token do webhook do gateway curto demais para o prod: "
+                    + TOKEN_MINIMO_NO_PROD + " caracteres ou mais.");
         }
     }
 }

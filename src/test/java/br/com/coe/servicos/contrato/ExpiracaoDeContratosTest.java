@@ -95,6 +95,11 @@ class ExpiracaoDeContratosTest extends IntegracaoTest {
     void expira() throws Exception {
         UUID cliente = contas.criarConfirmada(Papel.CLIENTE).id();
         UUID contrato = contratar(cliente, proximaSegunda(), 201);
+        mockMvc.perform(post("/api/contratos/" + contrato + "/pagamento")
+                        .header("Authorization", bearer(cliente, Papel.CLIENTE))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"metodo\":\"pix\"}"))
+                .andExpect(status().isCreated());
 
         relogio.avancar(configuracao.expiracaoPagamento().minusSeconds(1));
         expiracao.executar();
@@ -105,6 +110,8 @@ class ExpiracaoDeContratosTest extends IntegracaoTest {
         expiracao.executar();
 
         assertThat(statusDo(contrato)).isEqualTo("expirado");
+        assertThat(jdbc.queryForList("SELECT status FROM cobranca WHERE contrato_id = ?", String.class, contrato))
+                .containsExactly("expirada");
         assertThat(jdbc.queryForList(
                         "SELECT status FROM diaria WHERE contrato_id = ? AND cancelada_em IS NOT NULL",
                         String.class,
