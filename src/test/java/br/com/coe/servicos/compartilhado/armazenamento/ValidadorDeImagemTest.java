@@ -353,28 +353,66 @@ class ValidadorDeImagemTest {
         Map<Categoria, DataSize> semSelfie = tamanhos();
         semSelfie.remove(Categoria.SELFIE);
 
-        assertThatThrownBy(
-                        () -> new PropriedadesDeImagem(semSelfie, 1000L, LADO_MAXIMO, 1, Duration.ofSeconds(1), 0.85f)
-                                .validar())
+        assertThatThrownBy(() -> new PropriedadesDeImagem(
+                                semSelfie, 1000L, LADO_MAXIMO, 1, Duration.ofSeconds(1), qualidades(0.85f))
+                        .validar())
                 .hasMessageContaining("selfie");
-        assertThatThrownBy(() -> new PropriedadesDeImagem(tamanhos(), 0L, LADO_MAXIMO, 1, Duration.ofSeconds(1), 0.85f)
+        assertThatThrownBy(() -> new PropriedadesDeImagem(
+                                tamanhos(), 0L, LADO_MAXIMO, 1, Duration.ofSeconds(1), qualidades(0.85f))
                         .validar())
                 .hasMessageContaining("pixels-maximo");
-        assertThatThrownBy(
-                        () -> new PropriedadesDeImagem(tamanhos(), 1000L, LADO_MAXIMO, 0, Duration.ofSeconds(1), 0.85f)
-                                .validar())
+        assertThatThrownBy(() -> new PropriedadesDeImagem(
+                                tamanhos(), 1000L, LADO_MAXIMO, 0, Duration.ofSeconds(1), qualidades(0.85f))
+                        .validar())
                 .hasMessageContaining("processamentos-simultaneos");
-        assertThatThrownBy(
-                        () -> new PropriedadesDeImagem(tamanhos(), 1000L, LADO_MAXIMO, 1, Duration.ofSeconds(1), 1.5f)
-                                .validar())
+        assertThatThrownBy(() -> new PropriedadesDeImagem(
+                                tamanhos(), 1000L, LADO_MAXIMO, 1, Duration.ofSeconds(1), qualidades(1.5f))
+                        .validar())
                 .hasMessageContaining("qualidade-jpeg");
     }
 
     private static PropriedadesDeImagem propriedades(long pixelsMaximo, int simultaneos) {
         PropriedadesDeImagem propriedades = new PropriedadesDeImagem(
-                tamanhos(), pixelsMaximo, LADO_MAXIMO, simultaneos, Duration.ofMillis(100), 0.85f);
+                tamanhos(), pixelsMaximo, LADO_MAXIMO, simultaneos, Duration.ofMillis(100), qualidades(0.85f));
         propriedades.validar();
         return propriedades;
+    }
+
+    @Test
+    @DisplayName("qualidade do JPEG por categoria: documento (0,92) sai maior que portfólio (0,85) da mesma foto")
+    void qualidadePorCategoria() {
+        Map<Categoria, Float> qualidades = qualidades(0.85f);
+        qualidades.put(Categoria.DOCUMENTO, 0.92f);
+        PropriedadesDeImagem propriedades =
+                new PropriedadesDeImagem(tamanhos(), 40_000_000L, LADO_MAXIMO, 2, Duration.ofMillis(100), qualidades);
+        ValidadorDeImagem porCategoria = new ValidadorDeImagem(propriedades);
+        byte[] foto = ImagensDeTeste.jpegComRuido(400, 300);
+
+        int documento = porCategoria.validar(foto, Categoria.DOCUMENTO).tamanho();
+        int portfolio = porCategoria.validar(foto, Categoria.PORTFOLIO).tamanho();
+
+        assertThat(propriedades.qualidadeDe(Categoria.DOCUMENTO)).isEqualTo(0.92f);
+        assertThat(documento).isGreaterThan(portfolio);
+    }
+
+    @Test
+    @DisplayName("configuração: toda categoria com qualidade")
+    void qualidadeObrigatoria() {
+        Map<Categoria, Float> semSelfie = qualidades(0.85f);
+        semSelfie.remove(Categoria.SELFIE);
+
+        assertThatThrownBy(() -> new PropriedadesDeImagem(
+                                tamanhos(), 1000L, LADO_MAXIMO, 1, Duration.ofSeconds(1), semSelfie)
+                        .validar())
+                .hasMessageContaining("qualidade-jpeg.selfie");
+    }
+
+    private static Map<Categoria, Float> qualidades(float qualidade) {
+        Map<Categoria, Float> qualidades = new EnumMap<>(Categoria.class);
+        for (Categoria categoria : Categoria.values()) {
+            qualidades.put(categoria, qualidade);
+        }
+        return qualidades;
     }
 
     private static Map<Categoria, DataSize> tamanhos() {
