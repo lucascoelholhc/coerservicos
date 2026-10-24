@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSourceResolvable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -145,10 +146,13 @@ public class TratadorDeErros extends ResponseEntityExceptionHandler {
                         "O serviço está instável. Tente de novo em instantes."));
     }
 
-    /** A linha mudou entre a leitura e a gravação (@Version): 409, a pessoa tenta de novo. */
-    @ExceptionHandler(OptimisticLockingFailureException.class)
-    ProblemDetail edicaoConcorrente(OptimisticLockingFailureException erro) {
-        LOG.info("Edição concorrente recusada pela trava otimista");
+    /**
+     * A linha mudou entre a leitura e a gravação (@Version), ou a trava da linha não saiu no prazo (lock timeout):
+     * 409, a pessoa tenta de novo.
+     */
+    @ExceptionHandler({OptimisticLockingFailureException.class, PessimisticLockingFailureException.class})
+    ProblemDetail edicaoConcorrente(RuntimeException erro) {
+        LOG.info("Edição concorrente recusada pela trava ({})", erro.getClass().getSimpleName());
         return problema(
                 HttpStatus.CONFLICT,
                 "edicao-concorrente",

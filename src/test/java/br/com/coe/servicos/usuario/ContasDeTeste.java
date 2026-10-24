@@ -10,7 +10,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
  * Cria contas direto no banco para os testes de login (celulares fictícios 4790000xxxx). Grava de
  * verdade (sem rollback): cada conta tem celular e e-mail únicos.
  */
-final class ContasDeTeste {
+public final class ContasDeTeste {
 
     static final String SENHA = "Casa-Azul-2026";
     /** Hash do seed local (bcrypt $2b$ custo 10, sem prefixo) da senha coe-local-123. */
@@ -21,17 +21,17 @@ final class ContasDeTeste {
     private static final AtomicLong SEQUENCIA = new AtomicLong(5_000);
     private static volatile String hashDaSenha;
 
-    record Conta(UUID id, String celular, String email, String nome) {}
+    public record Conta(UUID id, String celular, String email, String nome) {}
 
     private final JdbcTemplate jdbc;
     private final PasswordEncoder codificador;
 
-    ContasDeTeste(JdbcTemplate jdbc, PasswordEncoder codificador) {
+    public ContasDeTeste(JdbcTemplate jdbc, PasswordEncoder codificador) {
         this.jdbc = jdbc;
         this.codificador = codificador;
     }
 
-    Conta criar(Papel... papeis) {
+    public Conta criar(Papel... papeis) {
         return criar("ativo", false, hashDaSenha(), papeis);
     }
 
@@ -44,7 +44,7 @@ final class ContasDeTeste {
     }
 
     /** Conta com o celular já confirmado (pode entrar por SMS). */
-    Conta criarConfirmada(Papel... papeis) {
+    public Conta criarConfirmada(Papel... papeis) {
         return criar("ativo", false, true, hashDaSenha(), papeis);
     }
 

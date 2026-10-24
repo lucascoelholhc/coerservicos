@@ -91,6 +91,14 @@ class VarreduraDeLogsTest extends IntegracaoTest {
         return "Bearer " + guardar(token);
     }
 
+    private static byte[] jpeg() throws java.io.IOException {
+        java.awt.image.BufferedImage imagem =
+                new java.awt.image.BufferedImage(32, 24, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        java.io.ByteArrayOutputStream saida = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(imagem, "jpg", saida);
+        return saida.toByteArray();
+    }
+
     @Test
     @DisplayName("nenhum fluxo de conta deixa dado pessoal ou segredo no log")
     void fluxosDeConta(CapturedOutput saida) throws Exception {
@@ -201,9 +209,41 @@ class VarreduraDeLogsTest extends IntegracaoTest {
                 202);
         executar(json(post("/api/contas/email/confirmar"), "{\"token\":\"" + token(novo) + "\"}"), 204);
 
+        // cadastro do profissional (DOM-02): CPF, chave Pix e nome original do arquivo nunca no log
+        String autorizacao = bearer(semEmail.id(), Papel.CLIENTE);
+        String cpf = guardar(
+                br.com.coe.servicos.compartilhado.pessoal.CpfsDeTeste.unico().digitos());
+        executar(
+                json(
+                                put("/api/profissional/cadastro/dados"),
+                                "{\"cpf\":\"" + cpf + "\",\"dataNascimento\":\"1990-05-20\"}")
+                        .header("Authorization", autorizacao),
+                200);
+        String pix = guardar("pix-" + System.nanoTime() + "@teste.coe.local");
+        executar(
+                json(put("/api/profissional/cadastro/pix"), "{\"tipo\":\"email\",\"chave\":\"" + pix + "\"}")
+                        .header("Authorization", autorizacao),
+                200);
+        String nomeDoArquivo = guardar("rg-da-pessoa-" + System.nanoTime() + ".jpg");
+        byte[] foto = jpeg();
+        int status = mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart(
+                                "/api/profissional/cadastro/documentos")
+                        .file(new org.springframework.mock.web.MockMultipartFile(
+                                "arquivo", nomeDoArquivo, "image/jpeg", foto))
+                        .param("tipo", "rg_frente")
+                        .header("Authorization", autorizacao)
+                        .with(requisicao -> {
+                            requisicao.setContent(new byte[foto.length + 512]);
+                            return requisicao;
+                        }))
+                .andReturn()
+                .getResponse()
+                .getStatus();
+        assertThat(status).isEqualTo(201);
+
         sms.aguardarEnvios();
         String log = saida.getAll();
-        assertThat(log).contains("Login ok").contains("Enviado SMS");
+        assertThat(log).contains("Login ok").contains("Enviado SMS").contains("Arquivo guardado");
         assertThat(segredos)
                 .allSatisfy(segredo -> assertThat(log)
                         .as("o log não pode ter o segredo nº %d", segredos.indexOf(segredo))

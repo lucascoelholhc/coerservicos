@@ -129,6 +129,11 @@ class TratadorDeErrosTest extends IntegracaoTest {
             throw new org.springframework.dao.OptimisticLockingFailureException("versão 3 mudou para 4");
         }
 
+        @GetMapping("/trava")
+        void trava() {
+            throw new org.springframework.dao.CannotAcquireLockException("lock timeout no profissional");
+        }
+
         @GetMapping("/arquivo/{motivo}")
         void arquivo(@PathVariable String motivo) {
             throw switch (motivo) {
@@ -372,6 +377,15 @@ class TratadorDeErrosTest extends IntegracaoTest {
     @DisplayName("409: a linha mudou no meio do caminho (trava otimista), sem detalhe interno")
     void edicaoConcorrente() throws Exception {
         mockMvc.perform(get("/teste/erros/concorrencia"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:edicao-concorrente"))
+                .andExpect(jsonPath("$.detail").value("Seus dados mudaram enquanto você salvava. Tente de novo."));
+    }
+
+    @Test
+    @DisplayName("409: trava pessimista que não saiu no prazo (lock timeout) = mesma resposta da edição concorrente")
+    void travaPessimista() throws Exception {
+        mockMvc.perform(get("/teste/erros/trava"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.type").value("urn:coe:erro:edicao-concorrente"))
                 .andExpect(jsonPath("$.detail").value("Seus dados mudaram enquanto você salvava. Tente de novo."));

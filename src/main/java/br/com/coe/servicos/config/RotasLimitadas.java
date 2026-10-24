@@ -65,7 +65,12 @@ final class RotasLimitadas {
                     HttpMethod.POST, "/api/contas/posse/email/confirmar", Cobranca.porIp("posse-confirmar-ip")),
             // As rotas logadas de envio normal (/api/contas/eu/...) cobram o global no @LimitadoPorUsuario,
             // DEPOIS do limite do usuário: aqui ele seria gasto antes (revisão de segurança, H2).
-            new RotaLimitada(HttpMethod.POST, "/api/contas/email/confirmar", Cobranca.porIp("confirmar-email-ip")));
+            new RotaLimitada(HttpMethod.POST, "/api/contas/email/confirmar", Cobranca.porIp("confirmar-email-ip")),
+            // uploads do cadastro do profissional (DOM-02): também por usuário, no @LimitadoPorUsuario
+            new RotaLimitada(HttpMethod.POST, "/api/profissional/cadastro/documentos", Cobranca.porIp("upload-ip")),
+            new RotaLimitada(HttpMethod.POST, "/api/profissional/cadastro/fotos", Cobranca.porIp("upload-ip")),
+            // CPF e nascimento: limite curto para ninguém testar CPFs pelo 409 (enumeração)
+            new RotaLimitada(HttpMethod.PUT, "/api/profissional/cadastro/dados", Cobranca.porIp("dados-ip")));
 
     private RotasLimitadas() {}
 

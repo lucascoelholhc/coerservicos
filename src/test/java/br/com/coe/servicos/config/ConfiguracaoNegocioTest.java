@@ -41,6 +41,12 @@ class ConfiguracaoNegocioTest extends BancoIntegracaoTest {
         assertThat(configuracao.meiaDiariaMaxima()).isEqualTo(Duration.ofHours(4));
         assertThat(configuracao.expiracaoPagamento()).isEqualTo(Duration.ofMinutes(60));
         assertThat(configuracao.versaoTermos()).isEqualTo("1.0");
+        // RN09 e RN10 (DOM-02)
+        assertThat(configuracao.diariaMinima())
+                .isEqualTo(br.com.coe.servicos.compartilhado.dinheiro.Dinheiro.de("80.00"));
+        assertThat(configuracao.meiaDiariaMinima())
+                .isEqualTo(br.com.coe.servicos.compartilhado.dinheiro.Dinheiro.de("50.00"));
+        assertThat(configuracao.sobreMinimoCaracteres()).isEqualTo(25);
     }
 
     @Test
