@@ -154,6 +154,12 @@ class WebhookTest extends IntegracaoTest {
     void pagamentoRecebido() throws Exception {
         String pagamento = cobrar("pix");
         String id = novoEvento();
+        // antes do pagamento, nenhum dos dois vê o contato do outro
+        mockMvc.perform(get("/api/contratos/" + contrato).header("Authorization", bearer(cliente, Papel.CLIENTE)))
+                .andExpect(jsonPath("$.contato").doesNotExist());
+        mockMvc.perform(get("/api/contratos/" + contrato)
+                        .header("Authorization", bearer(profissional.usuario(), Papel.PROFISSIONAL)))
+                .andExpect(jsonPath("$.contato").doesNotExist());
 
         enviar(evento(id, "PAYMENT_RECEIVED", pagamento, total()), token).andExpect(status().isOk());
 
@@ -185,7 +191,21 @@ class WebhookTest extends IntegracaoTest {
                         .header("Authorization", bearer(profissional.usuario(), Papel.PROFISSIONAL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("pago"))
-                .andExpect(jsonPath("$.endereco.logradouro").value("Rua das Palmeiras"));
+                .andExpect(jsonPath("$.endereco.logradouro").value("Rua das Palmeiras"))
+                .andExpect(jsonPath("$.contato.celular").value(celularDe(cliente)))
+                .andExpect(jsonPath("$.contato.nome").value(nomeDe(cliente)));
+        // e o cliente vê o celular do profissional (o telefone só depois do pagamento)
+        mockMvc.perform(get("/api/contratos/" + contrato).header("Authorization", bearer(cliente, Papel.CLIENTE)))
+                .andExpect(jsonPath("$.contato.celular").value(celularDe(profissional.usuario())))
+                .andExpect(jsonPath("$.contato.nome").value(nomeDe(profissional.usuario())));
+    }
+
+    private String celularDe(UUID usuario) {
+        return jdbc.queryForObject("SELECT celular FROM usuario WHERE id = ?", String.class, usuario);
+    }
+
+    private String nomeDe(UUID usuario) {
+        return jdbc.queryForObject("SELECT nome FROM usuario WHERE id = ?", String.class, usuario);
     }
 
     @Test
