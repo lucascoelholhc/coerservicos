@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -48,6 +49,7 @@ class ContratoService {
     private static final int DIAS_NA_JANELA = 28;
 
     private static final int DESCRICAO_MINIMA = 15;
+    private static final DateTimeFormatter DATA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final String NAO_ENCONTRADO = "Contrato não encontrado.";
 
     private final NamedParameterJdbcTemplate jdbc;
@@ -100,6 +102,9 @@ class ContratoService {
             CensuraDeContato.exigirSemContato(descricao, "descricao");
         }
         exigirDiasNaAgenda(perfil, pedido.dias());
+        if (perfil.lc150()) {
+            exigirLimiteLc150(eu, perfil, pedido.dias(), parametros.limiteDiaristaJanela7Dias());
+        }
 
         List<ValoresDiaria> valores = new ArrayList<>();
         for (ContratoDtos.Dia dia : pedido.dias()) {
@@ -194,6 +199,39 @@ class ContratoService {
                 new MapSqlParameterSource("diaria", diaria)
                         .addValue("ator", cliente)
                         .addValue("agora", agora));
+    }
+
+    /**
+     * RN51 (LC 150/2015): a mesma diarista com o mesmo cliente tem no máximo {@code limite} diárias em qualquer janela
+     * de 7 dias seguidos. A trava por (cliente, profissional) faz dois pedidos ao mesmo tempo contarem um depois do
+     * outro; conta tudo que não foi cancelado nem reembolsado, de qualquer contrato.
+     */
+    private void exigirLimiteLc150(UUID cliente, Perfil perfil, List<ContratoDtos.Dia> dias, int limite) {
+        jdbc.queryForList(
+                "SELECT pg_advisory_xact_lock(hashtextextended(:chave, 0))",
+                new MapSqlParameterSource("chave", "lc150:" + cliente + ":" + perfil.id()),
+                Object.class);
+        List<LocalDate> existentes = jdbc.queryForList(
+                """
+                SELECT data FROM diaria
+                 WHERE cliente_id = :cliente AND profissional_id = :profissional
+                   AND status NOT IN ('cancelada', 'reembolsada')
+                   AND data BETWEEN :de AND :ate
+                """,
+                new MapSqlParameterSource("cliente", cliente)
+                        .addValue("profissional", perfil.id())
+                        .addValue("de", FusoDeNegocio.hoje(clock).minusDays(DIAS_NA_JANELA))
+                        .addValue("ate", FusoDeNegocio.hoje(clock).plusDays(2L * DIAS_NA_JANELA)),
+                LocalDate.class);
+        JanelaLc150.primeiroExcesso(
+                        existentes, dias.stream().map(ContratoDtos.Dia::data).toList(), limite)
+                .ifPresent(dia -> {
+                    throw new RegraDeNegocioException(
+                            "lc150-limite",
+                            "Pela lei das diaristas, a mesma diarista pode trabalhar para você até " + limite
+                                    + " dias em 7 dias seguidos. O dia " + DATA.format(dia)
+                                    + " passa desse limite. Escolha outro dia.");
+                });
     }
 
     /** Dias a partir de amanhã até 4 semanas, num dia da semana trabalhado, sem bloqueio, e meia só com oferta. */

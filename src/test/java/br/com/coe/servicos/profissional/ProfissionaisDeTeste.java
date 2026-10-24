@@ -29,11 +29,21 @@ public final class ProfissionaisDeTeste {
 
     private ProfissionaisDeTeste() {}
 
+    /** Jardineiro em Itajaí, R$ 200,00, de segunda a sexta, sem meia diária. */
     public static Criado ativo(ApplicationContext contexto) {
+        return criar(contexto, "jardineiro", "Corte de grama", Set.of(1, 2, 3, 4, 5));
+    }
+
+    /** Diarista (sujeita à LC 150) em Itajaí, R$ 200,00, todos os dias da semana, sem meia diária. */
+    public static Criado diarista(ApplicationContext contexto) {
+        return criar(contexto, "diarista", "Limpeza completa", Set.of(0, 1, 2, 3, 4, 5, 6));
+    }
+
+    private static Criado criar(ApplicationContext contexto, String profissao, String servico, Set<Integer> dias) {
         long n = SEQUENCIA.incrementAndGet();
         UUID usuario = UUID.randomUUID();
         UUID profissional = UUID.randomUUID();
-        String nome = "Jardineiro Teste" + n + " Silva" + n;
+        String nome = (profissao.equals("diarista") ? "Diarista" : "Jardineiro") + " Teste" + n + " Silva" + n;
         ExemplosLocais.Exemplo exemplo = new ExemplosLocais.Exemplo(
                 usuario,
                 profissional,
@@ -42,9 +52,9 @@ public final class ProfissionaisDeTeste {
                 "profissional" + n + "@teste.coe.local",
                 CpfsDeTeste.unico().digitos(),
                 LocalDate.of(1985, 3, 1),
-                "jardineiro",
+                profissao,
                 List.of(),
-                List.of(new ExemplosLocais.Servico("jardineiro", "Corte de grama")),
+                List.of(new ExemplosLocais.Servico(profissao, servico)),
                 5,
                 "sim",
                 false,
@@ -54,13 +64,13 @@ public final class ProfissionaisDeTeste {
                 4208203,
                 5,
                 List.of(),
-                Set.of(1, 2, 3, 4, 5),
+                dias,
                 "Cuido de jardins com capricho e levo minhas ferramentas.",
                 UUID.randomUUID().toString(),
                 true,
                 false,
                 0x2E6B3A,
-                List.of(new ExemplosLocais.Foto("Jardim da frente", "Corte de grama")));
+                List.of(new ExemplosLocais.Foto("Serviço pronto", servico)));
         new SeederLocal(
                         List.of(exemplo),
                         "local",
