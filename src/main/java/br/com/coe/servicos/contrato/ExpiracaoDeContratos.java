@@ -73,6 +73,11 @@ public class ExpiracaoDeContratos {
                 UPDATE contrato SET status = 'expirado', motivo_cancelamento = :motivo, atualizado_em = :agora
                  WHERE id IN (:contratos) AND status = 'aguardando_pagamento'
                 """, parametros);
+        // cobrança ainda pendente não vale mais (pagamento que chegar depois fica registrado no webhook, DOM-07)
+        jdbc.update("""
+                UPDATE cobranca SET status = 'expirada'
+                 WHERE contrato_id IN (:contratos) AND status = 'pendente'
+                """, parametros);
         // a troca de status e o histórico na mesma instrução
         jdbc.update("""
                 WITH canceladas AS (

@@ -356,6 +356,21 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 - **Revisões** (java, security, database): sem CRITICAL. HIGH corrigido: diárias inseridas na ordem das datas (dois pedidos com os mesmos dias em ordem trocada davam deadlock = 500; agora 409 `dia-indisponivel`, também mapeado no `PessimisticLockingFailureException`). MEDIUMs corrigidos: CEP escondido do profissional antes do pagamento, censura do endereço, dia nulo = 400, bloqueios da agenda numa consulta só, histórico da expiração na mesma instrução (CTE), job parado nos testes (`coe.contrato.expiracao: 24h`), `toString` do endereço sem dado, teste anti-IDOR com corpo igual ao inexistente e 401. "Cidade fora da área" não é erro: a RN19 manda avisar, não recusar (FE-05).
 - **Ficou:** teto de contratos `aguardando_pagamento` abertos por cliente (hoje um cliente pode segurar a agenda de um profissional até a expiração, 60 min; mitigado pelo limite de 20/h; parâmetro novo na configuração, DOM-07 ou DOM-11); o profissional vê `valorComissao` e `valorTotal` do cliente (conferir com o produto); teste com outro limite da LC 150 vindo da configuração; ordem das travas para os próximos fluxos: conta (`FOR NO KEY UPDATE`) → LC 150 (advisory) → diárias por data; o webhook do DOM-07 trava o contrato com `FOR UPDATE` e confere `aguardando_pagamento` antes das diárias, e pagamento depois de expirado precisa de tratamento explícito (A DEFINIR: dinheiro).
 
+**DOM-07 (dias 27–29, feito em 24/10): decisões e pendências (conferir)**
+- **Gateway**: `pagamento.GatewayPagamento` (criar e consultar cobrança) com o `GatewayFalso` só nos perfis local e test (ids `pay_…`, status `PENDING`, sem rede); sem gateway, ou com o falso no prod, a aplicação não sobe. A API real do Asaas não é chamada (adaptador na AWS-09).
+- **Cobrança**: `POST /api/contratos/{id}/pagamento` `{metodo: pix|cartao}` (cliente dono; 201 nova, 200 a pendente do mesmo método) e `GET` (a mais recente). Valor = `contrato.valor_total` do banco, prazo = o do contrato; 422 `contrato-sem-pagamento-pendente`. Cartão só pelo link do gateway (a COE nunca vê dado de cartão). V19: `cobranca.link_pagamento`. Limite `pagamento-usuario` (20/h).
+- **Webhook**: `POST /api/webhooks/pagamento` (público), token no header `asaas-access-token` (o Asaas usa token, não HMAC) comparado por SHA-256 em tempo constante; corpo bruto guardado; só token válido ocupa o id do evento (repetido = 200 sem efeito; inválido = 401, guardado só com 4 KB do corpo e sem payload); leitura tolerante; NUL tirado antes do jsonb. Limites `webhook-ip` (3000/h) antes do `webhook-global` (30000/h).
+- **Confirmação** (`PAYMENT_RECEIVED`/`PAYMENT_CONFIRMED`): travas contrato → cobrança → diárias por data; valor diferente do cobrado = erro registrado e auditado (`pagamento.valor-divergente`); contrato `aguardando_pagamento` vira `pago` com `pago_em` e `contato_liberado_em`, diárias `paga` (histórico origem `gateway`), cobrança `confirmada`, a outra pendente do pedido `expirada`, conversa liberada (RN50), livro-caixa `pagamento:<cobranca>` (D gateway, C custódia) e auditoria `pagamento.confirmado`. `PAYMENT_OVERDUE` = cobrança `expirada`; pagamento atrasado de cobrança vencida ainda confirma se o pedido espera.
+- **Livro-caixa** (`LivroCaixa`): transação só dentro de outra aberta (MANDATORY), balanceada em Java e no banco, idempotente pela chave; `saldoDeCustodia(contrato)` pelas transações do contrato.
+- **Contato**: `GET /api/contratos/{id}` traz `contato {nome, celular}` do outro lado só depois do pagamento.
+- **Decisões tomadas sozinho** (como desfazer):
+  - **Uma cobrança por contrato** (não por diária, como a sugestão de Conta Escrow): o schema já é assim e a modalidade de custódia está A DEFINIR com o comercial do Asaas. Desfazer: cobrança por diária na AWS-09, se o Asaas exigir.
+  - **Pix e cartão podem ficar pendentes juntos**; o primeiro confirmado vence e expira o outro.
+  - **Dinheiro recebido sem pedido pendente** (pedido já pago ou expirado, valor divergente, cobrança desconhecida): **sem regra de dinheiro** (A DEFINIR: devolver ou reativar); fica no `evento_gateway.erro` e na auditoria (`pagamento.sem-contrato-pendente`, `valor-divergente`, `cobranca-desconhecida`), sem lançamento no livro-caixa.
+  - **Expiração** marca as cobranças pendentes como `expirada` (cancelar no Asaas fica para o adaptador real).
+- **Revisões** (java, security, database): sem CRITICAL. HIGH corrigido: limite do webhook por IP antes do global (sem token não esgota o teto do gateway). Aceito para a AWS-09: chamada ao gateway dentro da trava do contrato (com o real, criar fora da trava com `externalReference` = id da cobrança e reconciliar as órfãs). MEDIUMs corrigidos: NUL no JSON, inválido sem payload, outra cobrança expira, auditorias, erro se a chave do livro-caixa repetir depois do pago.
+- **Ficou:** lançamento "a devolver" e fluxo de devolução do dinheiro sem pedido (A DEFINIR); lista de IPs do Asaas e expurgo dos eventos inválidos (AWS-09); custódia nunca negativa com liberações concorrentes e liberação de um contrato sem usar dinheiro de outro: com a liberação (DOM-08); teste de dois webhooks iguais ao mesmo tempo; o `type` do 400 de evento ilegível sai `requisicao-invalida` (o `TratadorDeErros` traduz o `ErrorResponseException`).
+
 **Casos de teste obrigatórios do DOM-05** (PA13):
 - `CEP 89010-000` e `CEP 89010000` passam pela censura
 - Telefone (com e sem separadores) continua bloqueado
@@ -599,9 +614,9 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 | 24 ✅ | DOM-05 | Tentativas e conta em análise | 4ª tentativa → análise (**feito em 24/10**) |
 | 25 ✅ | DOM-06 | Contrato, endereço cifrado, total | Total confere com o banco (**feito em 24/10**) |
 | 26 ✅ | DOM-06 | Agenda, LC 150 com trava, expiração | 3ª diária na janela recusada (**feito em 24/10**) |
-| 27 | DOM-07 | `GatewayPagamento` e adaptador falso | Cobrança criada e consultada |
-| 28 | DOM-07 | Webhook assinado e idempotente; ledger | Webhook repetido não duplica |
-| 29 | DOM-07 | Contrato pago, contato liberado; `/security-scan` | Telefone só após pagamento |
+| 27 ✅ | DOM-07 | `GatewayPagamento` e adaptador falso | Cobrança criada e consultada (**feito em 24/10**) |
+| 28 ✅ | DOM-07 | Webhook assinado e idempotente; ledger | Webhook repetido não duplica (**feito em 24/10**) |
+| 29 ✅ | DOM-07 | Contrato pago, contato liberado; `/security-scan` | Telefone só após pagamento (**feito em 24/10**) |
 | 30 | DOM-08 | Cheguei, terminei com foto, histórico | Transição inválida recusada |
 | 31 | DOM-08 | Aprovar e liberar pelo ledger | Saldos conferem |
 | 32 | DOM-08 | Job das 12 h a partir do `terminou_em` (ShedLock); repasse | Sem liberação dupla |

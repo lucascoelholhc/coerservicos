@@ -383,7 +383,8 @@ class ContratoService {
                 jdbc.queryForList("""
                 SELECT c.id, c.numero, c.status, c.profissional_id, c.cliente_id, c.cep, c.descricao, c.material,
                        c.valor_servicos, c.valor_comissao, c.valor_total, c.pagamento_expira_em, c.pago_em,
-                       c.endereco_cifrado, ci.codigo_ibge, ci.nome AS cidade_nome, ci.uf
+                       c.endereco_cifrado, c.contato_liberado_em, p.usuario_id AS profissional_usuario,
+                       ci.codigo_ibge, ci.nome AS cidade_nome, ci.uf
                   FROM contrato c
                   JOIN profissional p ON p.id = c.profissional_id
                   JOIN cidade ci ON ci.id = c.cidade_id
@@ -429,7 +430,20 @@ class ContratoService {
                 new Dinheiro((BigDecimal) c.get("valor_comissao")),
                 new Dinheiro((BigDecimal) c.get("valor_total")),
                 instante(c.get("pagamento_expira_em")),
-                endereco);
+                endereco,
+                contatoDoOutroLado(c, souCliente));
+    }
+
+    /** RN29/RN32: nome e celular de quem está do outro lado, só depois do pagamento ({@code contato_liberado_em}). */
+    private ContratoDtos.ContatoLiberado contatoDoOutroLado(Map<String, Object> c, boolean souCliente) {
+        if (c.get("contato_liberado_em") == null) {
+            return null;
+        }
+        Object outro = souCliente ? c.get("profissional_usuario") : c.get("cliente_id");
+        return jdbc.queryForObject(
+                "SELECT nome, celular FROM usuario WHERE id = :id",
+                new MapSqlParameterSource("id", outro),
+                (linha, n) -> new ContratoDtos.ContatoLiberado(linha.getString("nome"), linha.getString("celular")));
     }
 
     private static Instant instante(Object valor) {

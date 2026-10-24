@@ -78,5 +78,15 @@ final class ContratoDtos {
             Dinheiro valorComissao,
             Dinheiro valorTotal,
             Instant pagamentoExpiraEm,
-            EnderecoGuardado endereco) {}
+            EnderecoGuardado endereco,
+            ContatoLiberado contato) {}
+
+    /** O contato de quem está do outro lado do contrato: só sai depois do pagamento. */
+    record ContatoLiberado(String nome, String celular) {
+
+        @Override
+        public String toString() {
+            return "ContatoLiberado[***]";
+        }
+    }
 }
