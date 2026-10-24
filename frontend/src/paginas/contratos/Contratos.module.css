@@ -1,0 +1,201 @@
+/* Área do cliente: minhas diárias e o contrato (protótipo: V.cliente, V.contrato, .ccard, .soma, .liberado). */
+
+.pagina {
+  display: grid;
+  gap: 18px;
+  padding-block: 20px 40px;
+}
+
+.topo {
+  display: grid;
+  gap: 6px;
+}
+
+.apoio {
+  margin: 0;
+  color: var(--tinta-2);
+}
+
+.voltar {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  justify-self: start;
+  padding-block: 10px;
+  color: var(--carimbo-txt);
+  font-weight: 700;
+}
+
+.vazio {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  padding: 28px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+  text-align: center;
+}
+
+.lista {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cartao {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--tinta);
+  text-decoration: none;
+}
+
+.cartao:hover {
+  border-color: var(--carimbo);
+}
+
+.cartaoTopo,
+.cartaoBase {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.situacao {
+  justify-self: start;
+  margin: 0;
+  padding: 4px 10px;
+  border-radius: var(--r-pilula);
+  background: var(--surface-2);
+  color: var(--tinta);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.situacao[data-status='aguardando_pagamento'] {
+  background: var(--sinal);
+}
+
+.situacao[data-status='pago'],
+.situacao[data-status='concluido'] {
+  background: var(--ok-soft);
+  color: var(--ok-txt);
+}
+
+.detalhe {
+  display: grid;
+  gap: 18px;
+  max-width: 760px;
+}
+
+.bloco {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+
+.bloco h2,
+.liberado h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.bloco p {
+  margin: 0;
+}
+
+.dias {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dias li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  padding-block: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.dias li > span {
+  display: grid;
+  gap: 2px;
+}
+
+.soma {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.soma div {
+  display: flex;
+  justify-content: space-between;
+}
+
+.soma dd {
+  margin: 0;
+}
+
+.somaTotal {
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font-weight: 800;
+}
+
+.liberado {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 2px solid var(--ok);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+
+.liberado p {
+  margin: 0;
+}
+
+.telefone {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 1.25rem;
+}
+
+.cobranca {
+  display: grid;
+  gap: 12px;
+}
+
+.linkExterno {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  justify-self: start;
+  min-height: 44px;
+  color: var(--carimbo-txt);
+  font-weight: 700;
+}
+
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
