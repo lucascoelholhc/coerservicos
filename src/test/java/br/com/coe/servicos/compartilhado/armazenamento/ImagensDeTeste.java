@@ -42,6 +42,18 @@ final class ImagensDeTeste {
         return codificar(desenho(largura, altura, BufferedImage.TYPE_INT_RGB), "jpg");
     }
 
+    /** Foto com ruído (como uma foto de verdade): a qualidade do JPEG muda bastante o tamanho. */
+    static byte[] jpegComRuido(int largura, int altura) {
+        BufferedImage imagem = new BufferedImage(largura, altura, BufferedImage.TYPE_INT_RGB);
+        java.util.Random aleatorio = new java.util.Random(42);
+        for (int y = 0; y < altura; y++) {
+            for (int x = 0; x < largura; x++) {
+                imagem.setRGB(x, y, aleatorio.nextInt(0x1000000));
+            }
+        }
+        return codificar(imagem, "jpg");
+    }
+
     static byte[] png(int largura, int altura) {
         return codificar(desenho(largura, altura, BufferedImage.TYPE_INT_RGB), "png");
     }
