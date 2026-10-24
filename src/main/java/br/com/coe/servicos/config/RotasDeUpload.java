@@ -10,7 +10,7 @@ import java.util.Set;
 final class RotasDeUpload {
 
     static final Set<String> CAMINHOS =
-            Set.of("/api/profissional/cadastro/documentos", "/api/profissional/cadastro/fotos");
+            Set.of("/api/profissional/cadastro/documentos", "/api/profissional/cadastro/fotos", "/api/diarias/fotos");
 
     private RotasDeUpload() {}
 }
