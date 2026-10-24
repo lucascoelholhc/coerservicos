@@ -69,6 +69,8 @@ final class RotasLimitadas {
             // uploads do cadastro do profissional (DOM-02): também por usuário, no @LimitadoPorUsuario
             new RotaLimitada(HttpMethod.POST, "/api/profissional/cadastro/documentos", Cobranca.porIp("upload-ip")),
             new RotaLimitada(HttpMethod.POST, "/api/profissional/cadastro/fotos", Cobranca.porIp("upload-ip")),
+            // fotos do serviço do dia (DOM-08): também por usuário, no @LimitadoPorUsuario
+            new RotaLimitada(HttpMethod.POST, "/api/diarias/fotos", Cobranca.porIp("upload-ip")),
             // CPF e nascimento: limite curto para ninguém testar CPFs pelo 409 (enumeração)
             new RotaLimitada(HttpMethod.PUT, "/api/profissional/cadastro/dados", Cobranca.porIp("dados-ip")),
             // webhook do gateway (DOM-07): por IP antes do global, para quem não tem o token não esgotar o teto

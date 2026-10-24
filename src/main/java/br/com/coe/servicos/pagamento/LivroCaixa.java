@@ -21,11 +21,15 @@ import br.com.coe.servicos.compartilhado.dinheiro.Dinheiro;
 @Component
 public class LivroCaixa {
 
-    /** Contas da COE (sem dono). As do profissional e do cliente entram com a liberação e o reembolso (DOM-08/09). */
+    /**
+     * Contas do livro-caixa: as da COE (sem dono) e a de cada profissional (dono = id do perfil, criada no primeiro
+     * lançamento). A do cliente entra com o reembolso (DOM-09).
+     */
     public enum Conta {
         GATEWAY("gateway"),
         CUSTODIA("custodia"),
-        RECEITA_COE("receita_coe");
+        RECEITA_COE("receita_coe"),
+        PROFISSIONAL("profissional");
 
         private final String tipo;
 
@@ -45,7 +49,23 @@ public class LivroCaixa {
         }
     }
 
-    public record Lancamento(Conta conta, Natureza natureza, Dinheiro valor) {}
+    /** {@code dono}: o id do perfil do profissional na conta PROFISSIONAL; nulo nas contas da COE. */
+    public record Lancamento(Conta conta, Natureza natureza, Dinheiro valor, UUID dono) {
+
+        public Lancamento {
+            if ((conta == Conta.PROFISSIONAL) != (dono != null)) {
+                throw new IllegalArgumentException("Só a conta do profissional tem dono: " + conta);
+            }
+        }
+
+        public Lancamento(Conta conta, Natureza natureza, Dinheiro valor) {
+            this(conta, natureza, valor, null);
+        }
+
+        public static Lancamento paraProfissional(UUID profissional, Natureza natureza, Dinheiro valor) {
+            return new Lancamento(Conta.PROFISSIONAL, natureza, valor, profissional);
+        }
+    }
 
     public record Transacao(
             String tipo,
@@ -92,16 +112,26 @@ public class LivroCaixa {
             return false;
         }
         for (Lancamento lancamento : transacao.lancamentos()) {
+            if (lancamento.dono() != null) {
+                // a conta do profissional nasce no primeiro lançamento dele (uq_conta_razao segura a corrida)
+                jdbc.update("""
+                        INSERT INTO conta_razao (tipo, profissional_id, nome)
+                        VALUES ('profissional', :dono, 'Valores liberados ao profissional')
+                        ON CONFLICT ON CONSTRAINT uq_conta_razao DO NOTHING
+                        """, new MapSqlParameterSource("dono", lancamento.dono()));
+            }
+            // com dono, o uq_conta_razao (tipo, profissional_id) serve de índice; sem dono, as três contas da COE
+            String conta = lancamento.dono() == null
+                    ? "tipo = :conta AND profissional_id IS NULL AND usuario_id IS NULL"
+                    : "tipo = :conta AND profissional_id = :dono AND usuario_id IS NULL";
             int gravados = jdbc.update(
-                    """
-                    INSERT INTO lancamento (transacao_id, conta_id, natureza, valor)
-                    SELECT :transacao, id, :natureza, :valor FROM conta_razao
-                     WHERE tipo = :conta AND profissional_id IS NULL AND usuario_id IS NULL
-                    """,
+                    "INSERT INTO lancamento (transacao_id, conta_id, natureza, valor)"
+                            + " SELECT :transacao, id, :natureza, :valor FROM conta_razao WHERE " + conta,
                     new MapSqlParameterSource("transacao", criada.get(0))
                             .addValue("natureza", lancamento.natureza().letra)
                             .addValue("valor", lancamento.valor().valor())
-                            .addValue("conta", lancamento.conta().tipo));
+                            .addValue("conta", lancamento.conta().tipo)
+                            .addValue("dono", lancamento.dono()));
             if (gravados != 1) {
                 throw new IllegalStateException("Conta do livro-caixa não encontrada: " + lancamento.conta());
             }

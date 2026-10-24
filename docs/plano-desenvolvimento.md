@@ -371,6 +371,19 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 - **Revisões** (java, security, database): sem CRITICAL. HIGH corrigido: limite do webhook por IP antes do global (sem token não esgota o teto do gateway). Aceito para a AWS-09: chamada ao gateway dentro da trava do contrato (com o real, criar fora da trava com `externalReference` = id da cobrança e reconciliar as órfãs). MEDIUMs corrigidos: NUL no JSON, inválido sem payload, outra cobrança expira, auditorias, erro se a chave do livro-caixa repetir depois do pago.
 - **Ficou:** lançamento "a devolver" e fluxo de devolução do dinheiro sem pedido (A DEFINIR); lista de IPs do Asaas e expurgo dos eventos inválidos (AWS-09); custódia nunca negativa com liberações concorrentes e liberação de um contrato sem usar dinheiro de outro: com a liberação (DOM-08); teste de dois webhooks iguais ao mesmo tempo; o `type` do 400 de evento ilegível sai `requisicao-invalida` (o `TratadorDeErros` traduz o `ErrorResponseException`).
 
+**DOM-08 (dias 30–32, feito em 24/10): decisões e pendências (conferir)**
+- **Máquina de estados** (`contrato.StatusDiaria`, RN40): as transições do diagrama e nenhuma outra (422 `transicao-invalida`), 100% de cobertura; liberada, reembolsada e cancelada são finais.
+- **API** em `/api/diarias`: `POST /{id}/cheguei` (profissional da diária, só no dia: 422 `fora-do-dia`); `POST /fotos` (multipart `diaria` + `arquivo`, uma por vez porque o pedido tem até 11 MB, até 5, só em andamento: 422 `foto-fora-do-andamento`, `limite-de-fotos`; categoria EVIDENCIA); `POST /{id}/terminei` `{recado?}` (pelo menos uma foto: 422 `foto-obrigatoria`; recado censurado; `auto_libera_em` = agora + `autoLiberacao()`); `POST /{id}/aprovar` (cliente; contestada: 422 `diaria-contestada`). Outro usuário: 404 igual a inexistente. Limite `diaria-usuario` (60/h) e os de upload.
+- **Liberação** (`LiberacaoDeDiaria`, RN37–RN39): na trava do contrato e da diária, D custódia o que o cliente pagou pelo dia, C conta do profissional o repasse, C receita a comissão (comissão e taxa congeladas no contrato, `CalculadoraDiaria`); confere a custódia daquele contrato (nunca usa dinheiro de outro); chave `liberacao:<diaria>`; histórico; auditoria `diaria.liberada` (repasse e comissão, sem dado pessoal). A conta do profissional no livro-caixa nasce no primeiro lançamento.
+- **Liberação automática** (`LiberacaoAutomatica`, RN38/PA08): a cada `coe.contrato.liberacao` (1 min; 24 h nos testes), diárias aguardando com o prazo vencido, uma por transação, status reconferido dentro da trava; ShedLock 7.10.1 (V20 `shedlock`, horário do banco). Testes: aprovação e job ao mesmo tempo e duas instâncias = uma liberação só.
+- **Decisões tomadas sozinho** (como desfazer):
+  - **Repasse por Pix ao profissional não implementado**: o envio depende da modalidade de custódia no Asaas (A DEFINIR); a liberação fica no livro-caixa (conta do profissional) e o repasse entra com o adaptador real. Desfazer: o fluxo da tabela `repasse` (V6) na AWS-09.
+  - **Cheguei só no dia da diária** (RN35 "no dia"); terminar pode ser depois (atraso).
+  - **Fotos uma por pedido** (`POST /api/diarias/fotos`) por causa do teto de 11 MB do multipart; o recado fica na última foto (`evidencia_diaria.observacao`).
+  - **Diária que falha na liberação automática** sai da fila daquela instância por 1 h (um log de erro só).
+- **Revisões** (security + java, database): sem CRITICAL nem HIGH. MEDIUMs corrigidos: diária com falha não bloqueia as outras, foto conferida antes de decodificar a imagem, conta do profissional pelo índice, liberação só de `aguardando` (UPDATE confere 1 linha), testes de concorrência sem engolir erro.
+- **Ficou:** aviso ao cliente no Cheguei e no Terminei (RN35, notificações do DOM-11); contrato `em_andamento`/`concluido` conforme as diárias; linha do tempo com as fotos (URL assinada) para o FE-06; contestação (DOM-09) usa a mesma trava e o `StatusDiaria`; todo movimento da custódia (webhook, liberação, reembolso) trava o contrato antes (regra para o DOM-09); conferir o pagamento da própria diária na liberação (hoje: custódia do contrato).
+
 **Casos de teste obrigatórios do DOM-05** (PA13):
 - `CEP 89010-000` e `CEP 89010000` passam pela censura
 - Telefone (com e sem separadores) continua bloqueado
@@ -617,9 +630,9 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 | 27 ✅ | DOM-07 | `GatewayPagamento` e adaptador falso | Cobrança criada e consultada (**feito em 24/10**) |
 | 28 ✅ | DOM-07 | Webhook assinado e idempotente; ledger | Webhook repetido não duplica (**feito em 24/10**) |
 | 29 ✅ | DOM-07 | Contrato pago, contato liberado; `/security-scan` | Telefone só após pagamento (**feito em 24/10**) |
-| 30 | DOM-08 | Cheguei, terminei com foto, histórico | Transição inválida recusada |
-| 31 | DOM-08 | Aprovar e liberar pelo ledger | Saldos conferem |
-| 32 | DOM-08 | Job das 12 h a partir do `terminou_em` (ShedLock); repasse | Sem liberação dupla |
+| 30 ✅ | DOM-08 | Cheguei, terminei com foto, histórico | Transição inválida recusada (**feito em 24/10**) |
+| 31 ✅ | DOM-08 | Aprovar e liberar pelo ledger | Saldos conferem (**feito em 24/10**) |
+| 32 ✅ | DOM-08 | Job das 12 h a partir do `terminou_em` (ShedLock); repasse | Sem liberação dupla (**feito em 24/10**; repasse Pix A DEFINIR com o Asaas) |
 | 33 | FE-05 | Contratar, pagar (adaptador falso) e chat | Contrato pago pelo navegador |
 | 34 | FE-06 | Área do profissional: Hoje, Cheguei, Terminei, agenda, dinheiro | Fluxo do profissional completo |
 | 35 | FE-05 | Acompanhar e aprovar diárias | **Contratar, pagar, trabalhar e aprovar, pelo navegador** (**M3**) |

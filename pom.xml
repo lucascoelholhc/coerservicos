@@ -29,6 +29,7 @@
     <properties>
         <java.version>21</java.version>
         <bucket4j.version>8.14.0</bucket4j.version>
+        <shedlock.version>7.10.1</shedlock.version>
         <awssdk.version>2.56.0</awssdk.version>
         <twelvemonkeys.version>3.15.3</twelvemonkeys.version>
     </properties>
@@ -92,6 +93,17 @@
         <dependency>
             <groupId>com.github.ben-manes.caffeine</groupId>
             <artifactId>caffeine</artifactId>
+        </dependency>
+        <!-- Trava dos jobs entre instâncias (DOM-08): a liberação automática roda numa instância por vez -->
+        <dependency>
+            <groupId>net.javacrumbs.shedlock</groupId>
+            <artifactId>shedlock-spring</artifactId>
+            <version>${shedlock.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>net.javacrumbs.shedlock</groupId>
+            <artifactId>shedlock-provider-jdbc-template</artifactId>
+            <version>${shedlock.version}</version>
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
