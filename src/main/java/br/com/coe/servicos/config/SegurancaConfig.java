@@ -69,12 +69,14 @@ public class SegurancaConfig {
 
     /**
      * CSP de toda resposta: só recursos da própria origem, imagens também em data: (ilustrações
-     * embutidas pelo Vite) e blob: (prévia da foto escolhida no cadastro, FE-04, que nunca sai do aparelho),
+     * embutidas pelo Vite), blob: (prévia da foto escolhida no cadastro, FE-04, que nunca sai do aparelho) e o
+     * armazenamento local (SeaweedFS, http://localhost:8333: fotos do portfólio por URL assinada no perfil
+     * público; o host do bucket de produção entra no AWS-04/AWS-05),
      * nada de objeto, frame ou script de fora. O vite preview lê o mesmo texto
      * de frontend/cabecalhos-seguranca.json (PoliticasDoNavegadorTest compara os dois).
      */
     public static final String CONTENT_SECURITY_POLICY = "default-src 'self'; script-src 'self'; style-src 'self'; "
-            + "img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; "
+            + "img-src 'self' data: blob: http://localhost:8333; font-src 'self'; connect-src 'self'; object-src 'none'; "
             + "base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
 
     /**

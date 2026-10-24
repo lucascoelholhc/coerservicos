@@ -32,6 +32,20 @@ describe('Rotas', () => {
     expect(screen.getByRole('banner')).toBeInTheDocument();
   });
 
+  it('"/busca" abre a busca e "/profissionais/:id" o perfil público, sem login', async () => {
+    abrirEm('/busca?profissao=pedreiro');
+    expect(
+      await within(screen.getByRole('main')).findByRole('heading', { level: 1, name: 'Pedreiros' }),
+    ).toBeInTheDocument();
+  });
+
+  it('perfil que a API não acha mostra "Profissional não encontrado"', async () => {
+    abrirEm('/profissionais/nao-existe');
+    expect(
+      await within(screen.getByRole('main')).findByRole('heading', { level: 1, name: 'Profissional não encontrado' }),
+    ).toBeInTheDocument();
+  });
+
   it('rota que não existe abre "Página não encontrada" dentro da moldura', () => {
     abrirEm('/nao-existe/de-jeito-nenhum');
 

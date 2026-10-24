@@ -11,6 +11,15 @@ export function textoDoProximoLivre(dia: string | null, hoje: string): string {
   return dia === somarDias(hoje, 1) ? 'Livre amanhã' : `Livre ${formatarDiaCurto(dia)}`;
 }
 
+/** "Pedreiro", "Pedreiro e pintor", "Pedreiro, pintor e eletricista" (a principal primeiro). */
+export function textoDasProfissoes(codigos: readonly string[], nomeDaProfissao: (codigo: string) => string): string {
+  const nomes = codigos.map((codigo, indice) => (indice === 0 ? nomeDaProfissao(codigo) : nomeDaProfissao(codigo).toLowerCase()));
+  if (nomes.length < 2) {
+    return nomes[0] ?? '';
+  }
+  return `${nomes.slice(0, -1).join(', ')} e ${nomes.at(-1)}`;
+}
+
 export function textoDaExperiencia(anos: number): string {
   if (anos < 1) {
     return 'Menos de 1 ano';

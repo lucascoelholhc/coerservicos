@@ -8,7 +8,7 @@ import { Reputacao, SeloDocumento, SeloNr10 } from '../../componentes/Selos/Selo
 import { formatarReais } from '../../formatacao/dinheiro';
 import { Icone } from '../../icones/Icone';
 import estilos from './Busca.module.css';
-import { textoDaExperiencia, textoDoProximoLivre } from './textos';
+import { textoDaExperiencia, textoDasProfissoes, textoDoProximoLivre } from './textos';
 
 interface CartaoProps {
   profissional: ProfissionalNaBusca;
@@ -31,11 +31,7 @@ function textoDoLugar(profissional: ProfissionalNaBusca, cidadeBuscada?: string)
 
 /** Cartão da lista (protótipo: proCard). O link do nome cobre o cartão inteiro. */
 export function CartaoDoProfissional({ profissional, nomeDaProfissao, cidadeBuscada, hoje, busca }: CartaoProps) {
-  const profissoes = [profissional.profissao, ...profissional.outrasProfissoes].map((codigo, indice) => {
-    const nome = nomeDaProfissao(codigo);
-    return indice === 0 ? nome : nome.toLowerCase();
-  });
-  const trabalho = `${profissoes.slice(0, -1).join(', ')}${profissoes.length > 1 ? ' e ' : ''}${profissoes.at(-1) ?? ''}`;
+  const trabalho = textoDasProfissoes([profissional.profissao, ...profissional.outrasProfissoes], nomeDaProfissao);
   return (
     <article className={estilos.cartao}>
       <div className={estilos.cartaoFoto}>

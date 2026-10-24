@@ -1,12 +1,26 @@
 import { describe, expect, it } from 'vitest';
 
-import { casasDoCalendario, textoDaExperiencia, textoDasFerramentas, textoDoProximoLivre } from './textos';
+import {
+  casasDoCalendario,
+  textoDaExperiencia,
+  textoDasFerramentas,
+  textoDasProfissoes,
+  textoDoProximoLivre,
+} from './textos';
 
 describe('textos da busca e do perfil', () => {
   it('próximo dia livre: amanhã, um dia da semana ou nenhum nas quatro semanas', () => {
     expect(textoDoProximoLivre('2026-10-24', '2026-10-23')).toBe('Livre amanhã');
     expect(textoDoProximoLivre('2026-10-27', '2026-10-23')).toBe('Livre ter, 27/10');
     expect(textoDoProximoLivre(null, '2026-10-23')).toBe('Sem dia livre nas próximas 4 semanas');
+  });
+
+  it('profissões: a principal primeiro, as outras em minúscula', () => {
+    const nome = (codigo: string) => ({ pedreiro: 'Pedreiro', pintor: 'Pintor', eletricista: 'Eletricista' })[codigo] ?? codigo;
+    expect(textoDasProfissoes(['pedreiro'], nome)).toBe('Pedreiro');
+    expect(textoDasProfissoes(['pedreiro', 'pintor'], nome)).toBe('Pedreiro e pintor');
+    expect(textoDasProfissoes(['pedreiro', 'pintor', 'eletricista'], nome)).toBe('Pedreiro, pintor e eletricista');
+    expect(textoDasProfissoes([], nome)).toBe('');
   });
 
   it('experiência como a pessoa fala', () => {
