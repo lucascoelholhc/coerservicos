@@ -7,17 +7,22 @@ export type EstadoDoRecurso<T> =
   | { situacao: 'pronto' | 'vazio'; dados: T; erro?: undefined }
   | { situacao: 'erro'; dados?: undefined; erro: ErroDaApi };
 
+const CARREGANDO = { situacao: 'carregando' } as const;
+
 /**
  * Busca um recurso da API para uma tela: carregando, pronto, vazio (pela regra dada) ou erro tipado,
- * com "tentar de novo". Ao desmontar, cancela a busca e ignora a resposta.
+ * com "tentar de novo". Ao desmontar, cancela a busca e ignora a resposta. Com {@link chave} (ex.: os
+ * filtros da busca), trocar a chave cancela a busca anterior e busca de novo.
  */
 export function useRecurso<T>(
   buscar: (sinal: AbortSignal) => Promise<T>,
   estaVazio?: (dados: T) => boolean,
+  chave?: string,
 ): EstadoDoRecurso<T> & { tentarDeNovo: () => void } {
-  const [estado, setEstado] = useState<EstadoDoRecurso<T>>({ situacao: 'carregando' });
+  // O estado lembra de qual chave ele é: chave nova = carregando até a resposta dela chegar.
+  const [estado, setEstado] = useState<{ chave?: string; valor: EstadoDoRecurso<T> }>({ chave, valor: CARREGANDO });
   const [tentativa, setTentativa] = useState(0);
-  // As funções podem mudar a cada render (lambdas): a busca só recomeça em "tentar de novo".
+  // As funções podem mudar a cada render (lambdas): a busca só recomeça em "tentar de novo" ou com outra chave.
   const funcoes = useRef({ buscar, estaVazio });
   useEffect(() => {
     funcoes.current = { buscar, estaVazio };
@@ -31,24 +36,25 @@ export function useRecurso<T>(
           return;
         }
         try {
-          setEstado({ situacao: funcoes.current.estaVazio?.(dados) ? 'vazio' : 'pronto', dados });
+          setEstado({ chave, valor: { situacao: funcoes.current.estaVazio?.(dados) ? 'vazio' : 'pronto', dados } });
         } catch {
-          setEstado({ situacao: 'erro', erro: new ErroDaApi('servidor') });
+          setEstado({ chave, valor: { situacao: 'erro', erro: new ErroDaApi('servidor') } });
         }
       },
       (falha: unknown) => {
         if (!controle.signal.aborted) {
-          setEstado({ situacao: 'erro', erro: falha instanceof ErroDaApi ? falha : new ErroDaApi('servidor') });
+          const erro = falha instanceof ErroDaApi ? falha : new ErroDaApi('servidor');
+          setEstado({ chave, valor: { situacao: 'erro', erro } });
         }
       },
     );
     return () => controle.abort();
-  }, [tentativa]);
+  }, [tentativa, chave]);
 
   const tentarDeNovo = useCallback(() => {
-    setEstado({ situacao: 'carregando' });
+    setEstado((anterior) => ({ chave: anterior.chave, valor: CARREGANDO }));
     setTentativa((anterior) => anterior + 1);
   }, []);
 
-  return { ...estado, tentarDeNovo };
+  return { ...(estado.chave === chave ? estado.valor : CARREGANDO), tentarDeNovo };
 }

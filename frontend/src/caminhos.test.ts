@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { CAMINHOS, caminhoDaBusca, SECOES_DO_INICIO } from './caminhos';
+import { CAMINHOS, caminhoDaBusca, caminhoDoPerfil, SECOES_DO_INICIO } from './caminhos';
 
 describe('caminhos do front (um lugar só para menu, herói, rodapé e testes)', () => {
   it('rotas fixas', () => {
     expect(CAMINHOS).toEqual({
       inicio: '/',
       busca: '/busca',
+      perfil: '/profissionais',
       entrar: '/entrar',
       criarConta: '/criar-conta',
       criarContaCliente: '/criar-conta/cliente',
@@ -42,5 +43,12 @@ describe('caminhos do front (um lugar só para menu, herói, rodapé e testes)',
     [{ profissao: '', cidade: '' }, '/busca'],
   ])('busca com %o = %s', (filtros, esperado) => {
     expect(caminhoDaBusca(filtros)).toBe(esperado);
+  });
+
+  it('perfil público pelo id, codificado', () => {
+    expect(caminhoDoPerfil('00000000-0000-0000-0000-0000000d0001')).toBe(
+      '/profissionais/00000000-0000-0000-0000-0000000d0001',
+    );
+    expect(caminhoDoPerfil('a/b')).toBe('/profissionais/a%2Fb');
   });
 });

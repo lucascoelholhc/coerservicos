@@ -2,6 +2,7 @@
 export const CAMINHOS = {
   inicio: '/',
   busca: '/busca',
+  perfil: '/profissionais',
   entrar: '/entrar',
   criarConta: '/criar-conta',
   criarContaCliente: '/criar-conta/cliente',
@@ -46,4 +47,9 @@ export function caminhoDaBusca(filtros: { profissao?: string; cidade?: string })
 /** Detalhe de um cadastro na verificação do admin. */
 export function caminhoDaVerificacao(id: string): string {
   return `${CAMINHOS.adminVerificacao}/${encodeURIComponent(id)}`;
+}
+
+/** Perfil público de um profissional (DOM-04); o id é o do perfil, nunca o da conta. */
+export function caminhoDoPerfil(id: string): string {
+  return `${CAMINHOS.perfil}/${encodeURIComponent(id)}`;
 }

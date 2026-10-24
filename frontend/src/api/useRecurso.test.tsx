@@ -36,6 +36,34 @@ describe('useRecurso', () => {
     expect(buscar).toHaveBeenCalledTimes(2);
   });
 
+  it('trocar a chave busca de novo, cancela a busca anterior e ignora a resposta dela', async () => {
+    const sinais: AbortSignal[] = [];
+    let soltarPrimeira: (valor: string) => void = () => {};
+    const buscar = vi
+      .fn<(sinal: AbortSignal) => Promise<string>>()
+      .mockImplementationOnce((sinal) => {
+        sinais.push(sinal);
+        return new Promise((resolver) => {
+          soltarPrimeira = resolver;
+        });
+      })
+      .mockImplementationOnce(async (sinal) => {
+        sinais.push(sinal);
+        return 'segunda';
+      });
+    const { result, rerender } = renderHook(({ chave }) => useRecurso(buscar, undefined, chave), {
+      initialProps: { chave: 'cidade=1' },
+    });
+
+    rerender({ chave: 'cidade=2' });
+
+    await waitFor(() => expect(result.current).toMatchObject({ situacao: 'pronto', dados: 'segunda' }));
+    expect(sinais[0]?.aborted).toBe(true);
+    act(() => soltarPrimeira('primeira'));
+    expect(result.current.dados).toBe('segunda');
+    expect(buscar).toHaveBeenCalledTimes(2);
+  });
+
   it('regra de vazio que quebra vira erro tipado (não fica carregando para sempre)', async () => {
     const { result } = renderHook(() =>
       useRecurso(

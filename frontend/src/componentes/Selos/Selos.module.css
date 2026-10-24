@@ -1,0 +1,32 @@
+/* Selo e reputação (protótipo: .selo, .novo, .stars). Texto sempre ao lado do ícone. */
+.selo,
+.novo,
+.nota {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.selo {
+  color: var(--ok-txt);
+}
+
+.novo {
+  color: var(--carimbo-txt);
+}
+
+.nota {
+  color: var(--tinta);
+  font-weight: 700;
+}
+
+.estrela {
+  color: var(--estrela);
+}
+
+.total {
+  color: var(--tinta-2);
+  font-weight: 500;
+}
