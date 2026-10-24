@@ -29,11 +29,17 @@ final class ContratoDtos {
             @NotBlank @Size(max = 120) String logradouro,
             @NotBlank @Size(max = 20) String numero,
             @Size(max = 80) String bairro,
-            @Size(max = 80) String complemento) {}
+            @Size(max = 80) String complemento) {
+
+        @Override
+        public String toString() {
+            return "Endereco[cidade=" + cidade + "]";
+        }
+    }
 
     record NovoContrato(
             @NotNull UUID profissionalId,
-            @NotEmpty @Size(max = 28) List<@Valid Dia> dias,
+            @NotEmpty @Size(max = 28) List<@NotNull @Valid Dia> dias,
             @NotNull @Size(max = 20) List<@NotBlank @Size(max = 80) String> servicos,
             @Size(max = 600) String descricao,
 
@@ -48,7 +54,14 @@ final class ContratoDtos {
     record DiaDoContrato(UUID id, LocalDate data, String tipo, String status, Dinheiro valor) {}
 
     /** O que o endereço guarda (rua, número, bairro, complemento); a cidade e o CEP ficam em claro no contrato. */
-    record EnderecoGuardado(String logradouro, String numero, String bairro, String complemento) {}
+    record EnderecoGuardado(String logradouro, String numero, String bairro, String complemento) {
+
+        /** Nunca o endereço em claro (log, exceção, depuração). */
+        @Override
+        public String toString() {
+            return "EnderecoGuardado[***]";
+        }
+    }
 
     record Contrato(
             UUID id,

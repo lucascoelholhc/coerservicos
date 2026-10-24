@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -96,11 +97,13 @@ class ContratoService {
                 : pedido.descricao().strip();
         if (servicos.isEmpty() && (descricao == null || descricao.length() < DESCRICAO_MINIMA)) {
             throw new RegraDeNegocioException(
-                    "pedido-incompleto", "Marque ao menos um serviço ou descreva o que precisa (15 letras ou mais).");
+                    "pedido-incompleto",
+                    "Marque ao menos um serviço ou descreva o que precisa (" + DESCRICAO_MINIMA + " letras ou mais).");
         }
         if (descricao != null) {
             CensuraDeContato.exigirSemContato(descricao, "descricao");
         }
+        exigirEnderecoSemContato(pedido.endereco());
         exigirDiasNaAgenda(perfil, pedido.dias());
         if (perfil.lc150()) {
             exigirLimiteLc150(eu, perfil, pedido.dias(), parametros.limiteDiaristaJanela7Dias());
@@ -150,7 +153,15 @@ class ContratoService {
                     "INSERT INTO contrato_servico (contrato_id, servico_id) VALUES (:contrato, :servico)",
                     new MapSqlParameterSource("contrato", id).addValue("servico", servico));
         }
+        // sempre na ordem das datas: dois pedidos com os mesmos dias travam o índice único na mesma ordem (sem
+        // deadlock)
+        List<Integer> ordem = new ArrayList<>();
         for (int i = 0; i < pedido.dias().size(); i++) {
+            ordem.add(i);
+        }
+        ordem.sort((a, b) ->
+                pedido.dias().get(a).data().compareTo(pedido.dias().get(b).data()));
+        for (int i : ordem) {
             agendar(id, eu, perfil.id(), pedido.dias().get(i), valores.get(i), agora);
         }
         return detalhe(id, eu);
@@ -186,8 +197,8 @@ class ContratoService {
                             .addValue("valor", valores.valorServico().valor())
                             .addValue("comissao", valores.comissao().valor())
                             .addValue("agora", agora));
-        } catch (DuplicateKeyException ocupado) {
-            // uq_diaria_agenda_profissional: outro contrato pegou o dia (também numa corrida)
+        } catch (DuplicateKeyException | PessimisticLockingFailureException ocupado) {
+            // uq_diaria_agenda_profissional: outro contrato pegou o dia (também numa corrida ou num deadlock)
             throw new ConflitoException(
                     "dia-indisponivel", "Esse profissional já tem trabalho no dia " + dia.data() + ".", "dias");
         }
@@ -242,6 +253,13 @@ class ContratoService {
                 "SELECT dia_semana FROM disponibilidade_semanal WHERE profissional_id = :p",
                 new MapSqlParameterSource("p", perfil.id()),
                 Integer.class));
+        Set<LocalDate> bloqueios = new HashSet<>(jdbc.queryForList(
+                "SELECT data FROM bloqueio_agenda WHERE profissional_id = :p AND data IN (:datas)",
+                new MapSqlParameterSource("p", perfil.id())
+                        .addValue(
+                                "datas",
+                                dias.stream().map(ContratoDtos.Dia::data).toList()),
+                LocalDate.class));
         Set<LocalDate> vistos = new HashSet<>();
         for (ContratoDtos.Dia dia : dias) {
             if (!vistos.add(dia.data())) {
@@ -251,11 +269,7 @@ class ContratoService {
                 throw new RegraDeNegocioException(
                         "dia-fora-da-janela", "Escolha dias a partir de amanhã, nas próximas 4 semanas.");
             }
-            boolean bloqueado = Boolean.TRUE.equals(jdbc.queryForObject(
-                    "SELECT EXISTS (SELECT 1 FROM bloqueio_agenda WHERE profissional_id = :p AND data = :d)",
-                    new MapSqlParameterSource("p", perfil.id()).addValue("d", dia.data()),
-                    Boolean.class));
-            if (!semana.contains(dia.data().getDayOfWeek().getValue() % 7) || bloqueado) {
+            if (!semana.contains(dia.data().getDayOfWeek().getValue() % 7) || bloqueios.contains(dia.data())) {
                 throw new RegraDeNegocioException(
                         "dia-fora-da-agenda", "Esse profissional não trabalha no dia " + dia.data() + ".");
             }
@@ -337,6 +351,17 @@ class ContratoService {
         }
     }
 
+    /** Telefone ou e-mail no endereço chegaria ao profissional junto com ele; o número da casa fica de fora. */
+    private static void exigirEnderecoSemContato(ContratoDtos.Endereco endereco) {
+        CensuraDeContato.exigirSemContato(endereco.logradouro(), "endereco.logradouro");
+        if (endereco.bairro() != null) {
+            CensuraDeContato.exigirSemContato(endereco.bairro(), "endereco.bairro");
+        }
+        if (endereco.complemento() != null) {
+            CensuraDeContato.exigirSemContato(endereco.complemento(), "endereco.complemento");
+        }
+    }
+
     /** Endereço amarrado ao contrato (AAD com o id): a cifra não decifra em outra linha (CORE-10). */
     private byte[] cifrarEndereco(UUID contrato, ContratoDtos.Endereco endereco) {
         ContratoDtos.EnderecoGuardado guardado = new ContratoDtos.EnderecoGuardado(
@@ -369,10 +394,11 @@ class ContratoService {
         }
         Map<String, Object> c = linhas.get(0);
         boolean souCliente = eu.equals(c.get("cliente_id"));
-        // RN29: o profissional só vê o endereço depois do pagamento; antes, só a cidade
-        ContratoDtos.EnderecoGuardado endereco = souCliente || c.get("pago_em") != null
-                ? decifrarEndereco(id, (byte[]) c.get("endereco_cifrado"))
-                : null;
+        // RN29: o profissional só vê o endereço (e o CEP, que já localiza a rua) depois do pagamento; antes, só a
+        // cidade
+        boolean veEndereco = souCliente || c.get("pago_em") != null;
+        ContratoDtos.EnderecoGuardado endereco =
+                veEndereco ? decifrarEndereco(id, (byte[]) c.get("endereco_cifrado")) : null;
         List<ContratoDtos.DiaDoContrato> dias = jdbc.query(
                 "SELECT id, data, tipo, status, valor FROM diaria WHERE contrato_id = :id ORDER BY data",
                 new MapSqlParameterSource("id", id),
@@ -394,7 +420,7 @@ class ContratoService {
                 new ContratoDtos.Cidade(
                         ((Number) c.get("codigo_ibge")).intValue(), (String) c.get("cidade_nome"), (String)
                                 c.get("uf")),
-                ((String) c.get("cep")).strip(),
+                veEndereco ? ((String) c.get("cep")).strip() : null,
                 dias,
                 servicos,
                 (String) c.get("descricao"),

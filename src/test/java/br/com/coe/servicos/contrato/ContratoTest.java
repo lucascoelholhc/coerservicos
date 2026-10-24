@@ -220,17 +220,45 @@ class ContratoTest extends IntegracaoTest {
 
         mockMvc.perform(get("/api/contratos/" + id).header("Authorization", bearer(cliente, Papel.CLIENTE)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.endereco.numero").value("120"));
+                .andExpect(jsonPath("$.endereco.numero").value("120"))
+                .andExpect(jsonPath("$.cep").value("88301000"));
         mockMvc.perform(get("/api/contratos/" + id)
                         .header("Authorization", bearer(profissional.usuario(), Papel.CLIENTE, Papel.PROFISSIONAL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.endereco").doesNotExist())
+                .andExpect(jsonPath("$.cep").doesNotExist())
                 .andExpect(jsonPath("$.cidade.codigoIbge").value(ITAJAI));
-        mockMvc.perform(get("/api/contratos/" + id)
-                        .header(
-                                "Authorization",
-                                bearer(contas.criarConfirmada(Papel.CLIENTE).id(), Papel.CLIENTE)))
-                .andExpect(status().isNotFound());
+        UUID outro = contas.criarConfirmada(Papel.CLIENTE).id();
+        String alheio = mockMvc.perform(
+                        get("/api/contratos/" + id).header("Authorization", bearer(outro, Papel.CLIENTE)))
+                .andExpect(status().isNotFound())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(StandardCharsets.UTF_8);
+        String inexistente = mockMvc.perform(get("/api/contratos/" + UUID.randomUUID())
+                        .header("Authorization", bearer(outro, Papel.CLIENTE)))
+                .andExpect(status().isNotFound())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(StandardCharsets.UTF_8);
+        assertThat(semRequisicao(alheio).replaceAll("\"instance\":\"[^\"]*\"", ""))
+                .isEqualTo(semRequisicao(inexistente).replaceAll("\"instance\":\"[^\"]*\"", ""));
+        mockMvc.perform(get("/api/contratos/" + id)).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("telefone no complemento ou no bairro é recusado (chegaria ao profissional); dia nulo = 400")
+    void enderecoSemContato() throws Exception {
+        String base = pedido(profissional.profissional(), dia(diasUteis(1).get(0), "inteira"), "");
+        contratar(cliente, base.replace("\"casa 2\"", "\"liga 47 99123-4567\""))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:texto-com-contato"));
+        contratar(cliente, base.replace("\"Centro\"", "\"zap 47991234567\""))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:texto-com-contato"));
+        contratar(cliente, pedido(profissional.profissional(), "null", "")).andExpect(status().isBadRequest());
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM contrato WHERE cliente_id = ?", Integer.class, cliente))
+                .isZero();
     }
 
     @Test

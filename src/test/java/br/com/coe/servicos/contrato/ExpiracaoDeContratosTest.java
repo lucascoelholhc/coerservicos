@@ -30,7 +30,7 @@ import br.com.coe.servicos.profissional.ProfissionaisDeTeste;
 import br.com.coe.servicos.usuario.ContasDeTeste;
 import br.com.coe.servicos.usuario.Papel;
 
-/** DOM-06 (dia 26), RN26: contrato não pago no prazo expira, as diárias são canceladas e o dia volta a ficar livre. */
+/** DOM-06 (dia 26), RN32: contrato não pago no prazo expira, as diárias são canceladas e o dia volta a ficar livre. */
 class ExpiracaoDeContratosTest extends IntegracaoTest {
 
     @Autowired

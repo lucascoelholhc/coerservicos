@@ -337,6 +337,25 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 - **Revisões** (java, security, database): sem CRITICAL nem HIGH. Corrigidos: cursor composto, conta sumida = 404, máscara que deixava número ditado em claro, nome e trecho seguros para emoji, testes de resposta do profissional, lidas de conversa alheia (404) e 401.
 - **Ficou:** contato fatiado em várias mensagens ("47 9" e depois "9123") passa (juntar as últimas mensagens do autor na checagem); nome de cadastro com contato aparece no chat (censurar o nome no cadastro); lista de conversas com teto de 100 sem paginação; bloqueio/denúncia e teto diário de conversas novas (moderação, DOM-11); aviso claro na tela de que tentativas levam à análise (FE-05/FE-06); `NomeDeExibicao` com teste próprio.
 
+**DOM-06 (dias 25–26, feito em 24/10): decisões e pendências (conferir)**
+- **API**: `POST /api/contratos` (CLIENTE, limite `contrato-usuario` 20/h) cria o contrato `aguardando_pagamento` com as diárias `agendada` (histórico origem `cliente`); `GET /api/contratos/{id}` (cliente ou profissional do contrato; os outros recebem 404 igual a inexistente). Sem migração (V5/V11 já tinham tudo).
+- **Valores**: cada diária pela `CalculadoraDiaria` com o valor do perfil na hora (inteira ou meia), total = `TotaisContrato.somar`; comissão, quem paga a taxa e versão dos termos copiadas para o contrato (congeladas). O cliente não manda preço.
+- **Endereço** (RN29): rua, número, bairro e complemento cifrados com `Campo.ENDERECO` e contexto `contrato:<id>`; CEP e cidade em claro. O cliente vê sempre; o profissional só depois de `pago_em` (o DOM-07 preenche).
+- **Agenda** (RN25/RN26): de amanhã até 4 semanas, dia da semana trabalhado, sem `bloqueio_agenda`, meia só com oferta; dia ocupado = 409 `dia-indisponivel` (também na corrida, pelo `uq_diaria_agenda_profissional`).
+- **LC 150** (RN51): profissão `sujeita_lc150`; `JanelaLc150` (pura, testada) confere toda janela móvel de 7 dias com as diárias do mesmo cliente e da mesma diarista (menos canceladas e reembolsadas) + as do pedido, limite de `limiteDiaristaJanela7Dias()`; 422 `lc150-limite` com o dia que estoura. Trava `pg_advisory_xact_lock` por (cliente, diarista): dois pedidos ao mesmo tempo contam um depois do outro (teste com duas threads).
+- **Expiração** (RN32): `ExpiracaoDeContratos` a cada `coe.contrato.expiracao` (1 min): contrato vencido (`pagamento_expira_em`, de `PAGAMENTO_EXPIRA_MINUTOS`) vira `expirado` com `motivo_cancelamento = pagamento-expirado`, diárias `agendada` viram `cancelada` (histórico origem `sistema`); lotes com `FOR UPDATE SKIP LOCKED`, idempotente, sem ShedLock (a ShedLock entra no DOM-08).
+- **Decisões tomadas sozinho** (como desfazer):
+  - **Cidade informada pelo cliente** (código IBGE) junto com o CEP, sem serviço de CEP (o CEP não é conferido com a cidade). Desfazer: consultar o CEP quando houver o serviço (pendência do CORE-02).
+  - **RN19 (aviso fora da área) não implementado**: a API aceita cidade fora da área do profissional; o aviso e a orientação de confirmar pelo chat ficam para o FE-05 (o front sabe a área pelo perfil público).
+  - **Conta em análise** (DOM-05) não contrata: 403 `conta-em-analise`, com trava `FOR NO KEY UPDATE` na conta.
+  - **Cancelamento pelo cliente (PA09) não implementado** (mexe com dinheiro, A DEFINIR); só a expiração automática de quem não pagou.
+  - **Pagamento chegando depois da expiração**: fica para o DOM-07 (o webhook não reabre contrato expirado; o que fazer com o dinheiro é A DEFINIR, sem regra de dinheiro aqui).
+  - **Fotos do local (RN27)** ficam para o FE-05/DOM-08 (categoria `PEDIDO` já existe no armazenamento).
+  - **CEP só depois do pagamento para o profissional** (RN29: antes, só a cidade; o CEP já localiza a rua). Descrição, material, serviços e valores ele vê antes (para decidir). Desfazer: devolver o `cep` também.
+  - **Censura no endereço** (logradouro, bairro, complemento; o número fica de fora): telefone ou e-mail ali chegaria ao profissional depois do pagamento.
+- **Revisões** (java, security, database): sem CRITICAL. HIGH corrigido: diárias inseridas na ordem das datas (dois pedidos com os mesmos dias em ordem trocada davam deadlock = 500; agora 409 `dia-indisponivel`, também mapeado no `PessimisticLockingFailureException`). MEDIUMs corrigidos: CEP escondido do profissional antes do pagamento, censura do endereço, dia nulo = 400, bloqueios da agenda numa consulta só, histórico da expiração na mesma instrução (CTE), job parado nos testes (`coe.contrato.expiracao: 24h`), `toString` do endereço sem dado, teste anti-IDOR com corpo igual ao inexistente e 401. "Cidade fora da área" não é erro: a RN19 manda avisar, não recusar (FE-05).
+- **Ficou:** teto de contratos `aguardando_pagamento` abertos por cliente (hoje um cliente pode segurar a agenda de um profissional até a expiração, 60 min; mitigado pelo limite de 20/h; parâmetro novo na configuração, DOM-07 ou DOM-11); o profissional vê `valorComissao` e `valorTotal` do cliente (conferir com o produto); teste com outro limite da LC 150 vindo da configuração; ordem das travas para os próximos fluxos: conta (`FOR NO KEY UPDATE`) → LC 150 (advisory) → diárias por data; o webhook do DOM-07 trava o contrato com `FOR UPDATE` e confere `aguardando_pagamento` antes das diárias, e pagamento depois de expirado precisa de tratamento explícito (A DEFINIR: dinheiro).
+
 **Casos de teste obrigatórios do DOM-05** (PA13):
 - `CEP 89010-000` e `CEP 89010000` passam pela censura
 - Telefone (com e sem separadores) continua bloqueado
@@ -578,8 +597,8 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 |---|---|---|---|
 | 23 ✅ | DOM-05 | Conversa e censura no servidor (CEP passa, PA13) | Bloqueia e deixa passar o certo (**feito em 24/10**) |
 | 24 ✅ | DOM-05 | Tentativas e conta em análise | 4ª tentativa → análise (**feito em 24/10**) |
-| 25 | DOM-06 | Contrato, endereço cifrado, total | Total confere com o banco |
-| 26 | DOM-06 | Agenda, LC 150 com trava, expiração | 3ª diária na janela recusada |
+| 25 ✅ | DOM-06 | Contrato, endereço cifrado, total | Total confere com o banco (**feito em 24/10**) |
+| 26 ✅ | DOM-06 | Agenda, LC 150 com trava, expiração | 3ª diária na janela recusada (**feito em 24/10**) |
 | 27 | DOM-07 | `GatewayPagamento` e adaptador falso | Cobrança criada e consultada |
 | 28 | DOM-07 | Webhook assinado e idempotente; ledger | Webhook repetido não duplica |
 | 29 | DOM-07 | Contrato pago, contato liberado; `/security-scan` | Telefone só após pagamento |

@@ -16,7 +16,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Contrato não pago no prazo ({@code pagamento_expira_em}) vira {@code expirado} e as diárias agendadas viram
- * {@code cancelada}, liberando os dias na agenda (RN26). Idempotente: só pega quem ainda aguarda pagamento, com
+ * {@code cancelada}, liberando os dias na agenda (RN32). Idempotente: só pega quem ainda aguarda pagamento, com
  * {@code FOR UPDATE SKIP LOCKED}, então várias instâncias rodam juntas sem ShedLock (a ShedLock entra no DOM-08,
  * com a liberação automática). Nenhum dinheiro se move: contrato aguardando pagamento ainda não tem pagamento.
  */
@@ -73,21 +73,16 @@ public class ExpiracaoDeContratos {
                 UPDATE contrato SET status = 'expirado', motivo_cancelamento = :motivo, atualizado_em = :agora
                  WHERE id IN (:contratos) AND status = 'aguardando_pagamento'
                 """, parametros);
-        List<UUID> diarias = jdbc.queryForList("""
-                UPDATE diaria SET status = 'cancelada', cancelada_em = :agora, atualizado_em = :agora
-                 WHERE contrato_id IN (:contratos) AND status = 'agendada'
-                RETURNING id
-                """, parametros, UUID.class);
-        for (UUID diaria : diarias) {
-            jdbc.update(
-                    """
-                    INSERT INTO historico_diaria (diaria_id, de_status, para_status, origem, motivo, criado_em)
-                    VALUES (:diaria, 'agendada', 'cancelada', 'sistema', :motivo, :agora)
-                    """,
-                    new MapSqlParameterSource("diaria", diaria)
-                            .addValue("motivo", MOTIVO)
-                            .addValue("agora", agora));
-        }
+        // a troca de status e o histórico na mesma instrução
+        jdbc.update("""
+                WITH canceladas AS (
+                    UPDATE diaria SET status = 'cancelada', cancelada_em = :agora, atualizado_em = :agora
+                     WHERE contrato_id IN (:contratos) AND status = 'agendada'
+                    RETURNING id
+                )
+                INSERT INTO historico_diaria (diaria_id, de_status, para_status, origem, motivo, criado_em)
+                SELECT id, 'agendada', 'cancelada', 'sistema', :motivo, :agora FROM canceladas
+                """, parametros);
         return contratos.size();
     }
 }
