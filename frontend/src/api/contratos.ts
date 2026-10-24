@@ -26,6 +26,6 @@ export function pedirPagamento(contrato: string, metodo: Pagamento['metodo']): P
 }
 
 /** Só com o gateway falso (`simulavel`): paga a cobrança pendente como o gateway faria. */
-export function simularPagamento(contrato: string): Promise<void> {
-  return chamar<void>(`/contratos/${encodeURIComponent(contrato)}/pagamento/simular`, { metodo: 'POST' });
+export async function simularPagamento(contrato: string): Promise<void> {
+  await chamar<unknown>(`/contratos/${encodeURIComponent(contrato)}/pagamento/simular`, { metodo: 'POST' });
 }

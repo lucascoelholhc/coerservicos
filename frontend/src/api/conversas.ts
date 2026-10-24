@@ -22,6 +22,6 @@ export function enviarMensagem(conversa: string, texto: string): Promise<EnvioDa
   });
 }
 
-export function marcarLidas(conversa: string): Promise<void> {
-  return chamar<void>(`/conversas/${encodeURIComponent(conversa)}/lidas`, { metodo: 'POST' });
+export async function marcarLidas(conversa: string): Promise<void> {
+  await chamar<unknown>(`/conversas/${encodeURIComponent(conversa)}/lidas`, { metodo: 'POST' });
 }
