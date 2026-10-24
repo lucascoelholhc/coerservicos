@@ -43,6 +43,11 @@ class Profissional implements Persistable<UUID> {
     static final String RASCUNHO = "rascunho";
     static final String EM_ANALISE = "em_analise";
     static final String CORRECAO_PEDIDA = "correcao_pedida";
+    static final String ATIVO = "ativo";
+    static final String RECUSADO = "recusado";
+    static final String NR10_NAO_TEM = "nao_tem";
+    static final String NR10_EM_ANALISE = "em_analise";
+    static final String NR10_RECUSADO = "recusado";
 
     @Id
     private UUID id;
@@ -128,10 +133,22 @@ class Profissional implements Persistable<UUID> {
     private boolean mei;
 
     @Column(name = "nr10_status", nullable = false)
-    private String nr10Status = "nao_tem";
+    private String nr10Status = NR10_NAO_TEM;
 
     @Column(name = "enviado_analise_em")
     private Instant enviadoAnaliseEm;
+
+    @Column(name = "aprovado_em")
+    private Instant aprovadoEm;
+
+    @Column(name = "aprovado_por")
+    private UUID aprovadoPor;
+
+    @Column(name = "motivo_correcao")
+    private String motivoCorrecao;
+
+    @Column(name = "motivo_recusa")
+    private String motivoRecusa;
 
     @Version
     private long versao;
@@ -229,10 +246,31 @@ class Profissional implements Persistable<UUID> {
     void enviarParaAnalise(Instant agora, boolean temCertificadoNr10) {
         this.status = EM_ANALISE;
         this.enviadoAnaliseEm = agora;
+        this.motivoCorrecao = null;
         this.etapaCadastro = 11;
-        if (temCertificadoNr10) {
-            this.nr10Status = "em_analise";
+        // o certificado pode ter saído numa correção: sem ele, o NR-10 volta a não existir
+        this.nr10Status = temCertificadoNr10 ? NR10_EM_ANALISE : NR10_NAO_TEM;
+    }
+
+    /** Aprovado pelo admin (DOM-03): vira ativo; {@code decisaoNr10} só quando havia certificado em análise. */
+    void aprovar(UUID admin, Instant agora, String decisaoNr10) {
+        this.status = ATIVO;
+        this.aprovadoEm = agora;
+        this.aprovadoPor = admin;
+        if (decisaoNr10 != null) {
+            this.nr10Status = decisaoNr10;
         }
+    }
+
+    /** Volta a editar com o motivo (RN13); o reenvio limpa o motivo. */
+    void pedirCorrecao(String motivo) {
+        this.status = CORRECAO_PEDIDA;
+        this.motivoCorrecao = motivo;
+    }
+
+    void recusar(String motivo) {
+        this.status = RECUSADO;
+        this.motivoRecusa = motivo;
     }
 
     void definirEtapaAtual(int etapa) {
@@ -248,6 +286,18 @@ class Profissional implements Persistable<UUID> {
 
     UUID id() {
         return id;
+    }
+
+    UUID usuarioId() {
+        return usuarioId;
+    }
+
+    String nr10Status() {
+        return nr10Status;
+    }
+
+    Instant enviadoAnaliseEm() {
+        return enviadoAnaliseEm;
     }
 
     String status() {

@@ -278,6 +278,12 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 - **Ficou para o FE-04**: telas das 11 etapas pelo protótipo; aviso da censura antes de enviar (o servidor decide); CSP `img-src` com o host do bucket na primeira tela com foto.
 - **Ficou (outros)**: N+1 leve na montagem da resposta (nomes do catálogo por id; até ~40 serviços); varredura de arquivos órfãos (substituição e V18) junto com a do CORE-09; `UNIQUE (profissional_id, ordem) DEFERRABLE` quando houver reordenar fotos.
 
+**DOM-03 (dia 17, adiantado na noite de 16/10): decisões (conferir)**
+- Sem migração (V4/V11 já tinham `correcao_pedida`, motivos, `nr10_status` e a análise do documento). Fila paginada (50, teto da página 200) pelo índice parcial `ix_profissional_fila_analise`.
+- **Decisões tomadas sozinho** (como desfazer): o detalhe mostra o **CPF completo** ao admin (necessário para conferir com o documento; auditado; limite próprio de 120/h); Pix continua mascarado (conferido no repasse, RN15); URL da foto do portfólio **sem** auditoria (vai ser pública no perfil); NR-10 recusado **não** impede a aprovação do cadastro (só tira o selo); recusa é definitiva no MVP (o cadastro não muda mais; reabrir fica com o admin numa tarefa futura); o motivo passa pela censura de contato e não entra na auditoria; SMS só para celular confirmado; o papel PROFISSIONAL vale no próximo token (até 15 min; o front chama `atualizarSessao()` quando souber da aprovação).
+- **Revisões** (java-reviewer, security-reviewer): sem CRITICAL nem HIGH. Corrigido: motivo com censura e sem quebra de linha; SMS só para celular confirmado; limites na fila e no detalhe; `nr10_status` volta a `nao_tem` se o certificado saiu na correção; teto da página; varredura de logs do fluxo do admin.
+- **Ficou**: exigir que o admin tenha aberto documento e selfie antes de aprovar (hoje o checklist é declarado; a auditoria registra o que foi aberto) — decidir no FE-07; recusar aprovação de conta suspensa ou excluída (409) junto com a suspensão do admin (FE-07/DOM-09); teste de corrida com dois admins em threads; seeder local de profissionais em análise (DB-11, precisa cifrar o CPF em Java).
+
 **Casos de teste obrigatórios do CORE-03 e CORE-04** (PA03):
 - Token de acesso expirado (Clock adiantado 15 min) é recusado com 401; renovação devolve um novo par
 - Refresh usado duas vezes: a segunda é recusada e **todos** os tokens daquele login são revogados

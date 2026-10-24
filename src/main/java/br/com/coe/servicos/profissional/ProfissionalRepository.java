@@ -39,6 +39,12 @@ interface ProfissionalRepository extends JpaRepository<Profissional, UUID> {
     @Query("SELECT p FROM Profissional p WHERE p.usuarioId = :usuario")
     Optional<Profissional> travarPorUsuario(@Param("usuario") UUID usuario);
 
+    /** O cadastro pelo id, travado até o fim da transação (decisão do admin, DOM-03); mesma espera de 5 s. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "5000"))
+    @Query("SELECT p FROM Profissional p WHERE p.id = :id")
+    Optional<Profissional> travarPorId(@Param("id") UUID id);
+
     /** Outro cadastro já usa este CPF (pelo HMAC, sem decifrar nada)? */
     @Query(
             value = "SELECT EXISTS (SELECT 1 FROM profissional WHERE cpf_hash = :hash AND usuario_id <> :usuario)",

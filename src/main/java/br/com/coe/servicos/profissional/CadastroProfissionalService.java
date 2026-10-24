@@ -230,6 +230,7 @@ class CadastroProfissionalService {
     CadastroResposta enviar(PedidosDoCadastro.Envio pedido) {
         UUID dono = usuario.id();
         Profissional p = rascunhoEditavel();
+        String antes = p.status();
         if (!configuracao.versaoTermos().equals(pedido.versaoTermosAceita())) {
             throw new RegraDeNegocioException(
                     "termos-desatualizados", "Os termos de uso mudaram. Leia e aceite a versão atual.");
@@ -264,7 +265,7 @@ class CadastroProfissionalService {
                 "profissional.enviado-analise",
                 "profissional",
                 p.id(),
-                Map.of("status", Profissional.RASCUNHO),
+                Map.of("status", antes),
                 Map.of("status", Profissional.EM_ANALISE),
                 null);
         return montador.montar(p, dono);
