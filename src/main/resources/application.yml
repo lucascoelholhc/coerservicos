@@ -153,6 +153,7 @@ coe:
       conversa-usuario: { capacidade: 30, janela: 1h }    # abrir conversa com um profissional (DOM-05)
       chat-usuario: { capacidade: 120, janela: 1h }       # mensagens e lidas do chat (DOM-05)
       contrato-usuario: { capacidade: 20, janela: 1h }    # contratar (DOM-06): cada pedido reserva dias na agenda
+      pagamento-usuario: { capacidade: 20, janela: 1h }   # pedir a cobrança do contrato (DOM-07): cada uma chama o gateway
   mensageria:
     # Envio assíncrono de SMS e e-mail depois do commit (decisão de 07/10): filas próprias e limitadas.
     # Fila cheia descarta com log mascarado e devolve a cota da linha (CORE-07); a resposta não muda.
