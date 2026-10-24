@@ -1,3 +1,5 @@
+import type { EstadoDaDiaria } from '../componentes/StatusDiaria/StatusDiaria';
+
 /*
  * Tipos das respostas da API, escritos à mão iguais aos DTOs do backend (OpenAPI fica para depois).
  */
@@ -258,4 +260,109 @@ export interface PerfilPublico {
   seloNr10: boolean;
   avaliacoes: { total: number; nota: string | number | null; novoNaCoe: boolean };
   fotos: FotoDoPerfil[];
+}
+
+/** Contratação (DOM-06/07, FE-05): iguais aos DTOs de /api/contratos. Valores em texto ("440.00"). */
+export type StatusDoContrato = 'aguardando_pagamento' | 'pago' | 'em_andamento' | 'concluido' | 'cancelado' | 'expirado';
+
+export interface ProfissionalDoContrato {
+  id: string;
+  /** "Primeiro S."; o nome completo vem em `contato`, depois do pagamento. */
+  nome: string;
+  profissao: string;
+}
+
+export interface DiaDoContrato {
+  id: string;
+  data: string;
+  tipo: 'inteira' | 'meia';
+  status: EstadoDaDiaria;
+  valor: string;
+  /** Quando o dia aguardando é liberado sozinho; nulo fora de "aguardando". */
+  autoLiberaEm: string | null;
+}
+
+export interface Contrato {
+  id: string;
+  numero: number;
+  status: StatusDoContrato;
+  profissionalId: string;
+  profissional: ProfissionalDoContrato;
+  cidade: CidadeDaBusca;
+  cep: string | null;
+  dias: DiaDoContrato[];
+  servicos: string[];
+  descricao: string | null;
+  material: 'cliente_tem' | 'cliente_compra' | 'combinar';
+  valorServicos: string;
+  valorComissao: string;
+  valorTotal: string;
+  pagamentoExpiraEm: string;
+  endereco: { logradouro: string; numero: string; bairro: string | null; complemento: string | null } | null;
+  contato: { nome: string; celular: string } | null;
+}
+
+export interface ResumoDoContrato {
+  id: string;
+  numero: number;
+  status: StatusDoContrato;
+  profissional: ProfissionalDoContrato;
+  dias: { id: string; data: string; status: EstadoDaDiaria }[];
+  valorTotal: string;
+  criadoEm: string;
+}
+
+export interface NovoContrato {
+  profissionalId: string;
+  dias: { data: string; tipo: 'inteira' | 'meia' }[];
+  servicos: string[];
+  descricao?: string;
+  material: Contrato['material'];
+  endereco: {
+    cep: string;
+    cidade: number;
+    logradouro: string;
+    numero: string;
+    bairro?: string;
+    complemento?: string;
+  };
+  versaoTermosAceita: string;
+}
+
+export interface Pagamento {
+  cobrancaId: string;
+  metodo: 'pix' | 'cartao';
+  status: 'pendente' | 'confirmada' | 'falhou' | 'expirada' | 'estornada';
+  valor: string;
+  pixCopiaECola: string | null;
+  linkPagamento: string | null;
+  expiraEm: string;
+  /** Gateway falso (local e testes): mostra "Simular pagamento". */
+  simulavel: boolean;
+}
+
+/** Chat (DOM-05): iguais aos DTOs de /api/conversas. */
+export interface ResumoDaConversa {
+  id: string;
+  profissionalId: string;
+  outroNome: string;
+  souProfissional: boolean;
+  ultimaMensagemEm: string | null;
+  naoLidas: number;
+  contatoLiberado: boolean;
+}
+
+export interface MensagemDoChat {
+  id: string;
+  minha: boolean;
+  texto: string;
+  bloqueada: boolean;
+  motivos: string[];
+  lida: boolean;
+  criadoEm: string;
+}
+
+export interface EnvioDaMensagem {
+  mensagem: MensagemDoChat;
+  aviso: { tentativa: number; limite: number; contaEmAnalise: boolean } | null;
 }

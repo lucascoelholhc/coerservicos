@@ -22,6 +22,10 @@ export const CAMINHOS = {
   privacidade: '/privacidade',
   comoFunciona: '/como-funciona',
   paraProfissionais: '/para-profissionais',
+  contratar: '/contratar',
+  contratos: '/contratos',
+  mensagens: '/mensagens',
+  conversar: '/conversar',
 } as const;
 
 /** Seções do Início abertas por âncora (o Router rola até elas, sem recarregar). */
@@ -52,4 +56,24 @@ export function caminhoDaVerificacao(id: string): string {
 /** Perfil público de um profissional (DOM-04); o id é o do perfil, nunca o da conta. */
 export function caminhoDoPerfil(id: string): string {
   return `${CAMINHOS.perfil}/${encodeURIComponent(id)}`;
+}
+
+/** Contratar um profissional (FE-05): o id é o do perfil público. */
+export function caminhoDeContratar(perfil: string): string {
+  return `${CAMINHOS.contratar}/${encodeURIComponent(perfil)}`;
+}
+
+/** Um contrato do cliente: pagamento, contato liberado e diárias. */
+export function caminhoDoContrato(id: string): string {
+  return `${CAMINHOS.contratos}/${encodeURIComponent(id)}`;
+}
+
+/** Uma conversa do chat. */
+export function caminhoDaConversa(id: string): string {
+  return `${CAMINHOS.mensagens}/${encodeURIComponent(id)}`;
+}
+
+/** Abre (ou reabre) a conversa com o profissional e vai para ela. */
+export function caminhoDeConversarCom(perfil: string): string {
+  return `${CAMINHOS.conversar}/${encodeURIComponent(perfil)}`;
 }

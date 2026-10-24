@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { CAMINHOS, caminhoDaBusca, caminhoDoPerfil, SECOES_DO_INICIO } from './caminhos';
+import {
+  CAMINHOS,
+  caminhoDaBusca,
+  caminhoDaConversa,
+  caminhoDeContratar,
+  caminhoDeConversarCom,
+  caminhoDoContrato,
+  caminhoDoPerfil,
+  SECOES_DO_INICIO,
+} from './caminhos';
 
 describe('caminhos do front (um lugar só para menu, herói, rodapé e testes)', () => {
   it('rotas fixas', () => {
@@ -27,6 +36,10 @@ describe('caminhos do front (um lugar só para menu, herói, rodapé e testes)',
       privacidade: '/privacidade',
       comoFunciona: '/como-funciona',
       paraProfissionais: '/para-profissionais',
+      contratar: '/contratar',
+      contratos: '/contratos',
+      mensagens: '/mensagens',
+      conversar: '/conversar',
     });
     expect(SECOES_DO_INICIO).toEqual({
       categorias: '/#categorias',
@@ -50,5 +63,11 @@ describe('caminhos do front (um lugar só para menu, herói, rodapé e testes)',
       '/profissionais/00000000-0000-0000-0000-0000000d0001',
     );
     expect(caminhoDoPerfil('a/b')).toBe('/profissionais/a%2Fb');
+  });
+  it('caminhos da área do cliente (FE-05) com o id escapado', () => {
+    expect(caminhoDeContratar('p 1')).toBe('/contratar/p%201');
+    expect(caminhoDoContrato('c1')).toBe('/contratos/c1');
+    expect(caminhoDaConversa('m/1')).toBe('/mensagens/m%2F1');
+    expect(caminhoDeConversarCom('p1')).toBe('/conversar/p1');
   });
 });

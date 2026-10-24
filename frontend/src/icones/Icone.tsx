@@ -105,6 +105,29 @@ const DESENHOS = {
       <path d="M9.9 9.9a3 3 0 004.2 4.2" />
     </>
   ),
+  chat: <path d="M4 5h16v11H9l-5 4z" />,
+  card: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3 10h18M7 15h4" />
+    </>
+  ),
+  qr: (
+    <>
+      <rect x="4" y="4" width="6" height="6" />
+      <rect x="14" y="4" width="6" height="6" />
+      <rect x="4" y="14" width="6" height="6" />
+      <path d="M14 14h2v2h-2zM18 18h2v2h-2zM14 18h1M18 14h2" />
+    </>
+  ),
+  phone: <path d="M5 4h4l2 5-3 2a11 11 0 005 5l2-3 5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2z" />,
+  copy: (
+    <>
+      <rect x="8" y="8" width="12" height="12" rx="2" />
+      <path d="M16 8V5a1 1 0 00-1-1H5a1 1 0 00-1 1v10a1 1 0 001 1h3" />
+    </>
+  ),
+  send: <path d="M4 12l16-8-6 16-3-6z" />,
 } satisfies Record<string, ReactElement>;
 
 export type NomeDoIcone = keyof typeof DESENHOS;
