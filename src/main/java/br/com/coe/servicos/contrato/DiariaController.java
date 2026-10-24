@@ -48,7 +48,7 @@ class DiariaController {
 
     @GetMapping("/{id}/fotos")
     @PreAuthorize("isAuthenticated()")
-    @LimitadoPorUsuario("diaria-usuario") // assina URLs do bucket
+    @LimitadoPorUsuario("foto-url-usuario") // assina URLs do bucket (limite próprio: ver fotos não gasta o das ações)
     DiariaDtos.FotosDoDia fotos(@PathVariable UUID id) {
         return diarias.fotos(id);
     }

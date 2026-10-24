@@ -86,7 +86,8 @@ npm run comparar         # protótipo x React lado a lado em frontend/test-resul
 - Feito (dias 25–26, em 24/10, branch `feat/DOM-06-contrato`): **DOM-06** (contrato em `/api/contratos` com diárias agendadas, total pela calculadora, comissão congelada, endereço cifrado; agenda; LC 150 em janela móvel com trava; expiração do não pago; sem migração). Revisões java, security e database sem CRITICAL; HIGH (deadlock na ordem das diárias) corrigido. Decisões e pendências no plano (seção 6, DOM-06).
 - Feito (dias 27–29, em 24/10, branch `feat/DOM-07-pagamento`): **DOM-07** (gateway falso no formato do Asaas, cobrança Pix/cartão por link, V19 `link_pagamento`, webhook com token e idempotente, livro-caixa de partidas dobradas, contrato pago com contato liberado). Revisões sem CRITICAL; HIGH do limite do webhook corrigido. Decisões e pendências no plano (seção 6, DOM-07).
 - Feito (dias 30–32, em 24/10, branch `feat/DOM-08-execucao`): **DOM-08** (máquina de estados da diária, Cheguei no dia, fotos e Terminei, aprovar e liberar pelo livro-caixa, liberação automática em 12 h com ShedLock e V20). Repasse Pix A DEFINIR com o Asaas. Revisões sem CRITICAL/HIGH. Decisões e pendências no plano (seção 6, DOM-08).
-- Próximo: fatia 3, dia 33: FE-05 (contratar, pagar com o gateway falso e chat no navegador).
+- Feito (dia 33, em 24/10, branch `feat/FE-05-contratar`): **FE-05 parte 1** (contratar, pagar com o gateway falso e chat no navegador; lista e detalhe do contrato; backend: lista de contratos, pagamento simulado, fotos do dia, conversa liberada depois do pagamento). Contrato pago pelo navegador. Decisões no plano (seção 7, FE-05).
+- Próximo: fatia 3, dia 34: FE-06 (área do profissional: Hoje, Cheguei, Terminei com foto, agenda, dinheiro).
 
 ## Estrutura do backend (por domínio, não por camada)
 `usuario` (conta, login, SMS) · `catalogo` (cidades, profissões, serviços) · `profissional` (cadastro, verificação, portfólio, agenda) · `contrato` (contratos e diárias) · `pagamento` (gateway, webhooks, ledger, repasse, reembolso) · `mensagem` (chat + censura) · `avaliacao` · `disputa` · `moderacao` (denúncias) · `admin` · `config` · `compartilhado` (Dinheiro, erros, auditoria, armazenamento)
@@ -229,6 +230,13 @@ npm run comparar         # protótipo x React lado a lado em frontend/test-resul
 - Datas de dia (sem hora) por `formatacao/datas.ts` (`somarDias`, `diaDaSemana`, `formatarDiaCurto`, `hojeEmSaoPaulo`), sem depender do fuso do aparelho.
 - **Folha de filtros** é `<dialog>` nativo; nos testes o `setup.ts` simula `showModal`/`close` (com o evento `close` atrasado, como no navegador). Testes de tela em `<StrictMode>`.
 - Testes: `src/teste/dadosDaBusca.ts` (Vitest e Playwright); E2E em `e2e/busca.spec.ts` (Início → busca → perfil com foto do bucket, sem violação de CSP).
+
+### Área do cliente no front (FE-05)
+- Telas em `src/paginas/contratar/` (`Contratar`), `src/paginas/contratos/` (`MeusContratos`, `ContratoDoCliente`, `textos.ts`) e `src/paginas/mensagens/` (`Mensagens`, `Conversa`, `Conversar`); API em `src/api/contratos.ts` e `src/api/conversas.ts`. Caminhos: `caminhoDeContratar`, `caminhoDoContrato`, `caminhoDaConversa`, `caminhoDeConversarCom`.
+- **Valores só da API**: o front nunca calcula a comissão nem manda preço; o total aparece na tela do contrato. Cartão só pelo link do gateway (`enderecoSeguro`), nunca campo de cartão.
+- **Pagamento**: `pedirPagamento` → copia e cola / link; com a cobrança na tela, recarga silenciosa a cada 5 s e no "Atualizar" (sem desmontar a tela); "Simular pagamento" só quando a API manda `simulavel` (gateway falso).
+- **Menu do cliente**: `MENU_CLIENTE` (baixo) e `MENU_TOPO_CLIENTE` (cima) quando o papel CLIENTE está na sessão.
+- Testes: `src/teste/dadosDosContratos.ts` (Vitest e Playwright); E2E em `e2e/contratar.spec.ts` (perfil → dias → pedido → Pix → simular → contato liberado).
 
 ### Verificação no front (FE-07)
 - Telas em `src/paginas/admin/` (rotas dentro de `RotaPrivada papeis={['ADMIN']}`; o backend também exige ADMIN): `FilaDeVerificacao` (página 0 + "Ver mais") e `VerificacaoDoCadastro` (dados, documentos, fotos, decisão). API em `src/api/verificacao.ts`.

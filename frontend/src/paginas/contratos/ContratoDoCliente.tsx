@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 
 import { buscarContrato, pedirPagamento, simularPagamento } from '../../api/contratos';
@@ -37,13 +37,30 @@ export function ContratoDoCliente() {
       </Link>
       {recurso.situacao === 'carregando' && <p role="status">Carregando…</p>}
       {recurso.situacao === 'erro' && <FalhaAoCarregar erro={recurso.erro} aoTentarDeNovo={recurso.tentarDeNovo} />}
-      {recurso.situacao === 'pronto' && <Detalhe contrato={recurso.dados} aoMudar={recurso.tentarDeNovo} />}
+      {recurso.situacao === 'pronto' && <Detalhe inicial={recurso.dados} />}
     </section>
   );
 }
 
-function Detalhe({ contrato, aoMudar }: { contrato: Contrato; aoMudar: () => void }) {
+/** Quanto espera entre uma conferência e outra enquanto o pagamento não chega. */
+const INTERVALO_DA_CONFERENCIA = 5000;
+
+function Detalhe({ inicial }: { inicial: Contrato }) {
+  const [contrato, setContrato] = useState(inicial);
+  const [acabouDePagar, setAcabouDePagar] = useState(false);
   const primeiro = contrato.profissional.nome.split(' ')[0];
+
+  // recarga silenciosa: a tela (e o Pix gerado) fica onde está enquanto o contrato é conferido de novo
+  const recarregar = useCallback(async () => {
+    const novo = await buscarContrato(inicial.id, new AbortController().signal);
+    setContrato((antes) => {
+      if (antes.status === 'aguardando_pagamento' && novo.status !== 'aguardando_pagamento') {
+        setAcabouDePagar(true);
+      }
+      return novo;
+    });
+  }, [inicial.id]);
+
   return (
     <div className={estilos.detalhe}>
       <header className={estilos.topo}>
@@ -56,7 +73,7 @@ function Detalhe({ contrato, aoMudar }: { contrato: Contrato; aoMudar: () => voi
         </p>
       </header>
 
-      {contrato.status === 'aguardando_pagamento' && <Pagar contrato={contrato} aoPagar={aoMudar} />}
+      {contrato.status === 'aguardando_pagamento' && <Pagar contrato={contrato} aoAtualizar={recarregar} />}
       {contrato.status === 'expirado' && (
         <div className={estilos.bloco}>
           <Nota tipo="atencao">
@@ -65,7 +82,7 @@ function Detalhe({ contrato, aoMudar }: { contrato: Contrato; aoMudar: () => voi
           <Botao para={caminhoDeContratar(contrato.profissional.id)}>Contratar de novo</Botao>
         </div>
       )}
-      <ContatoLiberado contrato={contrato} />
+      <ContatoLiberado contrato={contrato} anunciar={acabouDePagar} />
 
       <Valores contrato={contrato} />
 
@@ -130,21 +147,23 @@ function Valores({ contrato }: { contrato: Contrato }) {
       </dl>
       <p className={estilos.apoio}>
         {contrato.status === 'aguardando_pagamento'
-          ? 'Você paga agora e o dinheiro fica guardado. Cada dia só é liberado depois que você aprovar.'
-          : 'O dinheiro fica guardado. Cada dia só é liberado depois que você aprovar.'}
+          ? 'Você paga agora e o dinheiro fica guardado. Cada dia é liberado quando você aprovar, ou sozinho depois do prazo, se você não responder.'
+          : 'O dinheiro fica guardado. Cada dia é liberado quando você aprovar, ou sozinho depois do prazo, se você não responder.'}
       </p>
     </section>
   );
 }
 
-function ContatoLiberado({ contrato }: { contrato: Contrato }) {
+function ContatoLiberado({ contrato, anunciar }: { contrato: Contrato; anunciar: boolean }) {
   const contato = contrato.contato;
   if (!contato) {
     return null;
   }
   return (
     <section className={estilos.liberado} aria-labelledby="titulo-contato">
-      <Nota tipo="ok">Pagamento confirmado</Nota>
+      <Nota tipo="ok" anunciar={anunciar}>
+        Pagamento confirmado
+      </Nota>
       <h2 id="titulo-contato">Contato liberado</h2>
       <p>{contato.nome}</p>
       <p className={estilos.telefone}>
@@ -158,12 +177,28 @@ function ContatoLiberado({ contrato }: { contrato: Contrato }) {
   );
 }
 
-function Pagar({ contrato, aoPagar }: { contrato: Contrato; aoPagar: () => void }) {
+function Pagar({ contrato, aoAtualizar }: { contrato: Contrato; aoAtualizar: () => Promise<void> }) {
   const [metodo, setMetodo] = useState<Pagamento['metodo']>('pix');
   const [pagamento, setPagamento] = useState<Pagamento | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
   const { enviando, executar } = useEnvioUnico();
+
+  // com a cobrança na tela, confere sozinha a cada poucos segundos (falha passageira não atrapalha)
+  useEffect(() => {
+    if (pagamento === null) {
+      return undefined;
+    }
+    const relogio = window.setInterval(() => {
+      aoAtualizar().catch(() => undefined);
+    }, INTERVALO_DA_CONFERENCIA);
+    return () => window.clearInterval(relogio);
+  }, [pagamento, aoAtualizar]);
+
+  function atualizar() {
+    setErro(null);
+    void executar(aoAtualizar, (falha) => setErro(falha.message));
+  }
 
   function gerar() {
     setErro(null);
@@ -178,7 +213,7 @@ function Pagar({ contrato, aoPagar }: { contrato: Contrato; aoPagar: () => void 
     void executar(
       async () => {
         await simularPagamento(contrato.id);
-        aoPagar();
+        await aoAtualizar();
       },
       (falha) => setErro(falha.message),
     );
@@ -190,6 +225,7 @@ function Pagar({ contrato, aoPagar }: { contrato: Contrato; aoPagar: () => void 
       setCopiado(true);
     } catch {
       setCopiado(false);
+      setErro('Não deu para copiar. Toque no código, segure e escolha Copiar.');
     }
   }
 
@@ -199,7 +235,7 @@ function Pagar({ contrato, aoPagar }: { contrato: Contrato; aoPagar: () => void 
       <p className={estilos.apoio}>
         Pague até {formatarDiaEHora(contrato.pagamentoExpiraEm)}. Depois disso o pedido expira.
       </p>
-      {pagamento === null || pagamento.metodo !== metodo ? (
+      {pagamento === null ? (
         <>
           <Opcoes
             legenda="Como você quer pagar"
@@ -249,10 +285,18 @@ function Pagar({ contrato, aoPagar }: { contrato: Contrato; aoPagar: () => void 
               Abrir a página de pagamento
             </a>
           )}
-          <p className={estilos.apoio}>A tela avança quando o banco confirmar. Já pagou?</p>
+          {copiado && (
+            <p className={estilos.apoio} role="status">
+              Código copiado. Agora cole no app do banco.
+            </p>
+          )}
+          <p className={estilos.apoio}>Esta tela confere sozinha a cada poucos segundos. Já pagou? Toque em Atualizar.</p>
           <div className={estilos.acoes}>
-            <Botao variante="suave" onClick={aoPagar}>
+            <Botao variante="suave" onClick={atualizar} desabilitado={enviando}>
               Atualizar
+            </Botao>
+            <Botao variante="suave" onClick={() => setPagamento(null)}>
+              Trocar o jeito de pagar
             </Botao>
             {pagamento.simulavel && (
               <Botao variante="suave" onClick={simular} desabilitado={enviando}>

@@ -159,6 +159,7 @@ coe:
       conversa-usuario: { capacidade: 30, janela: 1h }    # abrir conversa com um profissional (DOM-05)
       chat-usuario: { capacidade: 120, janela: 1h }       # mensagens e lidas do chat (DOM-05)
       contrato-usuario: { capacidade: 20, janela: 1h }    # contratar (DOM-06): cada pedido reserva dias na agenda
+      foto-url-usuario: { capacidade: 300, janela: 1h }   # ver as fotos do dia (URL assinada, FE-05)
       diaria-usuario: { capacidade: 60, janela: 1h }      # Cheguei, Terminei e aprovar (DOM-08)
       pagamento-usuario: { capacidade: 20, janela: 1h }   # pedir a cobrança do contrato (DOM-07): cada uma chama o gateway
   mensageria:

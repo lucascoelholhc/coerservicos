@@ -39,6 +39,18 @@ const ERROS_DOS_DIAS = new Set([
   'meia-diaria-indisponivel',
 ]);
 
+/** Campos com erro mostrado no próprio campo, na etapa do pedido. */
+const CAMPOS_DO_PEDIDO = new Set([
+  'descricao',
+  'material',
+  'cep',
+  'cidade',
+  'logradouro',
+  'numero',
+  'bairro',
+  'complemento',
+]);
+
 const MATERIAIS: { valor: NovoContrato['material']; texto: string }[] = [
   { valor: 'cliente_tem', texto: 'Já tenho o material' },
   { valor: 'cliente_compra', texto: 'Vou comprar: o profissional me diz o que falta' },
@@ -90,17 +102,16 @@ function Formulario({ dados }: { dados: Dados }) {
   const [erros, setErros] = useState<Record<string, string>>({});
   const [erroGeral, setErroGeral] = useState<string | null>(null);
   const titulo = useRef<HTMLHeadingElement>(null);
-  const primeiraVez = useRef(true);
+  const etapaAnterior = useRef(etapa);
   const primeiro = perfil.nome.split(' ')[0];
   const valorDoDia = tipo === 'meia' && perfil.valorMeiaDiaria ? perfil.valorMeiaDiaria : perfil.valorDiaria;
 
   // troca de etapa: o foco vai para o título novo (leitor de tela recomeça ali); na abertura, não mexe
   useEffect(() => {
-    if (primeiraVez.current) {
-      primeiraVez.current = false;
-      return;
+    if (etapaAnterior.current !== etapa) {
+      titulo.current?.focus();
     }
-    titulo.current?.focus();
+    etapaAnterior.current = etapa;
   }, [etapa]);
 
   function continuar() {
@@ -171,7 +182,9 @@ function Formulario({ dados }: { dados: Dados }) {
           porCampo[campo.replace(/^endereco\./, '')] = mensagem;
         }
         setErros(porCampo);
-        setErroGeral(Object.keys(porCampo).length > 0 ? null : erro.message);
+        // erro de um campo que não está nesta etapa também aparece: nada falha em silêncio
+        const algumVisivel = Object.keys(porCampo).some((campo) => CAMPOS_DO_PEDIDO.has(campo));
+        setErroGeral(algumVisivel ? null : erro.message);
       },
     );
   }

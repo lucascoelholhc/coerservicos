@@ -14,14 +14,15 @@ export function Conversar() {
   const { perfil = '' } = useParams();
   const navegar = useNavigate();
   const [erro, setErro] = useState<string | null>(null);
-  const aberta = useRef(false);
+  const aberta = useRef<string | null>(null);
   useTitulo('Conversa');
 
   useEffect(() => {
-    if (aberta.current) {
+    // uma vez por perfil (o StrictMode roda o efeito duas vezes; outro perfil abre outra conversa)
+    if (aberta.current === perfil) {
       return;
     }
-    aberta.current = true;
+    aberta.current = perfil;
     abrirConversa(perfil).then(
       (conversa) => void navegar(caminhoDaConversa(conversa.id), { replace: true }),
       (falha: unknown) => setErro(comoErroDaApi(falha).message),

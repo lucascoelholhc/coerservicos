@@ -144,4 +144,20 @@ describe('Contrato do cliente (FE-05): pagar e ver o contato liberado', () => {
     abrir('/contratos/outro');
     expect(await screen.findByText('Contrato não encontrado.')).toBeInTheDocument();
   });
+
+  it('"Atualizar" confere o contrato sem perder o Pix gerado; "Trocar o jeito de pagar" volta à escolha', async () => {
+    const { pedidos } = simular();
+    abrir(`/contratos/${CONTRATO_AGUARDANDO.id}`);
+    const usuario = userEvent.setup();
+
+    await usuario.click(await screen.findByRole('button', { name: 'Gerar o Pix' }));
+    await usuario.click(await screen.findByRole('button', { name: 'Atualizar' }));
+
+    expect(screen.getByLabelText('Código Pix copia e cola')).toHaveValue(PAGAMENTO_PIX.pixCopiaECola);
+    expect(pedidos.filter((p) => p.url === `/api/contratos/${CONTRATO_AGUARDANDO.id}`).length).toBeGreaterThan(1);
+
+    await usuario.click(screen.getByRole('button', { name: 'Trocar o jeito de pagar' }));
+    expect(screen.getByRole('radio', { name: /Cartão/ })).toBeInTheDocument();
+  });
+
 });

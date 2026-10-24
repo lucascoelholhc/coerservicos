@@ -127,4 +127,16 @@ describe('Mensagens (FE-05, chat do DOM-05)', () => {
     const abrirConversa = pedidos.find((p) => p.url === '/api/conversas' && p.metodo === 'POST');
     expect(JSON.parse(abrirConversa?.corpo ?? '{}')).toEqual({ profissionalId: PERFIL_DE_EXEMPLO.id });
   });
+
+  it('enviar sem texto avisa e não chama a API', async () => {
+    const { pedidos } = simular();
+    abrir('/mensagens/m1');
+    const usuario = userEvent.setup();
+
+    await usuario.click(await screen.findByRole('button', { name: 'Enviar' }));
+
+    expect(screen.getByText('Escreva a mensagem antes de enviar.')).toBeInTheDocument();
+    expect(pedidos.some((p) => p.url.endsWith('/mensagens') && p.metodo === 'POST')).toBe(false);
+  });
+
 });

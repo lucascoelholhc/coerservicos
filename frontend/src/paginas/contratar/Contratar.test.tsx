@@ -145,4 +145,16 @@ describe('Contratar (FE-05): dias, pedido e envio para o pagamento', () => {
     expect(await screen.findByText('Tire o telefone do texto.')).toBeInTheDocument();
     expect(screen.getByLabelText('Rua')).toHaveValue('Rua das Palmeiras');
   });
+
+  it('erro de um campo que não está na tela (ex.: serviço) aparece como mensagem, nada falha em silêncio', async () => {
+    simular(() => problema(422, 'servico-invalido', 'Escolha só serviços que esse profissional faz.', { campo: 'servicos' }));
+    abrir();
+    const usuario = await escolherDiasEContinuar();
+    await preencherPedido(usuario);
+
+    await usuario.click(screen.getByRole('button', { name: 'Ver valores e pagar' }));
+
+    expect(await screen.findByText('Escolha só serviços que esse profissional faz.')).toBeInTheDocument();
+  });
+
 });

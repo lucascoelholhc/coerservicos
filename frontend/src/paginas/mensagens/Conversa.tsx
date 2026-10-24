@@ -71,6 +71,7 @@ function Chat({ id, dados }: { id: string; dados: Dados }) {
   function enviar(evento: React.FormEvent) {
     evento.preventDefault();
     if (texto.trim() === '') {
+      setErro('Escreva a mensagem antes de enviar.');
       return;
     }
     setErro(null);
@@ -95,7 +96,7 @@ function Chat({ id, dados }: { id: string; dados: Dados }) {
             : 'Telefone, e-mail e redes só depois do pagamento. Antes disso, mensagens com contato não são entregues.'}
         </p>
       </header>
-      <ol className={estilos.mensagens} aria-label="Mensagens da conversa">
+      <ol className={estilos.mensagens} aria-label="Mensagens da conversa" aria-live="polite">
         {mensagens.length === 0 && <li className={estilos.apoio}>Nenhuma mensagem ainda. Diga o que precisa.</li>}
         {mensagens.map((mensagem) => (
           <li key={mensagem.id} className={estilos.mensagem} data-minha={mensagem.minha || undefined}>
