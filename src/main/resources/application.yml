@@ -150,6 +150,8 @@ coe:
       dados-usuario: { capacidade: 10, janela: 24h }      # CPF e nascimento: poucas trocas por dia (enumeração)
       admin-usuario: { capacidade: 600, janela: 1h }      # fila, decisões e arquivos da verificação (DOM-03)
       admin-detalhe-usuario: { capacidade: 120, janela: 1h }   # detalhe com CPF completo (DOM-03)
+      conversa-usuario: { capacidade: 30, janela: 1h }    # abrir conversa com um profissional (DOM-05)
+      chat-usuario: { capacidade: 120, janela: 1h }       # mensagens e lidas do chat (DOM-05)
   mensageria:
     # Envio assíncrono de SMS e e-mail depois do commit (decisão de 07/10): filas próprias e limitadas.
     # Fila cheia descarta com log mascarado e devolve a cota da linha (CORE-07); a resposta não muda.

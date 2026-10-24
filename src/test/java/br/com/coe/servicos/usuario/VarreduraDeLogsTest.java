@@ -50,6 +50,9 @@ class VarreduraDeLogsTest extends IntegracaoTest {
     @Autowired
     private PasswordEncoder codificador;
 
+    @Autowired
+    private org.springframework.context.ApplicationContext contexto;
+
     /** Tudo o que não pode aparecer no log; os códigos de 6 dígitos ficam à parte (conferidos isolados). */
     private final List<String> segredos = new ArrayList<>();
 
@@ -242,6 +245,23 @@ class VarreduraDeLogsTest extends IntegracaoTest {
                 .getResponse()
                 .getStatus();
         assertThat(status).isEqualTo(201);
+
+        // chat (DOM-05): o contato que alguém tenta passar antes do pagamento nunca vai para o log
+        java.util.UUID perfil = br.com.coe.servicos.profissional.ProfissionaisDeTeste.ativo(contexto)
+                .profissional();
+        String conversa = JsonPath.read(
+                executar(
+                                json(post("/api/conversas"), "{\"profissionalId\":\"" + perfil + "\"}")
+                                        .header("Authorization", autorizacao),
+                                201)
+                        .getContentAsString(java.nio.charset.StandardCharsets.UTF_8),
+                "$.id");
+        String telefone = guardar("47 98877-" + (6000 + System.nanoTime() % 1000));
+        guardar(telefone.replaceAll("\\D", ""));
+        executar(
+                json(post("/api/conversas/" + conversa + "/mensagens"), "{\"texto\":\"me liga no " + telefone + "\"}")
+                        .header("Authorization", autorizacao),
+                201);
 
         sms.aguardarEnvios();
         String log = saida.getAll();
