@@ -63,7 +63,14 @@ coe:
       lado-maximo: 2560            # lado maior da imagem gravada
       processamentos-simultaneos: 2   # imagens decodificadas ao mesmo tempo por instância (memória)
       espera-por-vaga: 5s          # sem vaga nesse prazo = 503
-      qualidade-jpeg: 0.85
+      qualidade-jpeg:
+        # documento (RG/CNH e certificado NR-10) e selfie mais altos: texto legível na verificação (16/10)
+        documento: 0.92
+        selfie: 0.92
+        portfolio: 0.85
+        pedido: 0.85
+        evidencia: 0.92            # prova da diária (e disputa, abaixo): detalhe vale mais que tamanho
+        disputa: 0.92
   front:
     # Base dos links mandados por e-mail (token no fragmento #token=...). Obrigatória; em prod só https.
     url-base: ${COE_FRONT_URL_BASE:}
