@@ -23,7 +23,9 @@ final class CobrancaDtos {
             Dinheiro valor,
             String pixCopiaECola,
             String linkPagamento,
-            Instant expiraEm) {}
+            Instant expiraEm,
+            /** O gateway é o falso (local e test): o front mostra "Simular pagamento". Sempre falso no prod. */
+            boolean simulavel) {}
 
     /** O pagamento e se ele acabou de ser criado (201) ou já existia (200). */
     record Resultado(Pagamento pagamento, boolean criado) {}

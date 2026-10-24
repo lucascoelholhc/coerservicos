@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -43,6 +44,13 @@ class DiariaController {
     ResponseEntity<DiariaDtos.FotoEnviada> foto(
             @RequestParam("diaria") UUID diaria, @RequestPart("arquivo") MultipartFile arquivo) throws IOException {
         return ResponseEntity.status(HttpStatus.CREATED).body(diarias.foto(diaria, arquivo.getBytes()));
+    }
+
+    @GetMapping("/{id}/fotos")
+    @PreAuthorize("isAuthenticated()")
+    @LimitadoPorUsuario("diaria-usuario") // assina URLs do bucket
+    DiariaDtos.FotosDoDia fotos(@PathVariable UUID id) {
+        return diarias.fotos(id);
     }
 
     @PostMapping("/{id}/aprovar")

@@ -34,6 +34,12 @@ class ContratoController {
         return contratos.criar(pedido);
     }
 
+    @GetMapping
+    @PreAuthorize("hasRole('CLIENTE')")
+    ContratoDtos.Lista listar() {
+        return contratos.listar();
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
     ContratoDtos.Contrato ver(@PathVariable UUID id) {
