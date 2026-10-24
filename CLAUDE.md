@@ -85,7 +85,8 @@ npm run comparar         # protótipo x React lado a lado em frontend/test-resul
 - Feito (dias 23–24, em 24/10, branch `feat/DOM-05-chat`): **DOM-05** (chat em `/api/conversas` com censura no servidor; bloqueada guardada mascarada com o motivo; tentativas e conta em análise; sem migração). Revisões java, security e database sem CRITICAL/HIGH. Decisões e pendências no plano (seção 6, DOM-05).
 - Feito (dias 25–26, em 24/10, branch `feat/DOM-06-contrato`): **DOM-06** (contrato em `/api/contratos` com diárias agendadas, total pela calculadora, comissão congelada, endereço cifrado; agenda; LC 150 em janela móvel com trava; expiração do não pago; sem migração). Revisões java, security e database sem CRITICAL; HIGH (deadlock na ordem das diárias) corrigido. Decisões e pendências no plano (seção 6, DOM-06).
 - Feito (dias 27–29, em 24/10, branch `feat/DOM-07-pagamento`): **DOM-07** (gateway falso no formato do Asaas, cobrança Pix/cartão por link, V19 `link_pagamento`, webhook com token e idempotente, livro-caixa de partidas dobradas, contrato pago com contato liberado). Revisões sem CRITICAL; HIGH do limite do webhook corrigido. Decisões e pendências no plano (seção 6, DOM-07).
-- Próximo: fatia 3, dia 30: DOM-08 (cheguei, terminei com foto, aprovar e liberar pelo livro-caixa, liberação em 12 h com ShedLock).
+- Feito (dias 30–32, em 24/10, branch `feat/DOM-08-execucao`): **DOM-08** (máquina de estados da diária, Cheguei no dia, fotos e Terminei, aprovar e liberar pelo livro-caixa, liberação automática em 12 h com ShedLock e V20). Repasse Pix A DEFINIR com o Asaas. Revisões sem CRITICAL/HIGH. Decisões e pendências no plano (seção 6, DOM-08).
+- Próximo: fatia 3, dia 33: FE-05 (contratar, pagar com o gateway falso e chat no navegador).
 
 ## Estrutura do backend (por domínio, não por camada)
 `usuario` (conta, login, SMS) · `catalogo` (cidades, profissões, serviços) · `profissional` (cadastro, verificação, portfólio, agenda) · `contrato` (contratos e diárias) · `pagamento` (gateway, webhooks, ledger, repasse, reembolso) · `mensagem` (chat + censura) · `avaliacao` · `disputa` · `moderacao` (denúncias) · `admin` · `config` · `compartilhado` (Dinheiro, erros, auditoria, armazenamento)
@@ -249,6 +250,13 @@ npm run comparar         # protótipo x React lado a lado em frontend/test-resul
 - **Ordem das travas** (todo fluxo novo segue): conta (`FOR NO KEY UPDATE`) → LC 150 (advisory) → contrato (`FOR UPDATE`) → diárias **por data**. Diárias sempre inseridas na ordem das datas.
 - **Expiração** (RN32): `ExpiracaoDeContratos.executar()` (a cada `coe.contrato.expiracao`; nos testes 24 h, chame à mão) vira `expirado` + diárias `cancelada` com histórico `sistema`/`pagamento-expirado`; lotes com `FOR UPDATE SKIP LOCKED`.
 - **Testes**: `ProfissionaisDeTeste.diarista(contexto)` (todos os dias, sujeita à LC 150); avançar o relógio expira contratos de outros testes também: filtre sempre pelos próprios ids.
+
+### Execução da diária (DOM-08)
+- **Estados**: toda troca de status de diária passa por `StatusDiaria.exigirIrPara(destino)` (RN40) e grava `historico_diaria`. Nunca `UPDATE diaria SET status` sem isso.
+- **API** `/api/diarias`: `POST /{id}/cheguei` (profissional, só no dia), `POST /fotos` (multipart `diaria` + `arquivo`, uma por vez, até 5, em andamento), `POST /{id}/terminei` `{recado?}` (pelo menos uma foto; recado censurado), `POST /{id}/aprovar` (cliente). Resposta `{id, contratoId, data, tipo, status, chegouEm, terminouEm, autoLiberaEm, liberadaEm, liberadaPor}`.
+- **Liberar** sempre pela `LiberacaoDeDiaria.liberar(contrato, diaria, por, ator, agora)` dentro da transação de quem já travou o contrato e a diária e conferiu o status: ela faz status, histórico, livro-caixa (`liberacao:<diaria>`) e auditoria. Job: `LiberacaoAutomatica` (ShedLock, V20); nos testes chame `executar()` ou `liberarUma(diaria)`.
+- **Livro-caixa**: `LivroCaixa.Lancamento.paraProfissional(perfil, natureza, valor)` para a conta do profissional.
+- **Testes**: base `ExecucaoDeDiariaTeste` (contrato de quintas-feiras, `pagar()`, `trabalharODia(...)`, `aprovar(...)`, `saldoNoContrato(tipo)`).
 
 ### Pagamento (DOM-07)
 - **Gateway**: injete `GatewayPagamento`; só o `GatewayFalso` existe (local e test, formato do Asaas, sem rede). Prod sem adaptador real não sobe. Nunca chame a API do Asaas antes da AWS-09.
