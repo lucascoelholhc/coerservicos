@@ -1,0 +1,244 @@
+/* Painel do admin (protótipo: .adm, .grid-cards, .check-list, .split). */
+
+.pagina {
+  display: grid;
+  gap: 18px;
+  padding-block: 24px 40px;
+}
+
+.topo {
+  display: grid;
+  gap: 6px;
+}
+
+.chamada {
+  color: var(--carimbo-txt);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.apagado {
+  color: var(--tinta-2);
+  font-size: 0.95rem;
+}
+
+.voltar {
+  justify-self: start;
+  padding-block: 10px;
+  color: var(--carimbo-txt);
+  font-weight: 700;
+}
+
+.vazio {
+  display: grid;
+  gap: 6px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+  text-align: center;
+}
+
+.cartoes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cartao {
+  display: grid;
+  gap: 8px;
+  height: 100%;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+
+.cartao h2 {
+  font-size: 1.3rem;
+}
+
+.etiqueta {
+  justify-self: start;
+  padding: 4px 10px;
+  border-radius: var(--r-pilula);
+  background: var(--sinal-soft);
+  color: var(--tinta);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.analisar {
+  display: grid;
+  align-self: end;
+  place-items: center;
+  min-height: 52px;
+  margin-top: 6px;
+  border-radius: var(--r-sm);
+  background: var(--carimbo);
+  color: var(--surface);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.analisar:hover {
+  background: var(--carimbo-2);
+}
+
+.duasColunas {
+  display: grid;
+  gap: 18px;
+}
+
+@media (width >= 900px) {
+  .duasColunas {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    align-items: start;
+  }
+
+  .decisao {
+    position: sticky;
+    top: calc(var(--altura-cabecalho) + 16px);
+  }
+}
+
+.coluna {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.bloco,
+.decisao {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+
+.bloco h2,
+.decisao h2 {
+  font-size: 1.25rem;
+}
+
+.dados {
+  display: grid;
+  margin: 0;
+}
+
+.dados > div {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 12px;
+  padding-block: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.dados > div:first-child {
+  border-top: 0;
+}
+
+.dados dt {
+  color: var(--tinta-2);
+}
+
+.dados dd {
+  margin: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.arquivos {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.arquivos li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.ver,
+.abrir {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--carimbo-txt);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.abrir {
+  display: inline-flex;
+  align-items: center;
+}
+
+.erro {
+  color: var(--bad-txt);
+  font-weight: 600;
+}
+
+.confirmar {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1.5px solid var(--bad);
+  border-radius: var(--r-sm);
+  background: var(--bad-soft);
+}
+
+.confirmar p {
+  font-weight: 700;
+}
+
+.cpf {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.nao,
+.recusar {
+  min-height: 52px;
+  border-radius: var(--r-sm);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.nao {
+  border: 1.5px solid var(--line-2);
+  background: var(--surface);
+  color: var(--tinta);
+}
+
+.recusar {
+  border: 1.5px solid var(--bad);
+  background: var(--surface);
+  color: var(--bad-txt);
+}
+
+.recusar:hover {
+  background: var(--bad-soft);
+}
+
+.nao:disabled,
+.recusar:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}

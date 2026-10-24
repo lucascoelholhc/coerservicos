@@ -44,6 +44,14 @@ describe('cliente da API', () => {
     expect(pedidos[0]?.cabecalhos).not.toHaveProperty('Authorization');
   });
 
+  it('nada da API fica no cache do navegador (CPF, URL assinada): cache no-store em toda chamada', async () => {
+    const { falso } = simularFetch(() => json({ ok: true }));
+
+    await chamar('/admin/verificacao/p1');
+
+    expect(falso.mock.calls[0]?.[1]?.cache).toBe('no-store');
+  });
+
   it('com sessão manda Authorization: Bearer', async () => {
     entrarComo('t1');
     const { pedidos } = simularFetch(() => json({}));

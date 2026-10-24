@@ -149,3 +149,46 @@ export interface UrlAssinada {
   url: string;
   expiraEm: string;
 }
+
+/** Situação do certificado de NR-10 (profissional.nr10_status). */
+export type SituacaoDoNr10 = 'nao_tem' | 'em_analise' | 'verificado' | 'recusado';
+
+/** GET /api/admin/verificacao (VerificacaoResposta.Fila). */
+export interface FilaDeVerificacao {
+  itens: ItemDaFila[];
+  temMais: boolean;
+}
+
+export interface ItemDaFila {
+  id: string;
+  nome: string;
+  /** Código da profissão principal (o nome vem do catálogo). */
+  profissao: string;
+  enviadoEm: string;
+  nr10: boolean;
+}
+
+/** GET /api/admin/verificacao/{id}: o CPF completo (auditado) e o cadastro como o profissional vê. */
+export interface DetalheDaVerificacao {
+  id: string;
+  cpf: string;
+  celularConfirmado: boolean;
+  nr10: SituacaoDoNr10;
+  enviadoEm: string;
+  cadastro: CadastroDoProfissional;
+}
+
+/** O checklist da RN12 (PedidosDaVerificacao.Itens). */
+export interface ItensDaConferencia {
+  cpf: boolean;
+  documento: boolean;
+  selfie: boolean;
+  fotos: boolean;
+  texto: boolean;
+}
+
+export interface DecisaoDaVerificacao {
+  id: string;
+  status: SituacaoDoCadastro;
+  nr10: SituacaoDoNr10;
+}
