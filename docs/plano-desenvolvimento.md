@@ -358,6 +358,24 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 | FE-09 | Testes | Vitest nos componentes; Playwright no caminho feliz em 360 px e desktop |
 | FE-10 | Acessibilidade | axe nas telas principais + teste só com teclado |
 
+**FE-03, resto: busca e perfil público (dia 21, feito em 23/10): decisões (conferir)**
+- **Telas:** `/busca` (barra de profissões, "Mostrar primeiro", filtros na lateral a partir de 960 px e numa folha `<dialog>` no celular, etiquetas removíveis, contagem, "Ver mais", estados carregando/vazio/erro) e `/profissionais/:id` (selos, resumo, fotos do portfólio, "Sobre", serviços, onde atende, calendário dos dias livres, avaliações, caixa de preço). Os filtros ficam na URL com os mesmos nomes da API (`filtros.ts`); o herói e as categorias do Início levam à busca de verdade.
+- **Decisões tomadas sozinho** (como desfazer):
+  - **Busca por texto ("nome ou serviço") do protótipo fora:** a API do DOM-04 não tem busca por texto. Desfazer: parâmetro `texto` no DOM-04 e o campo na tela.
+  - **Um serviço por vez** (rádio), porque a API aceita um `servico`; o protótipo marcava vários. Desfazer: lista na API.
+  - **"Diária até" como lista** (Qualquer valor, R$ 150 a R$ 400 de 50 em 50) em vez do controle deslizante do protótipo: um pedido à API por escolha, sem disparar a cada movimento. Desfazer: range com envio no soltar.
+  - **"Leva as próprias ferramentas"** liga só `ferramentas=sim`; `parte` vale pela URL (vira etiqueta).
+  - **Contagem** "N profissionais" ou "Mais de N" (a API pagina de 20 e não manda total).
+  - **Filtro troca a URL com `replace`** (o Voltar do navegador sai da busca em vez de desfazer filtro por filtro).
+  - **"Contratar diárias" fora** até o FE-05: no lugar, "A contratação pelo app chega em breve."; "Tirar dúvida pelo chat" fica para o DOM-05/FE-05. A nota da LC 150 do protótipo (diarista) fica para o FE-05, com o limite vindo da API.
+  - **"Na COE desde"** do protótipo trocado por "Atende até N km" (a API não manda a data de entrada).
+  - **Foto do portfólio como `<img>`** (antes só por link): `img-src` com a origem do bucket por perfil (`coe.seguranca.origem-das-imagens`: local e test `http://localhost:8333`; prod vazio até a AWS-04/05 e, depois, só o host https; `OrigemDasImagens` não deixa subir fora do formato ou com http/localhost em produção). URL vencida mostra "Carregar as fotos de novo" (busca o perfil de novo).
+  - **Contraste do calendário:** o `--tinta-3` e a opacidade do protótipo ficam abaixo do AA; texto `--tinta-2`, tracejado para folga e pontilhado para "já passou ou ainda sem agenda" (com legenda).
+  - **Categoria escolhida com visto** (status nunca só por cor).
+- **Revisões** (react-reviewer, security-reviewer): sem CRITICAL. Corrigidos os 3 HIGH (folha que fechava sozinha sob StrictMode, "Ver mais" sem cancelar na troca de filtro, páginas extras que voltavam ao repetir a busca) e o MEDIUM de segurança (localhost na CSP do prod).
+- **Teste no navegador (23/10, backend local e Vite):** marco da fatia 2 aprovado: conta nova → 11 etapas com uploads → celular confirmado → em análise (fora da busca) → admin aprova → busca pelo herói acha o profissional → perfil com as fotos do bucket e sem contato.
+- **Ficou:** manter a lista antiga enquanto busca de novo (hoje some e volta a cada filtro); folha aberta ao alargar a janela; `hoje` fixo na montagem (vira a meia-noite); calendário como lista/tabela para leitor de tela (hoje `role="img"` por dia com o rótulo completo); Minha conta com rascunho em andamento ainda diz "Cadastro de profissional — O cadastro é grátis"; host https do bucket de produção em `COE_ORIGEM_DAS_IMAGENS` (AWS-04/05).
+
 **FE-07, parte da verificação (dia 20, feito em 22/10): decisões (conferir)**
 - **Telas:** `/admin/verificacao` (fila do DOM-03, mais antiga primeiro, "Ver mais") e `/admin/verificacao/:id` (dados para conferir com o CPF completo, documentos e fotos, "Sobre", checklist da RN12, NR-10, mensagem por SMS e a decisão). Só ADMIN (`RotaPrivada papeis`; o backend decide). Minha conta do ADMIN ganhou "Painel da equipe" com o atalho.
 - **Decisões tomadas sozinho** (como desfazer):
@@ -529,7 +547,7 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 | 18 | DOM-04 | Busca com filtros e raio; perfil público, dias livres, portfólio | Nenhum contato na resposta |
 | 19 | FE-04 | Telas do cadastro do profissional, etapas 1–6 | Rascunho salvo na API |
 | 20 | FE-04, FE-07 (parte) | Etapas 7–11 com upload; fila de verificação no admin | Cadastro chega ao admin, que aprova |
-| 21 | FE-03 (resto) | Busca e perfil público | **Cadastrar, aprovar e achar o profissional na busca, pelo navegador** |
+| 21 ✅ | FE-03 (resto) | Busca e perfil público | **Cadastrar, aprovar e achar o profissional na busca, pelo navegador** (**feito em 23/10**) |
 | 22 | Revisão | `/security-scan`, cobertura; folga | |
 
 ### Fatia 3: Contratar, pagar e trabalhar (dias 23–35)
