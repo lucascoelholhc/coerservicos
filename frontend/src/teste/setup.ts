@@ -8,13 +8,17 @@ if (typeof Element !== 'undefined') {
 }
 
 // O jsdom não tem showModal/close do <dialog>: só abre e fecha (o navegador cuida do foco e do fundo).
+// Como no navegador, o evento "close" chega depois (numa tarefa), e só quando estava aberto.
 if (typeof HTMLDialogElement !== 'undefined' && !HTMLDialogElement.prototype.showModal) {
   HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
     this.setAttribute('open', '');
   };
   HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
+    if (!this.hasAttribute('open')) {
+      return;
+    }
     this.removeAttribute('open');
-    this.dispatchEvent(new Event('close'));
+    setTimeout(() => this.dispatchEvent(new Event('close')), 0);
   };
 }
 

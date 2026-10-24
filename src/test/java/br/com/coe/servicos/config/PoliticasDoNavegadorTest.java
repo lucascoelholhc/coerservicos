@@ -70,9 +70,11 @@ class PoliticasDoNavegadorTest extends IntegracaoTest {
 
         assertThat(doFront)
                 .containsExactlyInAnyOrderEntriesOf(Map.of(
-                        "Content-Security-Policy", SegurancaConfig.CONTENT_SECURITY_POLICY,
-                        "Permissions-Policy", SegurancaConfig.PERMISSIONS_POLICY));
-        assertThat(SegurancaConfig.CONTENT_SECURITY_POLICY).isEqualTo(CSP);
+                        "Content-Security-Policy",
+                        SegurancaConfig.politicaDeConteudo("http://localhost:8333"),
+                        "Permissions-Policy",
+                        SegurancaConfig.PERMISSIONS_POLICY));
+        assertThat(SegurancaConfig.politicaDeConteudo("http://localhost:8333")).isEqualTo(CSP);
         assertThat(SegurancaConfig.PERMISSIONS_POLICY).isEqualTo(PERMISSOES);
     }
 }

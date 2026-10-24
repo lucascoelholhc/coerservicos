@@ -58,6 +58,10 @@ export function CalendarioDeDias({ hoje, diasDaSemana, diasLivres }: CalendarioP
           <i className={estilos.legendaFolga} aria-hidden="true" />
           Não trabalha
         </span>
+        <span>
+          <i className={estilos.legendaPassado} aria-hidden="true" />
+          Já passou ou ainda sem agenda
+        </span>
       </p>
     </div>
   );

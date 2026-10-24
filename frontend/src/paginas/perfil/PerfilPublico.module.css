@@ -325,6 +325,10 @@
   border: 1.5px dashed var(--line-2);
 }
 
+.legendaPassado {
+  border: 1.5px dotted var(--line-2);
+}
+
 /* Caixa de preço: faixa de cima na cor da marca, presa ao rolar no desktop */
 .caixa {
   display: grid;

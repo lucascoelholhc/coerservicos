@@ -1,5 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { StrictMode } from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -16,13 +17,16 @@ function OndeEstou() {
 }
 
 function abrir(endereco = '/busca') {
+  // StrictMode como no main.tsx: monta, desmonta e monta de novo (pega efeito que não se desfaz direito)
   return render(
-    <MemoryRouter initialEntries={[endereco]}>
-      <Routes>
-        <Route path="/busca" element={<Busca />} />
-        <Route path="/profissionais/:id" element={<OndeEstou />} />
-      </Routes>
-    </MemoryRouter>,
+    <StrictMode>
+      <MemoryRouter initialEntries={[endereco]}>
+        <Routes>
+          <Route path="/busca" element={<Busca />} />
+          <Route path="/profissionais/:id" element={<OndeEstou />} />
+        </Routes>
+      </MemoryRouter>
+    </StrictMode>,
   );
 }
 
@@ -216,6 +220,81 @@ describe('Busca', () => {
     expect(within(folha).getByLabelText('Cidade do serviço')).toHaveValue('4202404');
     await userEvent.click(within(folha).getByRole('button', { name: 'Ver 2 profissionais' }));
 
-    expect(screen.queryByRole('dialog', { name: 'Filtros' })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Filtros' })).not.toBeInTheDocument());
+  });
+
+  it('a folha continua aberta depois de abrir (o "close" atrasado da montagem dupla não a fecha)', async () => {
+    simular();
+    abrir();
+    await screen.findByRole('link', { name: 'Valdir S.' });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Filtros' }));
+    await new Promise((resolver) => setTimeout(resolver, 20));
+
+    expect(screen.getByRole('dialog', { name: 'Filtros' })).toBeInTheDocument();
+  });
+
+  it('clicar no fundo escuro fecha a folha', async () => {
+    simular();
+    abrir();
+    await screen.findByRole('link', { name: 'Valdir S.' });
+    await userEvent.click(screen.getByRole('button', { name: 'Filtros' }));
+
+    await userEvent.click(screen.getByRole('dialog', { name: 'Filtros' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Filtros' })).not.toBeInTheDocument());
+  });
+
+  it('"Ver mais" que volta depois de trocar o filtro é descartado (nem itens nem erro na lista nova)', async () => {
+    let soltar: (resposta: Response) => void = () => {};
+    const { buscas } = simular((pedido) => {
+      if (pedido.url.endsWith('pagina=1')) {
+        return new Promise<Response>((resolver) => {
+          soltar = resolver;
+        });
+      }
+      return json({ ...RESULTADO_DA_BUSCA, temMais: !pedido.url.includes('ordem=preco') });
+    });
+    abrir();
+    await userEvent.click(await screen.findByRole('button', { name: 'Ver mais' }));
+
+    await userEvent.selectOptions(screen.getByLabelText('Mostrar primeiro'), 'preco');
+    await waitFor(() => expect(ultimaBusca(buscas)).toBe('/api/publico/profissionais?ordem=preco&pagina=0'));
+    await screen.findByText('2 profissionais');
+    soltar(json({ itens: [{ ...(RESULTADO_DA_BUSCA.itens[0] as ProfissionalNaBusca), id: 'velho', nome: 'Velho V.' }], temMais: false }));
+    await new Promise((resolver) => setTimeout(resolver, 20));
+
+    expect(screen.queryByRole('link', { name: 'Velho V.' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('article')).toHaveLength(2);
+  });
+
+  it('voltar para a mesma busca não traz de volta as páginas extras de antes', async () => {
+    const segunda: ResultadoDaBusca = {
+      itens: [{ ...(RESULTADO_DA_BUSCA.itens[0] as ProfissionalNaBusca), id: 'p-3', nome: 'Jair H.' }],
+      temMais: false,
+    };
+    simular((pedido) => json(pedido.url.endsWith('pagina=1') ? segunda : { ...RESULTADO_DA_BUSCA, temMais: true }));
+    abrir();
+    await userEvent.click(await screen.findByRole('button', { name: 'Ver mais' }));
+    await screen.findByRole('link', { name: 'Jair H.' });
+
+    await userEvent.selectOptions(screen.getByLabelText('Mostrar primeiro'), 'preco');
+    await screen.findByText('Mais de 2 profissionais');
+    await userEvent.selectOptions(screen.getByLabelText('Mostrar primeiro'), 'livre');
+
+    await screen.findByText('Mais de 2 profissionais');
+    expect(screen.queryByRole('link', { name: 'Jair H.' })).not.toBeInTheDocument();
+  });
+
+  it('"Ver mais" que falha avisa e deixa tentar de novo', async () => {
+    simular((pedido) =>
+      pedido.url.endsWith('pagina=1') ? problema(500, 'erro-interno', 'x') : json({ ...RESULTADO_DA_BUSCA, temMais: true }),
+    );
+    abrir();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Ver mais' }));
+
+    expect(await screen.findByText(/A COE está com um problema agora/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ver mais' })).toBeEnabled();
   });
 });

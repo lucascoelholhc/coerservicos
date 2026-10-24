@@ -32,7 +32,8 @@ import { PainelDeFiltros } from './PainelDeFiltros';
 const semNinguem = (resultado: ResultadoDaBusca) => resultado.itens.length === 0;
 
 interface Mais {
-  consulta: string;
+  /** A primeira página de onde as extras saíram. */
+  base: ResultadoDaBusca;
   pagina: number;
   itens: ProfissionalNaBusca[];
   temMais: boolean;
@@ -53,9 +54,6 @@ export function Busca() {
   const catalogo = useRecurso(buscarCatalogo);
   // A chave (a consulta) faz buscar de novo quando os filtros mudam.
   const busca = useRecurso((sinal) => buscarProfissionais(consulta, 0, sinal), semNinguem, consulta);
-  const [mais, setMais] = useState<Mais | null>(null);
-  const [trazendoMais, setTrazendoMais] = useState(false);
-  const [erroDoMais, setErroDoMais] = useState<string | null>(null);
   const [folhaAberta, setFolhaAberta] = useState(false);
 
   const profissoes = catalogo.dados ? profissoesDoCatalogo(catalogo.dados) : [];
@@ -65,40 +63,25 @@ export function Busca() {
   const nomeDaProfissao = (codigo: string) => profissoes.find((p) => p.codigo === codigo)?.nome ?? codigo;
   const etiquetas = etiquetasDosFiltros(filtros, cidades);
 
-  const extras = mais?.consulta === consulta ? mais : null;
-  const itens = [...(busca.dados?.itens ?? []), ...(extras?.itens ?? [])];
-  const temMais = extras ? extras.temMais : (busca.dados?.temMais ?? false);
+  const [quantos, setQuantos] = useState<{ primeira: ResultadoDaBusca; total: number; temMais: boolean } | null>(
+    null,
+  );
 
   function trocarFiltros(novos: FiltrosDaBusca) {
-    setErroDoMais(null);
     setParametros(consultaDosFiltros(novos), { replace: true });
   }
   const mudar = (troca: Partial<FiltrosDaBusca>) => trocarFiltros(comFiltro(filtros, troca));
   const limpar = () => trocarFiltros({ ...FILTROS_VAZIOS, profissao: filtros.profissao, ordem: filtros.ordem });
 
-  async function verMais() {
-    const pagina = (extras?.pagina ?? 0) + 1;
-    setTrazendoMais(true);
-    setErroDoMais(null);
-    try {
-      const proxima = await buscarProfissionais(consulta, pagina, new AbortController().signal);
-      const vistos = new Set(itens.map((item) => item.id));
-      setMais({
-        consulta,
-        pagina,
-        itens: [...(extras?.itens ?? []), ...proxima.itens.filter((item) => !vistos.has(item.id))],
-        temMais: proxima.temMais,
-      });
-    } catch (falha) {
-      setErroDoMais(comoErroDaApi(falha).message);
-    } finally {
-      setTrazendoMais(false);
-    }
-  }
-
   const titulo = `${profissao ? profissao.nomePlural : 'Profissionais'}${cidade ? ` em ${cidade.nome}` : ''}`;
-  const contagem = busca.situacao === 'pronto' ? textoDaContagem(itens.length, temMais) : null;
-  const textoDoVer = contagem && !temMais ? `Ver ${contagem}` : 'Ver os profissionais';
+  // A contagem é da lista mostrada (primeira página + as que o "Ver mais" trouxe).
+  const primeiraPagina = busca.situacao === 'pronto' ? busca.dados : null;
+  const lista = primeiraPagina && quantos?.primeira === primeiraPagina ? quantos : null;
+  const temMaisNaTela = lista ? lista.temMais : (primeiraPagina?.temMais ?? false);
+  const contagem = primeiraPagina
+    ? textoDaContagem(lista ? lista.total : primeiraPagina.itens.length, temMaisNaTela)
+    : null;
+  const textoDoVer = contagem && !temMaisNaTela ? `Ver ${contagem}` : 'Ver os profissionais';
   const painel = (prefixo: string) => (
     <PainelDeFiltros
       prefixo={prefixo}
@@ -117,6 +100,7 @@ export function Busca() {
       {profissoes.length > 0 && (
         <div className={estilos.categorias} role="group" aria-label="Profissão">
           <button type="button" aria-pressed={!filtros.profissao} onClick={() => mudar({ profissao: '' })}>
+            {!filtros.profissao && <Icone nome="check" tamanho={18} />}
             Todos
           </button>
           {profissoes.map((p) => (
@@ -126,6 +110,7 @@ export function Busca() {
               aria-pressed={filtros.profissao === p.codigo}
               onClick={() => mudar({ profissao: p.codigo })}
             >
+              {filtros.profissao === p.codigo && <Icone nome="check" tamanho={18} />}
               {p.nome}
             </button>
           ))}
@@ -189,36 +174,22 @@ export function Busca() {
             </div>
           )}
           {busca.situacao === 'pronto' && (
-            <>
-              {itens.every((item) => item.novoNaCoe) && (
-                <Nota>
-                  A COE está começando, então ninguém aqui tem avaliação ainda. Todos passaram pela conferência de
-                  documento e selfie.
-                </Nota>
+            <ListaDeResultados
+              key={consulta}
+              consulta={consulta}
+              primeira={busca.dados}
+              aoContar={(total, temMais) => setQuantos({ primeira: busca.dados, total, temMais })}
+              cartao={(item) => (
+                <CartaoDoProfissional
+                  key={item.id}
+                  profissional={item}
+                  nomeDaProfissao={nomeDaProfissao}
+                  cidadeBuscada={cidade?.nome}
+                  hoje={hoje}
+                  busca={consulta}
+                />
               )}
-              <div className={estilos.lista}>
-                {itens.map((item) => (
-                  <CartaoDoProfissional
-                    key={item.id}
-                    profissional={item}
-                    nomeDaProfissao={nomeDaProfissao}
-                    cidadeBuscada={cidade?.nome}
-                    hoje={hoje}
-                    busca={consulta}
-                  />
-                ))}
-              </div>
-              {erroDoMais && (
-                <Nota tipo="erro" anunciar>
-                  {erroDoMais}
-                </Nota>
-              )}
-              {temMais && (
-                <Botao variante="contorno" onClick={() => void verMais()} desabilitado={trazendoMais}>
-                  {trazendoMais ? 'Trazendo mais…' : 'Ver mais'}
-                </Botao>
-              )}
-            </>
+            />
           )}
         </div>
       </div>
@@ -229,6 +200,75 @@ export function Busca() {
         </FolhaDeFiltros>
       )}
     </div>
+  );
+}
+
+interface ListaProps {
+  consulta: string;
+  primeira: ResultadoDaBusca;
+  aoContar: (total: number, temMais: boolean) => void;
+  cartao: (item: ProfissionalNaBusca) => ReactNode;
+}
+
+/**
+ * Lista e "Ver mais" de uma consulta (a página a monta de novo a cada consulta, com key). As páginas extras
+ * valem só para a primeira página de onde saíram: buscou de novo, começa do zero. Sair cancela o pedido.
+ */
+function ListaDeResultados({ consulta, primeira, aoContar, cartao }: ListaProps) {
+  const [mais, setMais] = useState<Mais | null>(null);
+  const [trazendo, setTrazendo] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const controle = useRef<AbortController | null>(null);
+  useEffect(() => () => controle.current?.abort(), []);
+
+  const extras = mais?.base === primeira ? mais : null;
+  const itens = [...primeira.itens, ...(extras?.itens ?? [])];
+  const temMais = extras ? extras.temMais : primeira.temMais;
+
+  async function verMais() {
+    controle.current?.abort();
+    const atual = new AbortController();
+    controle.current = atual;
+    const pagina = (extras?.pagina ?? 0) + 1;
+    setTrazendo(true);
+    setErro(null);
+    try {
+      const proxima = await buscarProfissionais(consulta, pagina, atual.signal);
+      const vistos = new Set(itens.map((item) => item.id));
+      const novos = [...(extras?.itens ?? []), ...proxima.itens.filter((item) => !vistos.has(item.id))];
+      setMais({ base: primeira, pagina, itens: novos, temMais: proxima.temMais });
+      aoContar(primeira.itens.length + novos.length, proxima.temMais);
+    } catch (falha) {
+      if (!atual.signal.aborted) {
+        setErro(comoErroDaApi(falha).message);
+      }
+    } finally {
+      if (!atual.signal.aborted) {
+        setTrazendo(false);
+      }
+    }
+  }
+
+  return (
+    <>
+      {itens.every((item) => item.novoNaCoe) && (
+        <Nota>
+          A COE está começando, então ninguém aqui tem avaliação ainda. Todos passaram pela conferência de documento e
+          selfie.
+        </Nota>
+      )}
+      <div className={estilos.lista}>{itens.map(cartao)}</div>
+      {erro && (
+        <Nota tipo="erro" anunciar>
+          {erro}
+        </Nota>
+      )}
+      {temMais && (
+        <Botao variante="contorno" onClick={() => void verMais()} desabilitado={trazendo}>
+          {trazendo ? 'Trazendo mais…' : 'Ver mais'}
+        </Botao>
+      )}
+    </>
   );
 }
 
@@ -244,11 +284,35 @@ function FolhaDeFiltros({ children, aoFechar, aoLimpar, textoDoVer }: FolhaProps
   const dialogo = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const elemento = dialogo.current;
-    elemento?.showModal();
-    return () => elemento?.close();
+    if (elemento && !elemento.open) {
+      elemento.showModal();
+    }
+    return () => {
+      if (elemento?.open) {
+        elemento.close();
+      }
+    };
   }, []);
   return (
-    <dialog ref={dialogo} className={estilos.folha} aria-labelledby="titulo-da-folha" onClose={aoFechar}>
+    // Clique no fundo é atalho de mouse; no teclado, o Esc nativo do <dialog> faz o mesmo.
+    // eslint-disable-next-line jsx-a11y-x/click-events-have-key-events, jsx-a11y-x/no-noninteractive-element-interactions
+    <dialog
+      ref={dialogo}
+      className={estilos.folha}
+      aria-labelledby="titulo-da-folha"
+      // O "close" chega depois: numa montagem dupla (StrictMode) a folha já abriu de novo e continua aberta.
+      onClose={(evento) => {
+        if (!evento.currentTarget.open) {
+          aoFechar();
+        }
+      }}
+      // Clique fora do conteúdo (no fundo escuro) cai no próprio <dialog>: fecha.
+      onClick={(evento) => {
+        if (evento.target === evento.currentTarget) {
+          evento.currentTarget.close();
+        }
+      }}
+    >
       <div className={estilos.folhaTopo}>
         <h2 id="titulo-da-folha">Filtros</h2>
         <button type="button" className={estilos.fechar} aria-label="Fechar" onClick={() => dialogo.current?.close()}>

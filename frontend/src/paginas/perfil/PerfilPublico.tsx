@@ -133,7 +133,12 @@ export function PerfilPublico() {
             ) : (
               <div className={estilos.galeria}>
                 {dados.fotos.map((foto) => (
-                  <FotoDoTrabalho key={foto.id} foto={foto} nome={dados.nome} />
+                  <FotoDoTrabalho
+                    key={foto.id}
+                    foto={foto}
+                    nome={dados.nome}
+                    aoBuscarDeNovo={perfil.tentarDeNovo}
+                  />
                 ))}
               </div>
             )}
@@ -208,13 +213,23 @@ function Fato({ rotulo, valor }: { rotulo: string; valor: string }) {
   );
 }
 
-function FotoDoTrabalho({ foto, nome }: { foto: FotoDoPerfil; nome: string }) {
+interface FotoProps {
+  foto: FotoDoPerfil;
+  nome: string;
+  /** A URL assinada vence em minutos: buscar o perfil de novo traz URLs novas. */
+  aoBuscarDeNovo: () => void;
+}
+
+function FotoDoTrabalho({ foto, nome, aoBuscarDeNovo }: FotoProps) {
   const [falhou, setFalhou] = useState(false);
   const descricao = foto.legenda ?? foto.servico ?? `Trabalho de ${nome}`;
   if (!enderecoDeImagem(foto.url) || falhou) {
     return (
       <figure className={`${estilos.foto} ${estilos.fotoFora}`}>
-        <figcaption>Foto indisponível agora. Recarregue a página.</figcaption>
+        <figcaption>Foto indisponível agora.</figcaption>
+        <Botao variante="suave" tamanho="sm" onClick={aoBuscarDeNovo}>
+          Carregar as fotos de novo
+        </Botao>
       </figure>
     );
   }

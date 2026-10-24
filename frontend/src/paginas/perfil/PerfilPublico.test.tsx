@@ -95,7 +95,10 @@ describe('Perfil público', () => {
     fireEvent.error(await screen.findByRole('img', { name: 'Muro de bloco' }));
 
     expect(screen.queryByRole('img', { name: 'Muro de bloco' })).not.toBeInTheDocument();
-    expect(screen.getByText('Foto indisponível agora. Recarregue a página.')).toBeInTheDocument();
+    expect(screen.getByText('Foto indisponível agora.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Carregar as fotos de novo' }));
+
+    expect(await screen.findByRole('img', { name: 'Muro de bloco' })).toBeInTheDocument();
   });
 
   it('endereço de foto que não é http(s) nunca vira imagem', async () => {
