@@ -324,6 +324,19 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 - 17 anos e 364 dias: cadastro recusado com "Para trabalhar na COE é preciso ter 18 anos ou mais."
 - Exatos 18 anos (no dia do aniversário): cadastro aceito
 
+**DOM-05 (dias 23–24, feito em 24/10): decisões e pendências (conferir)**
+- **API** em `/api/conversas` (qualquer logado): abrir (profissional ativo de conta ativa; nunca consigo: 422 `conversa-propria`), listar (como cliente e como profissional; outro lado "Primeiro S."; não lidas), mensagens (100 por vez, cursor `antes=<id da mensagem>` por `(criado_em, id)`; bloqueadas só para o autor), enviar e marcar lidas. Quem não participa recebe 404 igual a inexistente. Sem migração (V7 já tinha `conversa`, `mensagem`, `tentativa_contato`; o database-reviewer conferiu os índices: `uq_profissional_usuario` já cobre o ramo do profissional).
+- **Decisões tomadas sozinho** (como desfazer):
+  - **Mensagem bloqueada guardada mascarada** (`CensuraDeContato.mascararContato`: números viram •, e-mail/link/@perfil viram [contato]); se ainda sobrar dado de contato (número ditado, "arroba"), vira "[mensagem com contato]". O mesmo no `trecho_mascarado` da tentativa (LGPD). Desfazer: guardar o texto original.
+  - **Envio bloqueado responde 201** com a mensagem (bloqueada, motivos) e um `aviso` {tentativa, limite, contaEmAnalise}, em vez de 422: o autor vê a mensagem com o motivo (RN48), como o protótipo.
+  - **Conta para análise na tentativa seguinte ao limite** (com 3, a 4ª), contando **todas** as tentativas de chat da conta (sem janela). **Pendência para o DOM-11 (decisão do usuário):** janela de tempo ou zerar a contagem quando o admin reativar a conta (hoje uma conta reativada volta para análise na próxima tentativa). Auditoria `conta.em-analise` do SISTEMA, sem o texto.
+  - **Só o chat conta tentativa**: "Sobre", legendas e pedido continuam recusando com 422 `texto-com-contato` sem gravar tentativa (pendência: gravar `tentativa_contato` com a origem certa).
+  - **Conta em análise** lê as conversas, mas não abre nem manda mensagem (403 `conta-em-analise`); o login continua. Contrato novo bloqueado fica para o DOM-06.
+  - **Contato liberado** = `conversa.contato_liberado_em` (o DOM-07 preenche quando o pagamento confirmar): aí a censura não se aplica (RN50).
+  - Limites `conversa-usuario` (30/h) e `chat-usuario` (120/h); trava `FOR NO KEY UPDATE` na conta durante o envio.
+- **Revisões** (java, security, database): sem CRITICAL nem HIGH. Corrigidos: cursor composto, conta sumida = 404, máscara que deixava número ditado em claro, nome e trecho seguros para emoji, testes de resposta do profissional, lidas de conversa alheia (404) e 401.
+- **Ficou:** contato fatiado em várias mensagens ("47 9" e depois "9123") passa (juntar as últimas mensagens do autor na checagem); nome de cadastro com contato aparece no chat (censurar o nome no cadastro); lista de conversas com teto de 100 sem paginação; bloqueio/denúncia e teto diário de conversas novas (moderação, DOM-11); aviso claro na tela de que tentativas levam à análise (FE-05/FE-06); `NomeDeExibicao` com teste próprio.
+
 **Casos de teste obrigatórios do DOM-05** (PA13):
 - `CEP 89010-000` e `CEP 89010000` passam pela censura
 - Telefone (com e sem separadores) continua bloqueado
@@ -563,8 +576,8 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 ### Fatia 3: Contratar, pagar e trabalhar (dias 23–35)
 | Dia | Tarefas | O que fazer | Pronto quando |
 |---|---|---|---|
-| 23 | DOM-05 | Conversa e censura no servidor (CEP passa, PA13) | Bloqueia e deixa passar o certo |
-| 24 | DOM-05 | Tentativas e conta em análise | 4ª tentativa → análise |
+| 23 ✅ | DOM-05 | Conversa e censura no servidor (CEP passa, PA13) | Bloqueia e deixa passar o certo (**feito em 24/10**) |
+| 24 ✅ | DOM-05 | Tentativas e conta em análise | 4ª tentativa → análise (**feito em 24/10**) |
 | 25 | DOM-06 | Contrato, endereço cifrado, total | Total confere com o banco |
 | 26 | DOM-06 | Agenda, LC 150 com trava, expiração | 3ª diária na janela recusada |
 | 27 | DOM-07 | `GatewayPagamento` e adaptador falso | Cobrança criada e consultada |

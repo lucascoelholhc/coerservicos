@@ -1,10 +1,8 @@
 package br.com.coe.servicos.mensagem;
 
-import java.time.Instant;
 import java.util.UUID;
 import jakarta.validation.Valid;
 
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -46,9 +44,7 @@ class ConversaController {
 
     @GetMapping("/{id}/mensagens")
     @PreAuthorize("isAuthenticated()")
-    ChatDtos.Mensagens mensagens(
-            @PathVariable UUID id,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant antes) {
+    ChatDtos.Mensagens mensagens(@PathVariable UUID id, @RequestParam(required = false) UUID antes) {
         return conversas.mensagens(id, antes);
     }
 

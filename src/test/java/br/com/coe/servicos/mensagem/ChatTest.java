@@ -196,6 +196,55 @@ class ChatTest extends IntegracaoTest {
     }
 
     @Test
+    @DisplayName("mensagens antigas pelo cursor da mensagem (antes=<id>), sem perder as do mesmo instante")
+    void paginacao() throws Exception {
+        String id = conversa();
+        for (int i = 1; i <= 3; i++) {
+            mandarTexto(doCliente(), id, "mensagem " + i).andExpect(status().isCreated());
+        }
+        String todas = mensagens(doCliente(), id).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        String ultima = JsonPath.read(todas, "$.itens[2].id");
+
+        mockMvc.perform(get("/api/conversas/" + id + "/mensagens")
+                        .param("antes", ultima)
+                        .header("Authorization", doCliente()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.itens", hasSize(2)))
+                .andExpect(jsonPath("$.itens[0].id").value((String) JsonPath.read(todas, "$.itens[0].id")))
+                .andExpect(jsonPath("$.itens[1].id").value((String) JsonPath.read(todas, "$.itens[1].id")));
+    }
+
+    @Test
+    @DisplayName("número ditado por extenso também não fica guardado: a mensagem vira texto genérico")
+    void ditadoNaoFicaGuardado() throws Exception {
+        String id = conversa();
+
+        mandarTexto(doCliente(), id, "anota aí quatro sete nove nove nove nove zero zero zero um")
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.mensagem.bloqueada").value(true))
+                .andExpect(jsonPath("$.mensagem.texto").value("[mensagem com contato]"));
+    }
+
+    @Test
+    @DisplayName("o profissional responde; marcar lidas de conversa alheia é 404; sem token, 401")
+    void respostaELidas() throws Exception {
+        String id = conversa();
+        mandarTexto(doProfissional(), id, "Oi! Sábado eu posso, sim.").andExpect(status().isCreated());
+
+        mensagens(doCliente(), id)
+                .andExpect(jsonPath("$.itens[0].minha").value(false))
+                .andExpect(jsonPath("$.itens[0].texto").value("Oi! Sábado eu posso, sim."));
+        String estranho = bearer(contas.criarConfirmada(Papel.CLIENTE).id(), Papel.CLIENTE);
+        mockMvc.perform(post("/api/conversas/" + id + "/lidas").header("Authorization", estranho))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/conversas/" + id + "/lidas")).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/conversas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"profissionalId\":\"" + profissional.profissional() + "\"}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     @DisplayName("contato liberado (contrato pago): o telefone passa sem censura (RN50)")
     void contatoLiberado() throws Exception {
         String id = conversa();

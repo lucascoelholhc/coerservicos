@@ -40,6 +40,9 @@ class ConversaService {
     private static final int CONVERSAS_POR_VEZ = 100;
     private static final int TRECHO_MAXIMO = 200;
     private static final String NAO_ENCONTRADA = "Conversa não encontrada.";
+    /** Regras que são o próprio contato (palavras como "zap" ou "me liga" podem ficar no texto guardado). */
+    private static final java.util.Set<String> DADOS_DE_CONTATO =
+            java.util.Set.of("telefone", "email", "link", "perfil");
 
     private final NamedParameterJdbcTemplate jdbc;
     private final UsuarioAutenticado usuario;
@@ -99,17 +102,19 @@ class ConversaService {
     }
 
     @Transactional(readOnly = true)
-    ChatDtos.Mensagens mensagens(UUID conversa, Instant antes) {
+    ChatDtos.Mensagens mensagens(UUID conversa, UUID antes) {
         UUID eu = usuario.id();
         participar(conversa, eu);
         MapSqlParameterSource parametros = new MapSqlParameterSource("conversa", conversa)
                 .addValue("eu", eu)
-                .addValue("antes", antes == null ? null : OffsetDateTime.ofInstant(antes, ZoneOffset.UTC))
+                .addValue("antes", antes)
                 .addValue("limite", MENSAGENS_POR_VEZ);
         List<ChatDtos.Mensagem> itens = new ArrayList<>(jdbc.query("""
                 SELECT id, autor_id, texto, bloqueada, regras_violadas, lida_em, criado_em FROM mensagem
                  WHERE conversa_id = :conversa AND (NOT bloqueada OR autor_id = :eu)
-                   AND (CAST(:antes AS timestamptz) IS NULL OR criado_em < CAST(:antes AS timestamptz))
+                   AND (CAST(:antes AS uuid) IS NULL
+                        OR (criado_em, id) < (SELECT a.criado_em, a.id FROM mensagem a
+                                               WHERE a.id = CAST(:antes AS uuid) AND a.conversa_id = :conversa))
                  ORDER BY criado_em DESC, id DESC LIMIT :limite
                 """, parametros, (linha, n) -> mensagem(linha, eu)));
         Collections.reverse(itens);
@@ -131,7 +136,7 @@ class ConversaService {
                     new MapSqlParameterSource("agora", agora()).addValue("id", conversa));
             return new ChatDtos.Envio(entregue, null);
         }
-        String mascarado = CensuraDeContato.mascararContato(limpo);
+        String mascarado = guardavel(limpo);
         ChatDtos.Mensagem bloqueada = gravar(conversa, eu, mascarado, regras);
         return new ChatDtos.Envio(bloqueada, registrarTentativa(eu, bloqueada.id(), regras, mascarado));
     }
@@ -159,10 +164,9 @@ class ConversaService {
                 new MapSqlParameterSource("eu", eu)
                         .addValue("mensagem", mensagem)
                         .addValue("regras", comoArray(regras))
-                        .addValue(
-                                "trecho",
-                                mascarado.length() > TRECHO_MAXIMO ? mascarado.substring(0, TRECHO_MAXIMO) : mascarado)
+                        .addValue("trecho", trecho(mascarado))
                         .addValue("agora", agora()));
+        // todas as tentativas de chat da conta; zerar quando o admin reativar fica com a decisão do DOM-11
         Integer feitas = jdbc.queryForObject(
                 "SELECT count(*) FROM tentativa_contato WHERE usuario_id = :eu AND origem = 'chat'",
                 new MapSqlParameterSource("eu", eu),
@@ -246,10 +250,28 @@ class ConversaService {
     }
 
     private String travarConta(UUID eu) {
-        return jdbc.queryForObject(
-                "SELECT status FROM usuario WHERE id = :eu FOR UPDATE",
+        List<String> status = jdbc.queryForList(
+                "SELECT status FROM usuario WHERE id = :eu FOR NO KEY UPDATE",
                 new MapSqlParameterSource("eu", eu),
                 String.class);
+        if (status.isEmpty()) {
+            throw new RecursoNaoEncontradoException("Conta não encontrada.");
+        }
+        return status.get(0);
+    }
+
+    /** O texto bloqueado como pode ser guardado: mascarado e, se ainda sobrar contato, um texto genérico. */
+    private static String guardavel(String texto) {
+        String mascarado = CensuraDeContato.mascararContato(texto);
+        boolean sobrouDado = CensuraDeContato.regrasVioladas(mascarado).stream().anyMatch(DADOS_DE_CONTATO::contains);
+        return sobrouDado ? "[mensagem com contato]" : mascarado;
+    }
+
+    /** O começo do texto para a moderação, sem partir um caractere (emoji) no meio. */
+    private static String trecho(String texto) {
+        return texto.codePointCount(0, texto.length()) <= TRECHO_MAXIMO
+                ? texto
+                : texto.substring(0, texto.offsetByCodePoints(0, TRECHO_MAXIMO));
     }
 
     /** Conta em análise (ou suspensa) lê o que já tem, mas não abre conversa nem manda mensagem (DOM-05). */
