@@ -15,6 +15,9 @@ coe:
     chave-codigos: Wm9QbFdGd0x6ZlZ3d2xjR2Y2bVNqN0F1a0Y2cTZhS2k=
   front:
     url-base: http://localhost:5173
+  contrato:
+    # o job de expiração não roda sozinho nos testes (o relógio é compartilhado); o teste chama executar()
+    expiracao: 24h
   # Chaves da criptografia de campo SÓ para testes (não são segredo).
   cifra:
     kid-atual: teste-2
