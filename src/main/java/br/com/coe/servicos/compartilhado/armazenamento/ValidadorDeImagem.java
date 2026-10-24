@@ -91,7 +91,7 @@ public class ValidadorDeImagem {
         }
         ocuparVaga();
         try {
-            return processar(bruto, formato);
+            return processar(bruto, formato, categoria);
         } finally {
             vagas.release();
         }
@@ -113,7 +113,7 @@ public class ValidadorDeImagem {
         }
     }
 
-    private ArquivoValidado processar(byte[] bruto, Formato formato) {
+    private ArquivoValidado processar(byte[] bruto, Formato formato, Categoria categoria) {
         BufferedImage lida = decodificar(bruto, formato);
         boolean comTransparencia =
                 formato == Formato.PNG && lida.getColorModel().hasAlpha();
@@ -131,7 +131,7 @@ public class ValidadorDeImagem {
         if (formato == Formato.PNG) {
             return new ArquivoValidado(gravarPng(imagem), TipoDeImagem.PNG);
         }
-        return new ArquivoValidado(gravarJpeg(imagem), TipoDeImagem.JPEG);
+        return new ArquivoValidado(gravarJpeg(imagem, propriedades.qualidadeDe(categoria)), TipoDeImagem.JPEG);
     }
 
     private BufferedImage decodificar(byte[] bruto, Formato formato) {
@@ -224,14 +224,14 @@ public class ValidadorDeImagem {
     }
 
     /** JPEG sem metadados além do JFIF básico (nada de EXIF, ICC, XMP ou comentário). */
-    private byte[] gravarJpeg(BufferedImage imagem) {
+    private static byte[] gravarJpeg(BufferedImage imagem, float qualidade) {
         ImageWriter escritor = ImageIO.getImageWritersByFormatName("jpeg").next();
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (ImageOutputStream saida = new MemoryCacheImageOutputStream(bytes)) {
             escritor.setOutput(saida);
             ImageWriteParam parametros = escritor.getDefaultWriteParam();
             parametros.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-            parametros.setCompressionQuality(propriedades.qualidadeJpeg());
+            parametros.setCompressionQuality(qualidade);
             escritor.write(null, new IIOImage(imagem, null, null), parametros);
         } catch (IOException erro) {
             throw new IllegalStateException("Falha ao gravar o JPEG", erro);
