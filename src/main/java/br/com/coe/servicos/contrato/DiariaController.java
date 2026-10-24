@@ -45,6 +45,13 @@ class DiariaController {
         return ResponseEntity.status(HttpStatus.CREATED).body(diarias.foto(diaria, arquivo.getBytes()));
     }
 
+    @PostMapping("/{id}/aprovar")
+    @PreAuthorize("hasRole('CLIENTE')")
+    @LimitadoPorUsuario("diaria-usuario")
+    DiariaDtos.Diaria aprovar(@PathVariable UUID id) {
+        return diarias.aprovar(id);
+    }
+
     @PostMapping("/{id}/terminei")
     @PreAuthorize("hasRole('PROFISSIONAL')")
     @LimitadoPorUsuario("diaria-usuario")

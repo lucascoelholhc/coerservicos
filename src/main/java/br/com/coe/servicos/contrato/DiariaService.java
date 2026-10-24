@@ -44,6 +44,7 @@ class DiariaService {
     private final ConfiguracaoNegocio configuracao;
     private final ValidadorDeImagem validador;
     private final Armazenamento armazenamento;
+    private final LiberacaoDeDiaria liberacao;
     private final Clock clock;
 
     DiariaService(
@@ -53,6 +54,7 @@ class DiariaService {
             ConfiguracaoNegocio configuracao,
             ValidadorDeImagem validador,
             Armazenamento armazenamento,
+            LiberacaoDeDiaria liberacao,
             Clock clock) {
         this.jdbc = jdbc;
         this.transacao = transacao;
@@ -60,10 +62,25 @@ class DiariaService {
         this.configuracao = configuracao;
         this.validador = validador;
         this.armazenamento = armazenamento;
+        this.liberacao = liberacao;
         this.clock = clock;
     }
 
-    private record Travada(UUID id, StatusDiaria status, LocalDate data) {}
+    private record Travada(UUID id, UUID contrato, StatusDiaria status, LocalDate data) {}
+
+    /** O cliente aprova o dia (RN37): só de aguardando; contestada fica com a equipe; não se desfaz. */
+    DiariaDtos.Diaria aprovar(UUID id) {
+        return transacao.execute(t -> {
+            Travada diaria = travar(id, "SELECT contrato_id FROM diaria WHERE id = :id AND cliente_id = :eu");
+            if (diaria.status() == StatusDiaria.CONTESTADA) {
+                throw new RegraDeNegocioException(
+                        "diaria-contestada", "Essa diária está com a equipe COE por causa da sua reclamação.");
+            }
+            diaria.status().exigirIrPara(StatusDiaria.LIBERADA);
+            liberacao.liberar(diaria.contrato(), id, LiberacaoDeDiaria.Por.CLIENTE, usuario.id(), agora());
+            return detalhe(id);
+        });
+    }
 
     DiariaDtos.Diaria cheguei(UUID id) {
         return transacao.execute(t -> {
@@ -141,11 +158,16 @@ class DiariaService {
 
     /** A diária do profissional logado, com o contrato e a diária travados nessa ordem; de outro, 404. */
     private Travada travarDoProfissional(UUID id) {
-        List<UUID> contratos =
-                jdbc.queryForList("""
-                SELECT d.contrato_id FROM diaria d JOIN profissional p ON p.id = d.profissional_id
-                 WHERE d.id = :id AND p.usuario_id = :eu
-                """, new MapSqlParameterSource("id", id).addValue("eu", usuario.id()), UUID.class);
+        return travar(
+                id,
+                "SELECT d.contrato_id FROM diaria d JOIN profissional p ON p.id = d.profissional_id"
+                        + " WHERE d.id = :id AND p.usuario_id = :eu");
+    }
+
+    /** Trava o contrato e depois a diária (a ordem de todo fluxo); {@code donoDaDiaria} filtra pelo logado. */
+    private Travada travar(UUID id, String donoDaDiaria) {
+        List<UUID> contratos = jdbc.queryForList(
+                donoDaDiaria, new MapSqlParameterSource("id", id).addValue("eu", usuario.id()), UUID.class);
         if (contratos.isEmpty()) {
             throw new RecursoNaoEncontradoException(NAO_ENCONTRADA);
         }
@@ -157,6 +179,7 @@ class DiariaService {
                 "SELECT status, data FROM diaria WHERE id = :id FOR UPDATE", new MapSqlParameterSource("id", id));
         return new Travada(
                 id,
+                contratos.get(0),
                 StatusDiaria.doCodigo((String) linha.get("status")),
                 ((java.sql.Date) linha.get("data")).toLocalDate());
     }
