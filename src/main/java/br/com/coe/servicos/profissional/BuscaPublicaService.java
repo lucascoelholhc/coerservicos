@@ -7,7 +7,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -22,6 +21,7 @@ import br.com.coe.servicos.compartilhado.dinheiro.Dinheiro;
 import br.com.coe.servicos.compartilhado.erro.RecursoNaoEncontradoException;
 import br.com.coe.servicos.compartilhado.erro.RegraDeNegocioException;
 import br.com.coe.servicos.compartilhado.erro.ServicoInstavelException;
+import br.com.coe.servicos.compartilhado.pessoal.NomeDeExibicao;
 
 /**
  * Busca e perfil público (DOM-04, RF08, RF09, RF12, RN18 a RN23), sem login. Dias livres a partir de amanhã (no
@@ -166,12 +166,7 @@ class BuscaPublicaService {
 
     /** "Valdir Schmitt" vira "Valdir S."; um nome só fica como está. */
     static String nomeDeExibicao(String nome) {
-        String[] partes = nome.strip().split("\\s+");
-        if (partes.length == 1) {
-            return partes[0];
-        }
-        String ultimo = partes[partes.length - 1];
-        return partes[0] + " " + ultimo.substring(0, 1).toUpperCase(Locale.ROOT) + ".";
+        return NomeDeExibicao.de(nome);
     }
 
     /**
