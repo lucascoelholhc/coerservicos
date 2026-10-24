@@ -5,9 +5,9 @@
 -- Repeatable: reaplicado sempre que este arquivo mudar.
 --
 -- As cidades do lançamento vêm da V11 (valem em todos os ambientes).
--- Profissionais e contratos de exemplo NÃO ficam aqui: CPF, Pix e endereço são
--- cifrados com a chave da aplicação, então essa massa é criada por um seeder
--- Java no perfil local (DB-11), usando os mesmos dados do protótipo.
+-- Profissionais de exemplo NÃO ficam aqui: CPF e Pix são cifrados com a chave da
+-- aplicação, então essa massa é criada na subida pelo SeederLocal (pacote
+-- profissional, DB-11), com os mesmos dados do protótipo e pelo caminho do cadastro.
 -- =============================================================================
 
 -- Trava: o placeholder ${ambiente} só existe no application-local.yml. Em qualquer

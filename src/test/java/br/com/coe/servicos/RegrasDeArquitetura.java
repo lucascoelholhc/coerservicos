@@ -1,14 +1,19 @@
 package br.com.coe.servicos;
 
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 import java.time.Clock;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
 
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,6 +22,7 @@ import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.AccessTarget;
 import com.tngtech.archunit.core.domain.AccessTarget.CodeUnitAccessTarget;
 import com.tngtech.archunit.core.domain.JavaAccess;
+import com.tngtech.archunit.core.domain.JavaAnnotation;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.lang.ArchRule;
 
@@ -78,6 +84,25 @@ final class RegrasDeArquitetura {
             .dependOnClassesThat()
             .resideInAPackage("software.amazon.awssdk..")
             .because("só o ArmazenamentoS3 usa o SDK da AWS (CORE-09)");
+
+    /**
+     * Dados de exemplo nunca sobem fora do perfil local (DB-11): todo código que roda sozinho na subida
+     * ({@code ApplicationRunner}/{@code CommandLineRunner}) é {@code @Profile("local")}.
+     */
+    static final ArchRule RODAR_NA_SUBIDA_SO_NO_LOCAL = classes()
+            .that()
+            .resideInAPackage("br.com.coe.servicos..")
+            .and()
+            // um predicado só: com .and().x().or().y() o ArchUnit leria (pacote e x) ou y
+            .areAssignableTo(DescribedPredicate.or(
+                    JavaClass.Predicates.assignableTo(ApplicationRunner.class),
+                    JavaClass.Predicates.assignableTo(CommandLineRunner.class)))
+            .should()
+            .beAnnotatedWith(DescribedPredicate.describe(
+                    "@Profile(\"local\")",
+                    (JavaAnnotation<?> anotacao) -> anotacao.getRawType().isEquivalentTo(Profile.class)
+                            && Arrays.equals(anotacao.as(Profile.class).value(), new String[] {"local"})))
+            .because("dados de exemplo só no perfil local, nunca em test ou prod (DB-11)");
 
     private RegrasDeArquitetura() {}
 
