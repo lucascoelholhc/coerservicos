@@ -141,6 +141,7 @@ describe('PosseNoCadastro', () => {
       abrir('celular', '47900000001');
       await screen.findByText('Enviamos o código.');
 
+      await act(async () => {}); // roda o efeito que liga a contagem antes de adiantar o relógio
       act(() => vi.advanceTimersByTime(60_000));
       await userEvent.click(screen.getByRole('button', { name: 'Mandar outro código' }));
 
