@@ -53,6 +53,12 @@ class VarreduraDeLogsTest extends IntegracaoTest {
     @Autowired
     private org.springframework.context.ApplicationContext contexto;
 
+    @Autowired
+    private br.com.coe.servicos.config.ConfiguracaoNegocio configuracao;
+
+    @org.springframework.beans.factory.annotation.Value("${coe.gateway.token-webhook}")
+    private String tokenDoWebhook;
+
     /** Tudo o que não pode aparecer no log; os códigos de 6 dígitos ficam à parte (conferidos isolados). */
     private final List<String> segredos = new ArrayList<>();
 
@@ -262,6 +268,54 @@ class VarreduraDeLogsTest extends IntegracaoTest {
                 json(post("/api/conversas/" + conversa + "/mensagens"), "{\"texto\":\"me liga no " + telefone + "\"}")
                         .header("Authorization", autorizacao),
                 201);
+
+        // contratação e pagamento (DOM-06/07): endereço, token do webhook e celular liberado nunca vão para o log
+        java.time.LocalDate dia =
+                br.com.coe.servicos.compartilhado.FusoDeNegocio.hoje(relogio).plusDays(1);
+        while (dia.getDayOfWeek().getValue() > 5) {
+            dia = dia.plusDays(1);
+        }
+        String rua = guardar("Rua Varredura "
+                + Long.toString(System.nanoTime())
+                        .chars()
+                        .mapToObj(c -> String.valueOf((char) ('a' + c - '0')))
+                        .collect(java.util.stream.Collectors.joining()));
+        String contrato = JsonPath.read(
+                executar(
+                                json(
+                                                post("/api/contratos"),
+                                                ("{\"profissionalId\":\"%s\",\"dias\":[{\"data\":\"%s\",\"tipo\":\"inteira\"}],"
+                                                                + "\"servicos\":[\"Corte de grama\"],\"material\":\"cliente_tem\","
+                                                                + "\"endereco\":{\"cep\":\"88301000\",\"cidade\":4208203,"
+                                                                + "\"logradouro\":\"%s\",\"numero\":\"77\"},"
+                                                                + "\"versaoTermosAceita\":\"%s\"}")
+                                                        .formatted(perfil, dia, rua, configuracao.versaoTermos()))
+                                        .header("Authorization", autorizacao),
+                                201)
+                        .getContentAsString(java.nio.charset.StandardCharsets.UTF_8),
+                "$.id");
+        String cobranca = JsonPath.read(
+                executar(
+                                json(post("/api/contratos/" + contrato + "/pagamento"), "{\"metodo\":\"pix\"}")
+                                        .header("Authorization", autorizacao),
+                                201)
+                        .getContentAsString(java.nio.charset.StandardCharsets.UTF_8),
+                "$.cobrancaId");
+        String externo = jdbc.queryForObject(
+                "SELECT id_externo FROM cobranca WHERE id = ?", String.class, java.util.UUID.fromString(cobranca));
+        java.math.BigDecimal total = jdbc.queryForObject(
+                "SELECT valor_total FROM contrato WHERE id = ?",
+                java.math.BigDecimal.class,
+                java.util.UUID.fromString(contrato));
+        String evento = ("{\"id\":\"evt_varredura_%d\",\"event\":\"PAYMENT_RECEIVED\","
+                        + "\"payment\":{\"id\":\"%s\",\"value\":%s}}")
+                .formatted(System.nanoTime(), externo, total.toPlainString());
+        String tokenErrado = guardar("token-errado-" + System.nanoTime());
+        executar(json(post("/api/webhooks/pagamento"), evento).header("asaas-access-token", tokenErrado), 401);
+        executar(
+                json(post("/api/webhooks/pagamento"), evento).header("asaas-access-token", guardar(tokenDoWebhook)),
+                200);
+        executar(get("/api/contratos/" + contrato).header("Authorization", autorizacao), 200);
 
         sms.aguardarEnvios();
         String log = saida.getAll();
