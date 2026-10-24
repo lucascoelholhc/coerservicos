@@ -100,12 +100,20 @@ class DiariaService {
 
     /** Uma foto do serviço por vez (o pedido tem até 11 MB), com a diária em andamento; até 5 por dia. */
     DiariaDtos.FotoEnviada foto(UUID id, byte[] bytes) {
+        // conferência barata antes de decodificar a imagem (até 40 MP): dono e diária em andamento
+        List<String> status = jdbc.queryForList(
+                "SELECT d.status FROM diaria d JOIN profissional p ON p.id = d.profissional_id"
+                        + " WHERE d.id = :id AND p.usuario_id = :eu",
+                new MapSqlParameterSource("id", id).addValue("eu", usuario.id()),
+                String.class);
+        if (status.isEmpty()) {
+            throw new RecursoNaoEncontradoException(NAO_ENCONTRADA);
+        }
+        exigirAndamento(StatusDiaria.doCodigo(status.get(0)));
         ArquivoValidado arquivo = validador.validar(bytes, Categoria.EVIDENCIA);
         return transacao.execute(t -> {
             Travada diaria = travarDoProfissional(id);
-            if (diaria.status() != StatusDiaria.ANDAMENTO) {
-                diaria.status().exigirIrPara(StatusDiaria.AGUARDANDO); // paga ou já terminada: transição inválida
-            }
+            exigirAndamento(diaria.status()); // de novo, dentro da trava
             if (fotos(id) >= FOTOS_POR_DIA) {
                 throw new RegraDeNegocioException(
                         "limite-de-fotos", "Cada dia aceita até " + FOTOS_POR_DIA + " fotos do serviço.");
@@ -182,6 +190,14 @@ class DiariaService {
                 contratos.get(0),
                 StatusDiaria.doCodigo((String) linha.get("status")),
                 ((java.sql.Date) linha.get("data")).toLocalDate());
+    }
+
+    private static void exigirAndamento(StatusDiaria status) {
+        if (status != StatusDiaria.ANDAMENTO) {
+            throw new RegraDeNegocioException(
+                    "foto-fora-do-andamento",
+                    "As fotos do serviço vão depois do \"Cheguei\" e antes de terminar o dia.");
+        }
     }
 
     private int fotos(UUID diaria) {

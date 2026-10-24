@@ -120,17 +120,18 @@ public class LivroCaixa {
                         ON CONFLICT ON CONSTRAINT uq_conta_razao DO NOTHING
                         """, new MapSqlParameterSource("dono", lancamento.dono()));
             }
+            // com dono, o uq_conta_razao (tipo, profissional_id) serve de índice; sem dono, as três contas da COE
+            String conta = lancamento.dono() == null
+                    ? "tipo = :conta AND profissional_id IS NULL AND usuario_id IS NULL"
+                    : "tipo = :conta AND profissional_id = :dono AND usuario_id IS NULL";
             int gravados = jdbc.update(
-                    """
-                    INSERT INTO lancamento (transacao_id, conta_id, natureza, valor)
-                    SELECT :transacao, id, :natureza, :valor FROM conta_razao
-                     WHERE tipo = :conta AND profissional_id IS NOT DISTINCT FROM :dono AND usuario_id IS NULL
-                    """,
+                    "INSERT INTO lancamento (transacao_id, conta_id, natureza, valor)"
+                            + " SELECT :transacao, id, :natureza, :valor FROM conta_razao WHERE " + conta,
                     new MapSqlParameterSource("transacao", criada.get(0))
                             .addValue("natureza", lancamento.natureza().letra)
                             .addValue("valor", lancamento.valor().valor())
                             .addValue("conta", lancamento.conta().tipo)
-                            .addValue("dono", lancamento.dono(), java.sql.Types.OTHER));
+                            .addValue("dono", lancamento.dono()));
             if (gravados != 1) {
                 throw new IllegalStateException("Conta do livro-caixa não encontrada: " + lancamento.conta());
             }

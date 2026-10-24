@@ -75,7 +75,7 @@ class LiberacaoAutomaticaTest extends ExecucaoDeDiariaTeste {
 
         List<Integer> resultados = aoMesmoTempo(
                 () -> aprovar(doCliente(), diaria).andReturn().getResponse().getStatus(), () -> {
-                    liberacaoAutomatica.executar();
+                    liberacaoAutomatica.liberarUma(diaria);
                     return 0;
                 });
 
@@ -83,6 +83,8 @@ class LiberacaoAutomaticaTest extends ExecucaoDeDiariaTeste {
         assertThat(liberacoes()).isEqualTo(1);
         // o cliente aprovou (200) ou chegou depois do job (422 transicao-invalida)
         assertThat(resultados.get(0)).isIn(200, 422);
+        String por = jdbc.queryForObject("SELECT liberada_por FROM diaria WHERE id = ?", String.class, diaria);
+        assertThat(por).isEqualTo(resultados.get(0) == 200 ? "cliente" : "automatica");
     }
 
     @Test
@@ -93,11 +95,11 @@ class LiberacaoAutomaticaTest extends ExecucaoDeDiariaTeste {
 
         aoMesmoTempo(
                 () -> {
-                    liberacaoAutomatica.executar();
+                    liberacaoAutomatica.liberarUma(diaria);
                     return 0;
                 },
                 () -> {
-                    liberacaoAutomatica.executar();
+                    liberacaoAutomatica.liberarUma(diaria);
                     return 0;
                 });
 

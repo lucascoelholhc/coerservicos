@@ -146,7 +146,7 @@ class DiariaTest extends ExecucaoDeDiariaTeste {
                 .andExpect(jsonPath("$.type").value("urn:coe:erro:transicao-invalida"));
         foto(doProfissional(), diaria, jpeg())
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.type").value("urn:coe:erro:transicao-invalida"));
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:foto-fora-do-andamento"));
 
         cheguei(doProfissional(), diaria).andExpect(status().isOk());
         terminei(doProfissional(), diaria, "{}")

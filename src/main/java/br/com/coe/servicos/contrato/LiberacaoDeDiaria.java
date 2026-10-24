@@ -72,13 +72,17 @@ class LiberacaoDeDiaria {
             throw new IllegalStateException("Custódia insuficiente para liberar a diária " + diaria);
         }
 
-        jdbc.update(
+        int liberadas = jdbc.update(
                 """
                 UPDATE diaria SET status = 'liberada', liberada_em = :agora, liberada_por = :por,
                                   aprovada_em = CASE WHEN :por = 'cliente' THEN :agora ELSE aprovada_em END
-                 WHERE id = :id
+                 WHERE id = :id AND status = 'aguardando'
                 """,
                 new MapSqlParameterSource("id", diaria).addValue("agora", agora).addValue("por", por.codigo));
+        if (liberadas != 1) {
+            // quem chama confere o status dentro da trava; chegar aqui é erro de programação, não do cliente
+            throw new IllegalStateException("Diária fora de aguardando na liberação: " + diaria);
+        }
         jdbc.update(
                 """
                 INSERT INTO historico_diaria (diaria_id, de_status, para_status, origem, ator_id, criado_em)

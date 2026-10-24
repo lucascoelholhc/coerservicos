@@ -2,11 +2,14 @@ package br.com.coe.servicos.contrato;
 
 import java.sql.Timestamp;
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,6 +32,10 @@ public class LiberacaoAutomatica {
 
     private static final Logger LOG = LoggerFactory.getLogger(LiberacaoAutomatica.class);
     private static final int LOTE = 500;
+    private static final Duration ESPERA_DEPOIS_DE_FALHA = Duration.ofHours(1);
+
+    /** Diárias que falharam nesta instância e quando: ficam de fora por uma hora. */
+    private final Map<UUID, Instant> falhas = new ConcurrentHashMap<>();
 
     private final NamedParameterJdbcTemplate jdbc;
     private final TransactionTemplate transacao;
@@ -46,22 +53,30 @@ public class LiberacaoAutomatica {
     @Scheduled(fixedDelayString = "${coe.contrato.liberacao:1m}", initialDelayString = "${coe.contrato.liberacao:1m}")
     @SchedulerLock(name = "liberacao-automatica", lockAtMostFor = "PT10M")
     public void executar() {
-        OffsetDateTime agora = OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
-        List<UUID> vencidas =
-                jdbc.queryForList("""
+        Instant agora = clock.instant();
+        falhas.values().removeIf(quando -> quando.plus(ESPERA_DEPOIS_DE_FALHA).isBefore(agora));
+        List<UUID> vencidas = jdbc.queryForList(
+                """
                 SELECT id FROM diaria
                  WHERE status = 'aguardando' AND auto_libera_em <= :agora
                  ORDER BY auto_libera_em
                  LIMIT :lote
-                """, new MapSqlParameterSource("agora", agora).addValue("lote", LOTE), UUID.class);
+                """,
+                new MapSqlParameterSource("agora", OffsetDateTime.ofInstant(agora, ZoneOffset.UTC))
+                        .addValue("lote", LOTE + falhas.size()),
+                UUID.class);
         int liberadas = 0;
         for (UUID diaria : vencidas) {
+            if (falhas.containsKey(diaria)) {
+                continue; // falhou há pouco: não ocupa a vaga das outras (volta depois da espera)
+            }
             try {
-                if (Boolean.TRUE.equals(transacao.execute(t -> liberarSeVenceu(diaria, agora)))) {
+                if (liberarUma(diaria)) {
                     liberadas++;
                 }
             } catch (RuntimeException erro) {
-                // uma diária com problema não segura as outras; fica para a próxima rodada e para a equipe
+                // uma diária com problema não segura as outras; um aviso só, e a equipe resolve
+                falhas.put(diaria, agora);
                 LOG.error(
                         "Falha ao liberar sozinha a diária {}: {}",
                         diaria,
@@ -72,6 +87,12 @@ public class LiberacaoAutomatica {
         if (liberadas > 0) {
             LOG.info("Diárias liberadas sozinhas depois do prazo: {}", liberadas);
         }
+    }
+
+    /** Uma diária, na própria transação, sem engolir o erro (o job e os testes de concorrência usam). */
+    boolean liberarUma(UUID diaria) {
+        OffsetDateTime agora = OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
+        return Boolean.TRUE.equals(transacao.execute(t -> liberarSeVenceu(diaria, agora)));
     }
 
     private boolean liberarSeVenceu(UUID diaria, OffsetDateTime agora) {
