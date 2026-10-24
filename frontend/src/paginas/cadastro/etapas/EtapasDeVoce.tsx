@@ -15,6 +15,8 @@ import { mensagemDoEnvio, umaSo, usePrevias, useSalvarEtapa, type PropsDaEtapa }
 const CAMPOS_DOS_DADOS = {
   'cpf-invalido': 'cpf',
   'cpf-em-uso': 'cpf',
+  // o servidor só aceita o CPF de quem já confirmou o celular (contra enumeração de CPF)
+  'celular-nao-confirmado': 'cpf',
   'idade-minima': 'nascimento',
   'data-nascimento-invalida': 'nascimento',
 };
@@ -65,7 +67,7 @@ export function EtapaDados({ numero, cadastro, conta, aoSalvar, aoVoltar }: Prop
       />
       {!conta.celularConfirmado && (
         <Nota tipo="atencao">
-          Confirme seu celular antes de enviar o cadastro. <Link to={CAMINHOS.confirmarCelular}>Confirmar celular</Link>
+          Confirme seu celular antes de informar o CPF. <Link to={CAMINHOS.confirmarCelular}>Confirmar celular</Link>
         </Nota>
       )}
       <CampoTexto

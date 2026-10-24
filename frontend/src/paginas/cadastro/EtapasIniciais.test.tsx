@@ -72,6 +72,22 @@ describe('etapa 2: seus dados', () => {
     abrirCadastro(2);
 
     expect(await screen.findByRole('link', { name: 'Confirmar celular' })).toHaveAttribute('href', '/conta/confirmar-celular');
+    expect(screen.getByText(/Confirme seu celular antes de informar o CPF\./)).toBeInTheDocument();
+  });
+
+  it('422 celular-nao-confirmado (o servidor só aceita o CPF com o celular confirmado): erro no campo do CPF', async () => {
+    simularCadastro({
+      cadastro: COM_TRABALHO,
+      conta: { celularConfirmado: false },
+      escrita: () => problema(422, 'celular-nao-confirmado', 'Confirme seu celular antes de informar o CPF.'),
+    });
+    abrirCadastro(2);
+
+    await userEvent.type(await screen.findByRole('textbox', { name: 'CPF' }), '52998224725');
+    await userEvent.type(screen.getByLabelText('Data de nascimento'), '1990-01-31');
+    await userEvent.click(screen.getByRole('button', { name: 'Continuar' }));
+
+    expect(await screen.findByRole('textbox', { name: 'CPF' })).toHaveAttribute('aria-invalid', 'true');
   });
 });
 

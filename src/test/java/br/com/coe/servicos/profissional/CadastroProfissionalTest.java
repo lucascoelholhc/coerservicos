@@ -299,10 +299,31 @@ class CadastroProfissionalTest extends IntegracaoTest {
     }
 
     @Test
+    @DisplayName("CPF só com celular confirmado: sem ele, 422 antes de olhar o CPF (nem o 409 de CPF em uso)")
+    void dadosSemCelularConfirmado() throws Exception {
+        Cpf cpf = CpfsDeTeste.unico();
+        UUID dono = contas.criarConfirmada(Papel.CLIENTE).id();
+        cadastroDe(dono).etapa("dados", dados(cpf.digitos(), "1990-05-20")).andExpect(status().isOk());
+        UUID outro = contas.criar(Papel.CLIENTE).id();
+
+        cadastroDe(outro)
+                .etapa("dados", dados(cpf.digitos(), "1990-05-20"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:celular-nao-confirmado"));
+        assertThat(jdbc.queryForObject(
+                        "SELECT count(*) FROM log_auditoria WHERE ator_id = ? AND acao = 'profissional.cpf-repetido'",
+                        Integer.class,
+                        outro))
+                .isZero();
+    }
+
+    @Test
     @DisplayName("envio sem celular confirmado (RN08): 422 celular-nao-confirmado")
     void envioSemCelular() throws Exception {
-        UUID usuario = contas.criar(Papel.CLIENTE).id();
+        UUID usuario = contas.criarConfirmada(Papel.CLIENTE).id();
         cadastroDe(usuario).completo();
+        // o celular saiu da conta depois dos dados (ex.: transferido pela RN61): o envio confere de novo
+        jdbc.update("UPDATE usuario SET celular_verificado_em = NULL WHERE id = ?", usuario);
 
         enviar(usuario, "1.0")
                 .andExpect(status().isUnprocessableEntity())

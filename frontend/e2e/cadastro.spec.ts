@@ -102,6 +102,8 @@ async function continuar(pagina: Page, proximo: string) {
 
 test.describe('Cadastro do profissional', () => {
   test('as 11 etapas até "Cadastro enviado", com fotos, sem violação de CSP', async ({ page }) => {
+    // Fluxo longo (11 telas, uploads e dois axe): com a suíte inteira em paralelo passa dos 30 s padrão.
+    test.slow();
     const violacoes = await vigiarCsp(page);
     await simularApi(page);
     await simularCadastro(page);
