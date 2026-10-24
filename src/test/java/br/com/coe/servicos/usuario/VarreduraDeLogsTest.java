@@ -210,6 +210,8 @@ class VarreduraDeLogsTest extends IntegracaoTest {
         executar(json(post("/api/contas/email/confirmar"), "{\"token\":\"" + token(novo) + "\"}"), 204);
 
         // cadastro do profissional (DOM-02): CPF, chave Pix e nome original do arquivo nunca no log
+        // (o CPF só entra com o celular confirmado: revisão de segurança da fatia 2)
+        jdbc.update("UPDATE usuario SET celular_verificado_em = now() WHERE id = ?", semEmail.id());
         String autorizacao = bearer(semEmail.id(), Papel.CLIENTE);
         String cpf = guardar(
                 br.com.coe.servicos.compartilhado.pessoal.CpfsDeTeste.unico().digitos());

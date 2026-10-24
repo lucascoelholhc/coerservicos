@@ -128,6 +128,7 @@ class CadastroProfissionalController {
 
     @GetMapping("/documentos/{id}/url")
     @PreAuthorize("isAuthenticated()")
+    @LimitadoPorUsuario("cadastro-usuario") // grava "documento visto" na auditoria, que é só de inserção
     CadastroResposta.UrlResposta urlDoDocumento(@PathVariable UUID id) {
         return arquivos.urlDoDocumento(id);
     }
@@ -170,6 +171,7 @@ class CadastroProfissionalController {
 
     @GetMapping("/fotos/{id}/url")
     @PreAuthorize("isAuthenticated()")
+    @LimitadoPorUsuario("cadastro-usuario")
     CadastroResposta.UrlResposta urlDaFoto(@PathVariable UUID id) {
         return arquivos.urlDaFoto(id);
     }

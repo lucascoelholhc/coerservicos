@@ -358,6 +358,16 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 | FE-09 | Testes | Vitest nos componentes; Playwright no caminho feliz em 360 px e desktop |
 | FE-10 | Acessibilidade | axe nas telas principais + teste só com teclado |
 
+**Revisão da fatia 2 (dia 22, feito em 24/10)**
+- **security-reviewer da fatia inteira** (4018a66..73613b2): sem CRITICAL nem HIGH. Corrigidos os 3 MEDIUM:
+  - **Enumeração de CPF pelo 409 `cpf-em-uso`** com várias contas baratas: o `PUT /api/profissional/cadastro/dados` passou a exigir **celular confirmado** (422 `celular-nao-confirmado`, antes de olhar o CPF); o envio confere de novo. No front, a etapa 2 avisa "Confirme seu celular antes de informar o CPF." e o erro cai no campo do CPF. **Decisão tomada sozinho** (desfazer: tirar a checagem do `dados` e voltar o aviso; alternativa seria um teto global, que ainda revelaria pelo 429).
+  - **Documento em claro no disco durante o upload:** `spring.servlet.multipart.file-size-threshold: 11MB` (acima do maior arquivo): o upload fica na memória.
+  - **`GET .../documentos/{id}/url` e `.../fotos/{id}/url` sem limite por usuário** (o do documento grava auditoria): `@LimitadoPorUsuario("cadastro-usuario")`. Teste: `ArquivosSemDiscoTest`.
+- **Abertos (LOW, anotados):** CPF e Pix cifrados sem contexto da linha (trocar a cifra entre dois profissionais exige escrita no banco; usar `cifrar(texto, Campo.X, "profissional:" + id)` numa migração de recifra, junto do DOM-07); teste na AWS-04 de que o host da URL assinada bate com `COE_ORIGEM_DAS_IMAGENS`; rate limit público (`publico-ip`) em memória vale por instância (conferir na AWS); URL de foto pública reaproveitável por 5 min (aceito: portfólio é público).
+- **`/security-scan` (AgentShield):** nota B (80/100); segredos, permissões, hooks e MCP 100. Os 9 achados (2 CRITICAL, 3 HIGH, 4 MEDIUM) são todos "defesa de prompt" ausente no `CLAUDE.md` (injeção de instrução, vazamento, troca de papel, injeção indireta etc.). **Não mexi** (o CLAUDE.md é do usuário; decisão pendente desde 16/10).
+- **Cobertura:** JaCoCo dentro das regras (80% geral, 100% em dinheiro e censura) no `clean verify`; front 97% de linhas.
+- **Pendências da fatia 2 (situação em 24/10):** fechadas: host do bucket no `img-src` (agora por perfil); exigir celular antes do CPF (enumeração). Abertas: CPF único também em rascunho (decisão do usuário); aceite de termos próprio do profissional e texto dos termos (jurídico); exigir que o admin abra documento e selfie antes de aprovar (DOM-03); conta suspensa na verificação (409); teste de corrida com threads na verificação; as do FE-03 (lista que some ao filtrar, `hoje` fixo, calendário para leitor de tela); as do FE-04 (limites de tela repetidos do servidor, aviso de tamanho antes do upload, reordenar fotos).
+
 **FE-03, resto: busca e perfil público (dia 21, feito em 23/10): decisões (conferir)**
 - **Telas:** `/busca` (barra de profissões, "Mostrar primeiro", filtros na lateral a partir de 960 px e numa folha `<dialog>` no celular, etiquetas removíveis, contagem, "Ver mais", estados carregando/vazio/erro) e `/profissionais/:id` (selos, resumo, fotos do portfólio, "Sobre", serviços, onde atende, calendário dos dias livres, avaliações, caixa de preço). Os filtros ficam na URL com os mesmos nomes da API (`filtros.ts`); o herói e as categorias do Início levam à busca de verdade.
 - **Decisões tomadas sozinho** (como desfazer):
@@ -548,7 +558,7 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 | 19 | FE-04 | Telas do cadastro do profissional, etapas 1–6 | Rascunho salvo na API |
 | 20 | FE-04, FE-07 (parte) | Etapas 7–11 com upload; fila de verificação no admin | Cadastro chega ao admin, que aprova |
 | 21 ✅ | FE-03 (resto) | Busca e perfil público | **Cadastrar, aprovar e achar o profissional na busca, pelo navegador** (**feito em 23/10**) |
-| 22 | Revisão | `/security-scan`, cobertura; folga | |
+| 22 ✅ | Revisão | `/security-scan`, cobertura; folga | **Feito em 24/10** (3 MEDIUM corrigidos; ver seção 7) |
 
 ### Fatia 3: Contratar, pagar e trabalhar (dias 23–35)
 | Dia | Tarefas | O que fazer | Pronto quando |

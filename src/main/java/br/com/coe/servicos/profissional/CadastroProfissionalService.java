@@ -119,6 +119,12 @@ class CadastroProfissionalService {
         profissionais.findByUsuarioId(dono).filter(p -> !p.editavel()).ifPresent(p -> {
             throw emAnalise();
         });
+        // Contra enumeração de CPF pelo 409: só quem confirmou um celular (custa um chip) chega a consultar o CPF
+        // (revisão de segurança da fatia 2). O envio confere de novo.
+        if (!contas.de(dono).celularConfirmado()) {
+            throw new RegraDeNegocioException(
+                    "celular-nao-confirmado", "Confirme seu celular antes de informar o CPF.");
+        }
         if (profissionais.cpfEmUsoPorOutro(hmac.de(cpf), dono)) {
             throw cpfRepetido(dono);
         }
