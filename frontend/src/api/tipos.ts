@@ -192,3 +192,70 @@ export interface DecisaoDaVerificacao {
   status: SituacaoDoCadastro;
   nr10: SituacaoDoNr10;
 }
+
+/** Cidade nas respostas públicas da busca (BuscaResposta.Cidade). */
+export interface CidadeDaBusca {
+  codigoIbge: number;
+  nome: string;
+  uf: string;
+}
+
+/** Um profissional na lista da busca (BuscaResposta.Item). Nome sempre "Primeiro S.", nunca contato. */
+export interface ProfissionalNaBusca {
+  id: string;
+  nome: string;
+  /** Código da profissão principal (o nome vem do catálogo). */
+  profissao: string;
+  outrasProfissoes: string[];
+  valorDiaria: string;
+  valorMeiaDiaria: string | null;
+  experienciaAnos: number;
+  cidade: CidadeDaBusca;
+  /** Só quando a busca tem cidade: da cidade base do profissional até ela. */
+  distanciaKm: string | number | null;
+  /** "AAAA-MM-DD" ou null (sem dia livre nas próximas quatro semanas). */
+  proximoDiaLivre: string | null;
+  seloNr10: boolean;
+  novoNaCoe: boolean;
+}
+
+/** GET /api/publico/profissionais (BuscaResposta.Busca): 20 por página. */
+export interface ResultadoDaBusca {
+  itens: ProfissionalNaBusca[];
+  temMais: boolean;
+}
+
+/** Foto do portfólio com URL assinada curta (o bucket é privado). */
+export interface FotoDoPerfil {
+  id: string;
+  servico: string | null;
+  legenda: string | null;
+  url: string;
+  expiraEm: string;
+}
+
+/** GET /api/publico/profissionais/{id} (BuscaResposta.Perfil). */
+export interface PerfilPublico {
+  id: string;
+  nome: string;
+  profissao: string;
+  outrasProfissoes: string[];
+  servicos: { profissao: string; nome: string }[];
+  experienciaAnos: number;
+  /** "sim", "parte" ou "nao" (como no cadastro). */
+  ferramentas: string;
+  horario: string;
+  valorDiaria: string;
+  valorMeiaDiaria: string | null;
+  cidade: CidadeDaBusca;
+  raioKm: number;
+  outrasCidades: CidadeDaBusca[];
+  /** Dias da semana em que trabalha: 0 = domingo ... 6 = sábado. */
+  diasDaSemana: number[];
+  /** Dias livres ("AAAA-MM-DD") das quatro semanas a partir de amanhã. */
+  diasLivres: string[];
+  sobre: string;
+  seloNr10: boolean;
+  avaliacoes: { total: number; nota: string | number | null; novoNaCoe: boolean };
+  fotos: FotoDoPerfil[];
+}

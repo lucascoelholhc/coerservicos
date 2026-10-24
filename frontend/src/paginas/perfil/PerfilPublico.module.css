@@ -1,0 +1,400 @@
+/* Perfil público (protótipo ef7d397: .perfil-top, .fatos-perfil, .galeria, .cal, .caixa-preco, .oculto). */
+.pagina {
+  padding-block: 32px 40px;
+}
+
+.naoEncontrado {
+  display: grid;
+  justify-items: start;
+  gap: 14px;
+}
+
+.topo {
+  padding-block: 20px 30px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.voltar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  margin-bottom: 12px;
+  color: var(--tinta-2);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.voltar:hover {
+  color: var(--tinta);
+}
+
+.cabeca {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 22px;
+}
+
+.identidade {
+  display: grid;
+  gap: 8px;
+}
+
+.identidade h1 {
+  font-size: clamp(2rem, 6vw, 3.25rem);
+  letter-spacing: -0.03em;
+}
+
+.profissoes {
+  color: var(--tinta-2);
+  font-size: 1.1rem;
+}
+
+.selos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+}
+
+.grade {
+  display: grid;
+  align-items: start;
+  gap: 34px;
+  padding-block: 28px 40px;
+}
+
+.conteudo {
+  display: grid;
+  gap: 34px;
+  min-width: 0;
+}
+
+.secao {
+  display: grid;
+  gap: 12px;
+}
+
+.apoio {
+  color: var(--tinta-2);
+}
+
+/* Fatos: grade com linhas de 1 px entre as casas */
+.fatos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--line);
+  list-style: none;
+}
+
+.fatos li {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  background: var(--surface);
+}
+
+.fatos span {
+  color: var(--tinta-2);
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.fatos b {
+  font-size: 1.15rem;
+  font-weight: 800;
+  font-stretch: var(--largura-titulo);
+  letter-spacing: -0.02em;
+}
+
+/* Galeria: a primeira foto maior a partir de 640 px */
+.galeria {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.foto {
+  position: relative;
+  margin: 0;
+  overflow: hidden;
+  border-radius: var(--r);
+  background: var(--surface-2);
+  aspect-ratio: 4 / 3;
+}
+
+.foto img {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  inset: 0;
+  object-fit: cover;
+}
+
+.foto figcaption {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  max-width: calc(100% - 16px);
+  padding: 5px 10px;
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--tinta);
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.fotoFora {
+  display: grid;
+  place-items: center;
+  padding: 12px;
+}
+
+.fotoFora figcaption {
+  position: static;
+  max-width: none;
+  background: transparent;
+  color: var(--tinta-2);
+  text-align: center;
+}
+
+.sobre {
+  max-width: 62ch;
+  font-size: 1.08rem;
+}
+
+.servicos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr));
+  gap: 0 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.servicos li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-block: 11px;
+  border-bottom: 1px solid var(--line);
+  font-weight: 600;
+}
+
+.servicos svg {
+  color: var(--ok);
+}
+
+.cidades {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.semAvaliacao {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border-radius: var(--r);
+  background: var(--surface-2);
+}
+
+/* Calendário: casa quadrada de no mínimo 44 px; estado no rótulo e na legenda, nunca só na cor */
+.calendarioCaixa {
+  display: grid;
+  gap: 12px;
+}
+
+.meses {
+  font-size: 1rem;
+  font-weight: 800;
+  font-stretch: var(--largura-titulo);
+  text-transform: capitalize;
+}
+
+.calendario {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.diaDaSemana {
+  color: var(--tinta-2);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.casa {
+  position: relative;
+  display: grid;
+  min-height: 44px;
+  place-items: center;
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--tinta);
+  font-size: 1.1rem;
+  font-weight: 800;
+  font-stretch: var(--largura-titulo);
+  font-variant-numeric: tabular-nums;
+  aspect-ratio: 1 / 1;
+}
+
+.casa[data-estado="livre"] {
+  border-color: var(--ok);
+  color: var(--ok-txt);
+  box-shadow: inset 0 -4px 0 var(--ok-soft);
+}
+
+/* Texto --tinta-2 nos estados apagados (o --tinta-3 e a opacidade do protótipo ficam abaixo do AA) */
+.casa[data-estado="ocupado"] {
+  border-color: transparent;
+  background: var(--surface-2);
+  color: var(--tinta-2);
+  text-decoration: line-through;
+}
+
+.casa[data-estado="folga"],
+.casa[data-estado="passado"],
+.casa[data-estado="fora"] {
+  border-style: dashed;
+  border-color: var(--line-2);
+  background: transparent;
+  color: var(--tinta-2);
+  font-weight: 500;
+}
+
+.casa[data-estado="passado"],
+.casa[data-estado="fora"] {
+  border-style: dotted;
+}
+
+.casa[data-hoje]::after {
+  position: absolute;
+  bottom: 5px;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  border-radius: 50%;
+  background: currentcolor;
+  content: "";
+}
+
+.legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  color: var(--tinta-2);
+  font-size: 0.88rem;
+}
+
+.legenda span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legenda i {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+}
+
+.legendaLivre {
+  border: 1.5px solid var(--ok);
+  background: var(--surface);
+}
+
+.legendaOcupado {
+  background: var(--surface-2);
+}
+
+.legendaFolga {
+  border: 1.5px dashed var(--line-2);
+}
+
+.legendaPassado {
+  border: 1.5px dotted var(--line-2);
+}
+
+/* Caixa de preço: faixa de cima na cor da marca, presa ao rolar no desktop */
+.caixa {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-top: 6px solid var(--carimbo);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+
+.rotulo {
+  color: var(--tinta-2);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.valorGrande {
+  margin-top: 4px;
+  font-size: 2.6rem;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.livre {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ok-txt);
+  font-weight: 600;
+}
+
+.oculto {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--r-sm);
+  background: var(--papel);
+  font-size: 0.95rem;
+}
+
+@media (width >= 640px) {
+  .fatos {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .galeria {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .galeria > :first-child {
+    grid-row: span 2;
+    grid-column: span 2;
+    height: 100%;
+    aspect-ratio: auto;
+  }
+}
+
+@media (width >= 960px) {
+  .grade {
+    grid-template-columns: 1fr 360px;
+  }
+
+  .caixa {
+    position: sticky;
+    top: calc(var(--altura-cabecalho) + 20px);
+  }
+}

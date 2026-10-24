@@ -23,7 +23,7 @@ Público com pouca familiaridade com tecnologia: telas simples, poucos campos, b
 | Testes back | JUnit 5, AssertJ, Mockito, MockMvc, Testcontainers (Postgres real) |
 | Testes front | Vitest + Testing Library; Playwright para E2E |
 | Local | Postgres local ou Docker (`docker compose`, porta 5433); Mailpit (e-mail/SMS falso); **SeaweedFS** como S3 local (porta 8333, versão fixa; a imagem pública do MinIO deixou de existir; plano B: S3Proxy em memória) |
-| Pagamento | Gateway **A DEFINIR** (PA02). Até lá, adaptador falso atrás da interface `GatewayPagamento` |
+| Pagamento | Gateway **Asaas** (PA02, decidido em 23/10; modalidade de custódia **A DEFINIR** com o comercial, sugestão Conta Escrow com uma cobrança por diária). Até o AWS-09, adaptador falso atrás de `GatewayPagamento`, no formato do Asaas; a API real não é chamada |
 | Deploy | AWS depois do aceite local (ECS Fargate, RDS, S3, Secrets Manager) |
 
 ## Comandos
@@ -79,7 +79,9 @@ npm run comparar         # protótipo x React lado a lado em frontend/test-resul
 - Feito (dia 18, branch `feat/DOM-04-busca`, PR depois do do DB-11): **DOM-04** backend (sem migração): busca pública com filtros (profissão, serviço, cidade no raio ou marcada, dia livre, valor, experiência, meia diária, ferramentas) e ordem (livre antes, preço, experiência), perfil público com dias livres, "Sobre", fotos com URL assinada e selo NR-10; nome "Primeiro S.", nenhum contato; teto de tempo de 2 s por consulta. Revisões java, segurança e banco sem CRITICAL; HIGH (foto oculta no perfil) corrigido.
 - Feito (dias 19–20, em 22/10, branch `feat/FE-04-cadastro-profissional`, PR depois do do DOM-04): **FE-04** (as 11 etapas do cadastro do profissional em `/cadastro`, salvando no DOM-02 a cada "Continuar"; upload de documento, selfie e fotos na hora; revisão e envio; telas de situação; `/criar-conta/profissional`). Backend: `motivoCorrecao` no rascunho, "Sobre" público com ponto em cada frase, CSP `img-src` com `blob:`. Decisões no plano (seção 7, FE-04).
 - Feito (dia 20, em 22/10, branch `feat/FE-07-verificacao`, PR depois do do FE-04): **FE-07 (parte: verificação)** (`/admin/verificacao` e `/admin/verificacao/:id`, só ADMIN: fila, conferência com CPF completo e documentos por link da URL assinada, checklist, NR-10, aprovar, pedir correção, recusar com confirmação). Decisões no plano (seção 7, FE-07).
-- Próximo: as telas da busca e do perfil público (FE do DOM-04, dia 21), que trazem o host do bucket ao `img-src`.
+- Feito (23/10, sessão autônoma): pilha mesclada na main (PRs #25 CORE-09 fix, #26 CORE-10, #27 DOM-02, #28 DOM-03, #22 DB-11, #23 DOM-04, #24 FE-04, #29 FE-07), com `clean verify` e front completo em cada merge; ajustes no caminho: checksum do SDK desligado só com endpoint próprio (400 intermitente do SeaweedFS) e teste instável da contagem de 60 s. PA02 decidido: **Asaas** (custódia a combinar).
+- Feito (dia 21, em 23/10, branch `feat/FE-03-busca-perfil`): **FE-03 (resto)**: busca (`/busca`, filtros na URL, folha no celular, etiquetas, "Ver mais") e perfil público (`/profissionais/:id`, fotos do bucket como `<img>`, dias livres, selos, sem contato); CSP com a origem do bucket por perfil (`coe.seguranca.origem-das-imagens`). **Marco da fatia 2 aprovado no navegador.** Decisões no plano (seção 7, FE-03 resto).
+- Próximo: dia 22, revisão da fatia 2 (`/security-scan`, cobertura, pendências); depois a fatia 3 (DOM-05 em diante).
 
 ## Estrutura do backend (por domínio, não por camada)
 `usuario` (conta, login, SMS) · `catalogo` (cidades, profissões, serviços) · `profissional` (cadastro, verificação, portfólio, agenda) · `contrato` (contratos e diárias) · `pagamento` (gateway, webhooks, ledger, repasse, reembolso) · `mensagem` (chat + censura) · `avaliacao` · `disputa` · `moderacao` (denúncias) · `admin` · `config` · `compartilhado` (Dinheiro, erros, auditoria, armazenamento)
@@ -213,6 +215,14 @@ npm run comparar         # protótipo x React lado a lado em frontend/test-resul
 - **Dado pessoal:** CPF e Pix só saem no corpo do PUT e nunca voltam em claro (a tela mostra a máscara); nada em `localStorage`, URL ou log. Prévia da foto escolhida por `blob:` (revogada ao sair); foto enviada abre pela URL assinada num link (só http/https).
 - **Componentes novos:** `Opcoes` (radio/checkbox por toque: `pilula`, `cartao`, `lista`, `dia`; `umaSo(...)` para escolha única), `CampoArquivo` (câmera ou galeria, `capture`, JPEG/PNG/WebP), `CampoTextoLongo` (contador); `CampoSelecao` aceita `valor`/`aoMudar`/`erro`.
 - **Testes:** `testeDoCadastro.tsx` (`abrirCadastro(etapa)`, `simularCadastro({cadastro, conta, escrita})`, `corpoDe`); E2E em `e2e/cadastro.spec.ts` com o cadastro em memória (11 etapas, fotos, CSP).
+
+### Busca e perfil no front (FE-03, resto)
+- Telas em `src/paginas/busca/` (`Busca`, `PainelDeFiltros`, `CartaoDoProfissional`, `filtros.ts`, `textos.ts`) e `src/paginas/perfil/` (`PerfilPublico`, `CalendarioDeDias`); API em `src/api/busca.ts`. Caminhos: `caminhoDaBusca`, `caminhoDoPerfil`.
+- **Filtros na URL** com os nomes da API (`filtrosDaUrl` limpa o que vier torto; `consultaDosFiltros` monta a mesma consulta para a URL e para o GET). O `useRecurso(buscar, vazio, chave)` busca de novo quando a chave (a consulta) muda e descarta a resposta antiga.
+- **Fotos do bucket** como `<img>` (só http/https; a CSP limita o host): a origem vem de `coe.seguranca.origem-das-imagens` por perfil e o `cabecalhos-seguranca.json` (vite preview) tem a do local. Nova origem = propriedade do perfil, nunca constante.
+- Datas de dia (sem hora) por `formatacao/datas.ts` (`somarDias`, `diaDaSemana`, `formatarDiaCurto`, `hojeEmSaoPaulo`), sem depender do fuso do aparelho.
+- **Folha de filtros** é `<dialog>` nativo; nos testes o `setup.ts` simula `showModal`/`close` (com o evento `close` atrasado, como no navegador). Testes de tela em `<StrictMode>`.
+- Testes: `src/teste/dadosDaBusca.ts` (Vitest e Playwright); E2E em `e2e/busca.spec.ts` (Início → busca → perfil com foto do bucket, sem violação de CSP).
 
 ### Verificação no front (FE-07)
 - Telas em `src/paginas/admin/` (rotas dentro de `RotaPrivada papeis={['ADMIN']}`; o backend também exige ADMIN): `FilaDeVerificacao` (página 0 + "Ver mais") e `VerificacaoDoCadastro` (dados, documentos, fotos, decisão). API em `src/api/verificacao.ts`.

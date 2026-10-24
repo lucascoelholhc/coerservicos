@@ -10,7 +10,9 @@ import { RecolocarContato } from './paginas/conta/RecolocarContato';
 import { TrocarSenha } from './paginas/conta/TrocarSenha';
 import { FilaDeVerificacao } from './paginas/admin/FilaDeVerificacao';
 import { VerificacaoDoCadastro } from './paginas/admin/VerificacaoDoCadastro';
+import { Busca } from './paginas/busca/Busca';
 import { CadastroProfissional } from './paginas/cadastro/CadastroProfissional';
+import { PerfilPublico } from './paginas/perfil/PerfilPublico';
 import { CriarContaCliente } from './paginas/criar-conta/CriarContaCliente';
 import { CriarContaProfissional } from './paginas/criar-conta/CriarContaProfissional';
 import { EscolhaDeConta } from './paginas/criar-conta/EscolhaDeConta';
@@ -29,6 +31,8 @@ export function Rotas() {
     <Routes>
       <Route element={<Moldura />}>
         <Route index element={<Inicio />} />
+        <Route path={CAMINHOS.busca} element={<Busca />} />
+        <Route path={`${CAMINHOS.perfil}/:id`} element={<PerfilPublico />} />
         <Route path={CAMINHOS.entrar} element={<Entrar />} />
         <Route path={CAMINHOS.criarConta} element={<EscolhaDeConta />} />
         <Route path={CAMINHOS.criarContaCliente} element={<CriarContaCliente />} />

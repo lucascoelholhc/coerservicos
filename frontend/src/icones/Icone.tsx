@@ -77,6 +77,34 @@ const DESENHOS = {
   next: <path d="M9 5l7 7-7 7" />,
   back: <path d="M15 5l-7 7 7 7" />,
   trash: <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" />,
+  pin: (
+    <>
+      <path d="M12 21s-7-6.5-7-12a7 7 0 0114 0c0 5.5-7 12-7 12z" />
+      <circle cx="12" cy="9" r="2.5" />
+    </>
+  ),
+  cal: (
+    <>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M3 10h18M8 3v4M16 3v4" />
+    </>
+  ),
+  filter: <path d="M4 5h16l-6 7v6l-4 2v-8z" />,
+  star: <path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.8l6.1-.9z" fill="currentColor" />,
+  bolt: <path d="M13 2L4 14h7l-1 8 9-12h-7z" />,
+  lock: (
+    <>
+      <rect x="5" y="11" width="14" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 018 0v4" />
+    </>
+  ),
+  eyeoff: (
+    <>
+      <path d="M3 3l18 18" />
+      <path d="M10.6 5.1A10 10 0 0112 5c5 0 9 4.5 10 7-.4 1-1.2 2.3-2.4 3.5M6.6 6.6C4.3 8 2.7 10.2 2 12c1 2.5 5 7 10 7 1.8 0 3.4-.5 4.8-1.3" />
+      <path d="M9.9 9.9a3 3 0 004.2 4.2" />
+    </>
+  ),
 } satisfies Record<string, ReactElement>;
 
 export type NomeDoIcone = keyof typeof DESENHOS;

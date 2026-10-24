@@ -69,13 +69,17 @@ public class SegurancaConfig {
 
     /**
      * CSP de toda resposta: só recursos da própria origem, imagens também em data: (ilustrações
-     * embutidas pelo Vite) e blob: (prévia da foto escolhida no cadastro, FE-04, que nunca sai do aparelho),
-     * nada de objeto, frame ou script de fora. O vite preview lê o mesmo texto
-     * de frontend/cabecalhos-seguranca.json (PoliticasDoNavegadorTest compara os dois).
+     * embutidas pelo Vite), blob: (prévia da foto escolhida no cadastro, FE-04, que nunca sai do aparelho) e a
+     * origem do bucket das fotos do portfólio ({@code coe.seguranca.origem-das-imagens}, por perfil: o SeaweedFS
+     * no local e no test; vazia no prod até a AWS-04/05), nada de objeto, frame ou script de fora. O vite preview
+     * lê o texto do perfil local de frontend/cabecalhos-seguranca.json (PoliticasDoNavegadorTest compara).
      */
-    public static final String CONTENT_SECURITY_POLICY = "default-src 'self'; script-src 'self'; style-src 'self'; "
-            + "img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; "
-            + "base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+    static String politicaDeConteudo(String origemDasImagens) {
+        String imagens = origemDasImagens.isEmpty() ? "" : " " + origemDasImagens;
+        return "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:" + imagens
+                + "; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; "
+                + "frame-ancestors 'none'";
+    }
 
     /**
      * Recursos do aparelho fechados. Cada um só abre quando uma funcionalidade pedir, com a decisão
@@ -103,8 +107,11 @@ public class SegurancaConfig {
             JsonMapper json,
             JwtDecoder decodificador,
             OrigensPermitidas origens,
-            @Value("${coe.seguranca.hsts:false}") boolean hsts)
+            @Value("${coe.seguranca.hsts:false}") boolean hsts,
+            @Value("${coe.seguranca.origem-das-imagens:}") String origemDasImagens,
+            @Value("${coe.seguranca.origens-somente-https:false}") boolean somenteHttps)
             throws Exception {
+        String politicaDeConteudo = politicaDeConteudo(OrigemDasImagens.validar(origemDasImagens, somenteHttps));
         AuthenticationEntryPoint naoAutenticado = (requisicao, resposta, erro) -> {
             resposta.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
             RespostaDeProblema.escrever(
@@ -131,7 +138,7 @@ public class SegurancaConfig {
                 .headers(cabecalhos -> {
                     cabecalhos.referrerPolicy(politica -> politica.policy(ReferrerPolicy.NO_REFERRER));
                     cabecalhos.frameOptions(quadros -> quadros.deny());
-                    cabecalhos.contentSecurityPolicy(csp -> csp.policyDirectives(CONTENT_SECURITY_POLICY));
+                    cabecalhos.contentSecurityPolicy(csp -> csp.policyDirectives(politicaDeConteudo));
                     cabecalhos.addHeaderWriter(new StaticHeadersWriter("Permissions-Policy", PERMISSIONS_POLICY));
                     if (hsts) {
                         cabecalhos.httpStrictTransportSecurity(

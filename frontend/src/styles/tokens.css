@@ -42,6 +42,10 @@
   --rodape-txt: #b9bdcc;
   --mascara: #000;
 
+  /* Fundo atrás da folha de filtros (dialog::backdrop do protótipo) e estrela da nota (.stars .ic) */
+  --fundo-da-folha: rgb(28 31 46 / 55%);
+  --estrela: #d99a00;
+
   /* Tipografia (seção 4): uma família só, hospedada no front (@fontsource-variable/archivo, eixos wght e wdth) */
   --fonte: "Archivo Variable", "Segoe UI", "Roboto", "Arial", sans-serif;
   --largura-titulo: 125%;

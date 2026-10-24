@@ -30,7 +30,7 @@ class PoliticasDoNavegadorTest extends IntegracaoTest {
     // constante e o JSON juntos sem querer ainda quebre este teste.
 
     private static final String CSP = "default-src 'self'; script-src 'self'; style-src 'self'; "
-            + "img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; "
+            + "img-src 'self' data: blob: http://localhost:8333; font-src 'self'; connect-src 'self'; object-src 'none'; "
             + "base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
     private static final String PERMISSOES = "camera=(), microphone=(), geolocation=(), payment=(), usb=()";
 
@@ -70,9 +70,11 @@ class PoliticasDoNavegadorTest extends IntegracaoTest {
 
         assertThat(doFront)
                 .containsExactlyInAnyOrderEntriesOf(Map.of(
-                        "Content-Security-Policy", SegurancaConfig.CONTENT_SECURITY_POLICY,
-                        "Permissions-Policy", SegurancaConfig.PERMISSIONS_POLICY));
-        assertThat(SegurancaConfig.CONTENT_SECURITY_POLICY).isEqualTo(CSP);
+                        "Content-Security-Policy",
+                        SegurancaConfig.politicaDeConteudo("http://localhost:8333"),
+                        "Permissions-Policy",
+                        SegurancaConfig.PERMISSIONS_POLICY));
+        assertThat(SegurancaConfig.politicaDeConteudo("http://localhost:8333")).isEqualTo(CSP);
         assertThat(SegurancaConfig.PERMISSIONS_POLICY).isEqualTo(PERMISSOES);
     }
 }

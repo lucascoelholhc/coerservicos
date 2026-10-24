@@ -25,7 +25,7 @@ Monólito modular: um único projeto Spring, com um pacote por domínio (`usuari
 ### Fora do MVP
 - Itens marcados F2 nos requisitos.
 - App nativo. O React é mobile-first e basta no começo.
-- Integração real com o gateway. Entra quando o PA02 for decidido; até lá roda o adaptador falso.
+- Integração real com o gateway (Asaas, PA02 decidido em 23/10). Entra no AWS-09; até lá roda o adaptador falso.
 
 ### Marcos
 | Marco | Entrega que prova que acabou |
@@ -145,7 +145,7 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 | DOM-04 | Busca e perfil | Filtros (profissão, cidade no raio, dia livre, valor, experiência); perfil sem contato | Nenhum campo de contato sai antes do pagamento |
 | DOM-05 | Chat e censura | Censura no servidor; conta em análise após N tentativas; CEP passa (PA13); conta com `usuario.status = em_analise` entra normalmente (precisa cumprir diárias já pagas), mas fica **sem chat e sem contrato novo** até o admin decidir | Testes com padrões que bloqueiam e que passam (R$, medidas, datas, `CEP 89010-000`, `CEP 89010000`) |
 | DOM-06 | Contratação | Pedido, datas, agenda, LC 150 (janela de 7 dias), comissão congelada | 3ª diária na janela é recusada; dia ocupado é recusado |
-| DOM-07 | Pagamento e custódia | `GatewayPagamento` + adaptador falso; webhook assinado e idempotente; ledger; custódia rastreada por contrato | Webhook repetido não duplica nada; saldos batem; custódia por contrato nunca negativa |
+| DOM-07 | Pagamento e custódia | `GatewayPagamento` + adaptador falso **no formato do Asaas** (nomes, estados da cobrança e eventos do webhook iguais aos do Asaas, para a troca ser só de adaptador; a API real não é chamada); webhook assinado e idempotente; ledger; custódia rastreada por contrato. Modalidade de custódia no Asaas (sugestão: Conta Escrow, uma cobrança por diária) **A DEFINIR** com o comercial | Webhook repetido não duplica nada; saldos batem; custódia por contrato nunca negativa |
 | DOM-08 | Execução da diária | Cheguei, terminei com foto, aprovar; job das 12 h a partir do `terminou_em` (PA08, ShedLock); repasse | Duas instâncias não liberam a mesma diária |
 | DOM-09 | Disputa e reembolso | Reclamação trava só o dia; decisão do admin; reembolso = o que o cliente pagou; falta do profissional (PA07) com DB-14 | Os dois caminhos testados no ledger; casos obrigatórios da falta abaixo |
 | DOM-10 | Avaliações | Nota dos dois lados; média no perfil | Só avalia quem pagou pelo app |
@@ -358,6 +358,24 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 | FE-09 | Testes | Vitest nos componentes; Playwright no caminho feliz em 360 px e desktop |
 | FE-10 | Acessibilidade | axe nas telas principais + teste só com teclado |
 
+**FE-03, resto: busca e perfil público (dia 21, feito em 23/10): decisões (conferir)**
+- **Telas:** `/busca` (barra de profissões, "Mostrar primeiro", filtros na lateral a partir de 960 px e numa folha `<dialog>` no celular, etiquetas removíveis, contagem, "Ver mais", estados carregando/vazio/erro) e `/profissionais/:id` (selos, resumo, fotos do portfólio, "Sobre", serviços, onde atende, calendário dos dias livres, avaliações, caixa de preço). Os filtros ficam na URL com os mesmos nomes da API (`filtros.ts`); o herói e as categorias do Início levam à busca de verdade.
+- **Decisões tomadas sozinho** (como desfazer):
+  - **Busca por texto ("nome ou serviço") do protótipo fora:** a API do DOM-04 não tem busca por texto. Desfazer: parâmetro `texto` no DOM-04 e o campo na tela.
+  - **Um serviço por vez** (rádio), porque a API aceita um `servico`; o protótipo marcava vários. Desfazer: lista na API.
+  - **"Diária até" como lista** (Qualquer valor, R$ 150 a R$ 400 de 50 em 50) em vez do controle deslizante do protótipo: um pedido à API por escolha, sem disparar a cada movimento. Desfazer: range com envio no soltar.
+  - **"Leva as próprias ferramentas"** liga só `ferramentas=sim`; `parte` vale pela URL (vira etiqueta).
+  - **Contagem** "N profissionais" ou "Mais de N" (a API pagina de 20 e não manda total).
+  - **Filtro troca a URL com `replace`** (o Voltar do navegador sai da busca em vez de desfazer filtro por filtro).
+  - **"Contratar diárias" fora** até o FE-05: no lugar, "A contratação pelo app chega em breve."; "Tirar dúvida pelo chat" fica para o DOM-05/FE-05. A nota da LC 150 do protótipo (diarista) fica para o FE-05, com o limite vindo da API.
+  - **"Na COE desde"** do protótipo trocado por "Atende até N km" (a API não manda a data de entrada).
+  - **Foto do portfólio como `<img>`** (antes só por link): `img-src` com a origem do bucket por perfil (`coe.seguranca.origem-das-imagens`: local e test `http://localhost:8333`; prod vazio até a AWS-04/05 e, depois, só o host https; `OrigemDasImagens` não deixa subir fora do formato ou com http/localhost em produção). URL vencida mostra "Carregar as fotos de novo" (busca o perfil de novo).
+  - **Contraste do calendário:** o `--tinta-3` e a opacidade do protótipo ficam abaixo do AA; texto `--tinta-2`, tracejado para folga e pontilhado para "já passou ou ainda sem agenda" (com legenda).
+  - **Categoria escolhida com visto** (status nunca só por cor).
+- **Revisões** (react-reviewer, security-reviewer): sem CRITICAL. Corrigidos os 3 HIGH (folha que fechava sozinha sob StrictMode, "Ver mais" sem cancelar na troca de filtro, páginas extras que voltavam ao repetir a busca) e o MEDIUM de segurança (localhost na CSP do prod).
+- **Teste no navegador (23/10, backend local e Vite):** marco da fatia 2 aprovado: conta nova → 11 etapas com uploads → celular confirmado → em análise (fora da busca) → admin aprova → busca pelo herói acha o profissional → perfil com as fotos do bucket e sem contato.
+- **Ficou:** manter a lista antiga enquanto busca de novo (hoje some e volta a cada filtro); folha aberta ao alargar a janela; `hoje` fixo na montagem (vira a meia-noite); calendário como lista/tabela para leitor de tela (hoje `role="img"` por dia com o rótulo completo); Minha conta com rascunho em andamento ainda diz "Cadastro de profissional — O cadastro é grátis"; host https do bucket de produção em `COE_ORIGEM_DAS_IMAGENS` (AWS-04/05).
+
 **FE-07, parte da verificação (dia 20, feito em 22/10): decisões (conferir)**
 - **Telas:** `/admin/verificacao` (fila do DOM-03, mais antiga primeiro, "Ver mais") e `/admin/verificacao/:id` (dados para conferir com o CPF completo, documentos e fotos, "Sobre", checklist da RN12, NR-10, mensagem por SMS e a decisão). Só ADMIN (`RotaPrivada papeis`; o backend decide). Minha conta do ADMIN ganhou "Painel da equipe" com o atalho.
 - **Decisões tomadas sozinho** (como desfazer):
@@ -471,7 +489,7 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 | AWS-06 | Pipeline | Testes → imagem → homologação; produção com aprovação manual |
 | AWS-07 | Domínio e HTTPS | Domínio, ACM, redirecionamento para HTTPS |
 | AWS-08 | Observabilidade | Logs, métricas, alarmes (5xx, disputas, job de liberação parado) |
-| AWS-09 | Gateway real | Adaptador do gateway escolhido (PA02) no sandbox |
+| AWS-09 | Gateway real | Adaptador do Asaas (PA02) no sandbox |
 | AWS-10 | Produção | Mesma infra com outras variáveis; aceite repetido em homologação |
 
 Tudo em código (Terraform ou AWS CDK), nada configurado à mão no console.
@@ -483,9 +501,9 @@ Tudo em código (Terraform ou AWS CDK), nada configurado à mão no console.
 ## 10. Decisões que travam tarefas
 | Ponto | Precisa estar decidido antes de | Proposta |
 |---|---|---|
-| PA02 Gateway | Dia 52 (AWS-09) | Escolher o gateway e **abrir o sandbox até o dia 40**, para o AWS-09 ter conta e credenciais de teste prontas |
+| PA02 Gateway | Dia 52 (AWS-09) | **Asaas (decidido em 23/10).** Falta: **abrir o sandbox até o dia 40** (para o AWS-09 ter conta e credenciais de teste) e combinar com o comercial a modalidade de custódia (sugestão: Conta Escrow, uma cobrança por diária) |
 
-Já decididos: PA01 (PostgreSQL), PA03 (JWT de 15 min + refresh de 30 dias em cookie HttpOnly, uma sessão por aparelho, MFA opcional), PA04 (React), PA05 (comissão paga pelo cliente), PA06 (reembolso = o que o cliente pagou), PA07 (falta do profissional, RN44a–RN44e), PA08 (12 h a partir do "Terminei o dia"), PA13 (CEP passa na censura), LC 150 em janela de 7 dias (confirmada com o advogado), uma diária por profissional por dia, idade mínima de 18 anos, retenção LGPD de 5 anos.
+Já decididos: PA01 (PostgreSQL), PA02 (Asaas; custódia a combinar com o comercial), PA03 (JWT de 15 min + refresh de 30 dias em cookie HttpOnly, uma sessão por aparelho, MFA opcional), PA04 (React), PA05 (comissão paga pelo cliente), PA06 (reembolso = o que o cliente pagou), PA07 (falta do profissional, RN44a–RN44e), PA08 (12 h a partir do "Terminei o dia"), PA13 (CEP passa na censura), LC 150 em janela de 7 dias (confirmada com o advogado), uma diária por profissional por dia, idade mínima de 18 anos, retenção LGPD de 5 anos.
 
 ### Tarefas futuras registradas
 - **Expurgo LGPD** (job agendado, idempotente, com log): 5 anos após a exclusão da conta, apaga CPF, chave Pix e data de nascimento; mantém o `cpf_hash` só de quem estiver inativado (`suspenso`). Precisa de migração nova: hoje o `ck_profissional_completo` exige esses campos fora do rascunho.
@@ -529,7 +547,7 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 | 18 | DOM-04 | Busca com filtros e raio; perfil público, dias livres, portfólio | Nenhum contato na resposta |
 | 19 | FE-04 | Telas do cadastro do profissional, etapas 1–6 | Rascunho salvo na API |
 | 20 | FE-04, FE-07 (parte) | Etapas 7–11 com upload; fila de verificação no admin | Cadastro chega ao admin, que aprova |
-| 21 | FE-03 (resto) | Busca e perfil público | **Cadastrar, aprovar e achar o profissional na busca, pelo navegador** |
+| 21 ✅ | FE-03 (resto) | Busca e perfil público | **Cadastrar, aprovar e achar o profissional na busca, pelo navegador** (**feito em 23/10**) |
 | 22 | Revisão | `/security-scan`, cobertura; folga | |
 
 ### Fatia 3: Contratar, pagar e trabalhar (dias 23–35)
@@ -556,7 +574,7 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 | 37 | DOM-09 | Decisão; falta do profissional (PA07): reembolso integral, registro da falta | Casos obrigatórios do DOM-09 passam |
 | 38 | DOM-10 | Avaliações e média | Só quem pagou avalia |
 | 39 | DOM-11 | Usuários, faltas com alerta, inativar e reativar, configuração | Ações auditadas; alerta com 2 faltas em 90 dias |
-| 40 | DOM-11 | Financeiro do admin; notificações. **Prazo para abrir o sandbox do gateway (PA02)** | Painel bate com `saldo_conta` |
+| 40 | DOM-11 | Financeiro do admin; notificações. **Prazo para abrir o sandbox do Asaas (PA02)** | Painel bate com `saldo_conta` |
 | 41 | FE-07, FE-05 | Painel admin completo; reclamar e avaliar | Admin opera tudo pela tela |
 | 42 | FE-08 | Estados de carregando, vazio, erro e sem conexão | Nenhuma tela branca em erro |
 | 43 | FE-09, FE-10 | Vitest, Playwright (360 px e desktop), acessibilidade | **Tudo clicável, E2E verde** (**M4**) |
