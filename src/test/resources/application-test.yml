@@ -21,6 +21,8 @@ coe:
   contrato:
     # o job de expiração não roda sozinho nos testes (o relógio é compartilhado); o teste chama executar()
     expiracao: 24h
+    # a liberação automática também não roda sozinha nos testes; o teste chama executar()
+    liberacao: 24h
   # Chaves da criptografia de campo SÓ para testes (não são segredo).
   cifra:
     kid-atual: teste-2
