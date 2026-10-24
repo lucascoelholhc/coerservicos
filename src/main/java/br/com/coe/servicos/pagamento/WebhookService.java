@@ -8,10 +8,13 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -45,6 +48,12 @@ class WebhookService {
 
     private static final int TAMANHO_MAXIMO_DO_ID = 200;
     private static final int TAMANHO_MAXIMO_DO_TIPO = 100;
+    private static final int CORPO_INVALIDO = 4096;
+    private static final String NUL = String.valueOf((char) 0);
+    /** O NUL como o JSON o escreve (seis caracteres). */
+    private static final String NUL_NO_JSON = "\\" + "u0000";
+
+    private static final Logger LOG = LoggerFactory.getLogger(WebhookService.class);
 
     private final NamedParameterJdbcTemplate jdbc;
     private final JsonMapper json;
@@ -74,8 +83,9 @@ class WebhookService {
     @Transactional
     Resultado receber(String token, byte[] corpo) {
         JsonNode evento = ler(corpo);
-        String id = evento.path("id").asString("");
-        String tipo = evento.path("event").asString("");
+        // o Postgres não aceita NUL em text nem em jsonb: sai antes de gravar (o corpo bruto fica intacto)
+        String id = evento.path("id").asString("").replace(NUL, "");
+        String tipo = evento.path("event").asString("").replace(NUL, "");
         if (id.isBlank()
                 || tipo.isBlank()
                 || id.length() > TAMANHO_MAXIMO_DO_ID
@@ -94,18 +104,33 @@ class WebhookService {
                 new MapSqlParameterSource("gateway", gateway.nome())
                         .addValue("id", id)
                         .addValue("tipo", tipo)
-                        .addValue("payload", json.writeValueAsString(evento))
-                        .addValue("corpo", corpo)
+                        // token inválido: só o começo do corpo, sem payload (ninguém enche o banco sem o token)
+                        .addValue(
+                                "payload",
+                                valido ? json.writeValueAsString(evento).replace(NUL_NO_JSON, "") : "{}")
+                        .addValue(
+                                "corpo", valido ? corpo : Arrays.copyOf(corpo, Math.min(corpo.length, CORPO_INVALIDO)))
                         .addValue("valido", valido)
                         .addValue("agora", agora),
                 UUID.class);
         if (!valido) {
+            LOG.warn("Webhook do gateway recusado: token ausente ou inválido");
             return Resultado.TOKEN_INVALIDO;
         }
         if (gravado.isEmpty()) {
             return Resultado.ACEITO; // repetido: já foi processado
         }
         String erro = processar(tipo, evento.path("payment"), agora);
+        if ("cobranca-desconhecida".equals(erro)) {
+            // pagamento de cobrança que a COE não conhece: a equipe precisa conciliar com o gateway
+            auditoria.registrarDoSistema(
+                    "pagamento.cobranca-desconhecida",
+                    "evento_gateway",
+                    gravado.get(0),
+                    null,
+                    Map.of("tipo", tipo),
+                    null);
+        }
         jdbc.update(
                 "UPDATE evento_gateway SET processado_em = :agora, erro = :erro WHERE id = :id",
                 new MapSqlParameterSource("agora", agora).addValue("erro", erro).addValue("id", gravado.get(0)));
@@ -146,6 +171,13 @@ class WebhookService {
         }
         BigDecimal valor = (BigDecimal) cobranca.get("valor");
         if (!valorRecebido.isNumber() || valorRecebido.decimalValue().compareTo(valor) != 0) {
+            auditoria.registrarDoSistema(
+                    "pagamento.valor-divergente",
+                    "contrato",
+                    contrato,
+                    null,
+                    Map.of("cobranca", cobranca.get("id").toString(), "valor", valor.toPlainString()),
+                    null);
             return "valor-divergente";
         }
         UUID idCobranca = (UUID) cobranca.get("id");
@@ -164,7 +196,7 @@ class WebhookService {
         }
         marcarPago(contrato, idCobranca, c, agora);
         Dinheiro pago = new Dinheiro(valor);
-        livro.registrar(new LivroCaixa.Transacao(
+        boolean registrado = livro.registrar(new LivroCaixa.Transacao(
                 "pagamento",
                 "pagamento:" + idCobranca,
                 contrato,
@@ -174,6 +206,7 @@ class WebhookService {
                 List.of(
                         new LivroCaixa.Lancamento(LivroCaixa.Conta.GATEWAY, LivroCaixa.Natureza.DEBITO, pago),
                         new LivroCaixa.Lancamento(LivroCaixa.Conta.CUSTODIA, LivroCaixa.Natureza.CREDITO, pago))));
+        exigirRegistrado(registrado, idCobranca);
         auditoria.registrarDoSistema(
                 "pagamento.confirmado",
                 "contrato",
@@ -184,6 +217,13 @@ class WebhookService {
         return null;
     }
 
+    private static void exigirRegistrado(boolean registrado, UUID cobranca) {
+        if (!registrado) {
+            // o contrato acabou de virar pago: a chave nunca podia existir; desfaz tudo em vez de pagar sem lançamento
+            throw new IllegalStateException("Pagamento já lançado no livro-caixa para a cobrança " + cobranca);
+        }
+    }
+
     private void marcarPago(UUID contrato, UUID cobranca, Map<String, Object> c, OffsetDateTime agora) {
         MapSqlParameterSource parametros = new MapSqlParameterSource("contrato", contrato)
                 .addValue("cobranca", cobranca)
@@ -192,6 +232,11 @@ class WebhookService {
                 .addValue("profissional", c.get("profissional_id"));
         jdbc.update(
                 "UPDATE cobranca SET status = 'confirmada', confirmada_em = :agora WHERE id = :cobranca", parametros);
+        // a outra cobrança ainda pendente do pedido (Pix e cartão) não vale mais: ninguém paga duas vezes
+        jdbc.update("""
+                UPDATE cobranca SET status = 'expirada'
+                 WHERE contrato_id = :contrato AND id <> :cobranca AND status = 'pendente'
+                """, parametros);
         jdbc.update("""
                 UPDATE contrato SET status = 'pago', pago_em = :agora, contato_liberado_em = :agora
                  WHERE id = :contrato

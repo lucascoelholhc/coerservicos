@@ -126,6 +126,7 @@ coe:
       publico-ip: { capacidade: 60, janela: 1m }
       # no Postgres, por IP (FiltroDeLimites/RotasLimitadas)
       entrar-ip: { capacidade: 30, janela: 10m }
+      webhook-ip: { capacidade: 3000, janela: 1h }       # webhook do gateway por IP (DOM-07); o api-ip também vale
       segundo-passo-ip: { capacidade: 20, janela: 10m }
       codigo-ip: { capacidade: 10, janela: 1h }
       entrar-com-codigo-ip: { capacidade: 20, janela: 10m }
@@ -141,7 +142,7 @@ coe:
       # no Postgres, globais (fatias: a chave é dividida em N linhas sorteadas, H1)
       cadastro-global: { capacidade: 500, janela: 1h, fatias: 10 }
       envio-normal-global: { capacidade: 300, janela: 1h, fatias: 10 }
-      webhook-global: { capacidade: 3000, janela: 1h, fatias: 10 }   # webhook do gateway (DOM-07)
+      webhook-global: { capacidade: 30000, janela: 1h, fatias: 10 }   # webhook do gateway (DOM-07)
       # no Postgres, por login, celular e usuário (nos serviços)
       entrar-login-ip: { capacidade: 8, janela: 15m }
       entrar-login: { capacidade: 20, janela: 1h }

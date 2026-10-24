@@ -71,8 +71,13 @@ final class RotasLimitadas {
             new RotaLimitada(HttpMethod.POST, "/api/profissional/cadastro/fotos", Cobranca.porIp("upload-ip")),
             // CPF e nascimento: limite curto para ninguém testar CPFs pelo 409 (enumeração)
             new RotaLimitada(HttpMethod.PUT, "/api/profissional/cadastro/dados", Cobranca.porIp("dados-ip")),
-            // webhook do gateway (DOM-07): os IPs do gateway mudam; um teto global segura o abuso sem token
-            new RotaLimitada(HttpMethod.POST, "/api/webhooks/pagamento", Cobranca.global("webhook-global")));
+            // webhook do gateway (DOM-07): por IP antes do global, para quem não tem o token não esgotar o teto
+            // global e o gateway de verdade (poucos IPs) receber 429; lista de IPs do Asaas na AWS-09
+            new RotaLimitada(
+                    HttpMethod.POST,
+                    "/api/webhooks/pagamento",
+                    Cobranca.porIp("webhook-ip"),
+                    Cobranca.global("webhook-global")));
 
     private RotasLimitadas() {}
 

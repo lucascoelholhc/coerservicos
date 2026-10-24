@@ -46,6 +46,9 @@ class WebhookTest extends IntegracaoTest {
 
     private static final AtomicLong EVENTOS = new AtomicLong();
 
+    /** O NUL escapado como o gateway mandaria no JSON (seis caracteres). */
+    private static final String NUL_NO_JSON = "\\" + "u0000";
+
     @Autowired
     private ApplicationContext contexto;
 
@@ -355,5 +358,76 @@ class WebhookTest extends IntegracaoTest {
                         Object.class,
                         UUID.fromString(conversa)))
                 .isNotNull();
+    }
+
+    @Test
+    @DisplayName("NUL no JSON (jsonb não aceita) não derruba o webhook: o pagamento confirma")
+    void nulNoJson() throws Exception {
+        String pagamento = cobrar("pix");
+        String corpo = evento(novoEvento(), "PAYMENT_RECEIVED", pagamento, total())
+                .replace(
+                        "\"object\":\"payment\"",
+                        "\"object\":\"pay" + NUL_NO_JSON + "ment\",\"description\":\"a" + NUL_NO_JSON + "b\"");
+
+        enviar(corpo, token).andExpect(status().isOk());
+
+        assertThat(statusDoContrato()).isEqualTo("pago");
+    }
+
+    @Test
+    @DisplayName("token inválido guarda só o começo do corpo (4 KB) e nenhum payload")
+    void invalidoGuardaPouco() throws Exception {
+        String id = novoEvento();
+        String grande =
+                "{\"id\":\"" + id + "\",\"event\":\"PAYMENT_RECEIVED\",\"lixo\":\"" + "x".repeat(20_000) + "\"}";
+
+        enviar(grande, "token-errado").andExpect(status().isUnauthorized());
+
+        Map<String, Object> linha = jdbc.queryForMap(
+                "SELECT octet_length(corpo_bruto) AS tamanho, payload::text AS payload FROM evento_gateway"
+                        + " WHERE id_evento = ?",
+                id);
+        assertThat(((Number) linha.get("tamanho")).intValue()).isLessThanOrEqualTo(4096);
+        assertThat(linha.get("payload")).isEqualTo("{}");
+    }
+
+    @Test
+    @DisplayName("confirmada uma cobrança, a outra pendente do mesmo pedido expira (não dá para pagar duas vezes)")
+    void outraCobrancaExpira() throws Exception {
+        String pix = cobrar("pix");
+        String cartao = cobrar("cartao");
+
+        enviar(evento(novoEvento(), "PAYMENT_RECEIVED", pix, total()), token).andExpect(status().isOk());
+
+        assertThat(jdbc.queryForObject("SELECT status FROM cobranca WHERE id_externo = ?", String.class, cartao))
+                .isEqualTo("expirada");
+    }
+
+    @Test
+    @DisplayName("cobrança vencida (OVERDUE) que é paga com o pedido ainda esperando: confirma (pagamento atrasado)")
+    void vencidaDepoisPaga() throws Exception {
+        String pagamento = cobrar("pix");
+        enviar(evento(novoEvento(), "PAYMENT_OVERDUE", pagamento, total()), token)
+                .andExpect(status().isOk());
+
+        enviar(evento(novoEvento(), "PAYMENT_RECEIVED", pagamento, total()), token)
+                .andExpect(status().isOk());
+
+        assertThat(statusDoContrato()).isEqualTo("pago");
+    }
+
+    @Test
+    @DisplayName("valor divergente fica na auditoria para a equipe acompanhar")
+    void valorDivergenteAuditado() throws Exception {
+        String pagamento = cobrar("pix");
+
+        enviar(evento(novoEvento(), "PAYMENT_RECEIVED", pagamento, total().add(BigDecimal.ONE)), token)
+                .andExpect(status().isOk());
+
+        assertThat(jdbc.queryForObject(
+                        "SELECT count(*) FROM log_auditoria WHERE acao = 'pagamento.valor-divergente' AND entidade_id = ?",
+                        Integer.class,
+                        contrato))
+                .isEqualTo(1);
     }
 }
