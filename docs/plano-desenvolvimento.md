@@ -299,6 +299,19 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 - **Revisões** (java-reviewer, security-reviewer, database-reviewer): sem CRITICAL nem HIGH. Corrigido: e-mail confirmado (sem ele a conta ficava com contato pendente, achado no teste local), retomar só rascunho, celular/e-mail de outra conta = erro claro, cidade fora do catálogo = erro claro, imagens geradas fora do `try` do armazenamento e exceção no log, recusa com o perfil prod junto, contexto de segurança limpo depois, precedência da regra do ArchUnit.
   - **Sem histórico** (avaliações, contratos) até existirem as tabelas e os serviços (DOM-05 em diante).
 
+**DOM-04 (dia 18, noite de 19/10): decisões (conferir)**
+- Sem migração: os índices da V10 e as PKs/índices de agenda bastam (EXPLAIN local: 3,4 ms; database-reviewer sem índice faltando). A view `profissional_atende_cidade` da V10 não é usada (produto cartesiano caro); fica para remover numa migração futura.
+- **Decisões tomadas sozinho** (como desfazer):
+  - **Nome "Primeiro S."** na busca e no perfil (menos dado pessoal num endpoint aberto; o protótipo mostrava o nome completo) — trocar `nomeDeExibicao`.
+  - **Dias livres a partir de amanhã**, janela de 4 semanas no perfil e no "livre antes"; filtro de dia até 90 dias — constantes em `BuscaPublicaService`.
+  - **Diária `agendada` (pedido sem pagamento) ocupa o dia** na busca, igual ao índice único da agenda — tirar `agendada` do `livre(...)` se o negócio preferir.
+  - **Profissão principal inativa ("em breve") tira o profissional da busca e do perfil**.
+  - **Ferramentas**: `sim` = traz todas; `parte` = traz ao menos parte. **Filtro por texto (RF08) e ordem por avaliação (RF09) ficaram de fora**: texto livre pede índice e regra de relevância; avaliação só existe com o DOM de avaliações (RN21) — 422 `ordem-invalida` até lá.
+  - **Sem cache** (o plano não pede); teto de 2 s por consulta + `publico-ip` 60/min. Limite global da busca e um balde mais apertado só para ela ficam para a revisão de números com dados reais.
+  - **Código de erro**: 422 para valor/ordem/filtro inválidos (texto validado no serviço); 400 só para tipo errado no binding.
+- **Revisões** (java-reviewer, security-reviewer, database-reviewer): sem CRITICAL. HIGH corrigido: foto ocultada pelo admin (`visivel = false`) saía no perfil. Corrigido também: série de dias por inteiro (sem depender do fuso da sessão), profissão principal ativa, teto de tempo, filtro de ferramentas, limites de tamanho e sinal nos filtros, `expiraEm` tomado antes de assinar, nota nula = "Novo na COE", rota sem Bearer casando também o método, teste com IP próprio por chamada.
+- **Ficou**: calcular o `proximo_livre` só da página quando a ordem não for "livre" e medir com ~5 mil profissionais antes do lançamento; censura de contato no nome da conta (hoje só o "Primeiro S." sai); moderação de foto por denúncia (filtro extra quando o domínio `moderacao` existir); CSP `img-src` com o host do bucket na primeira tela com foto (FE).
+
 **Casos de teste obrigatórios do CORE-03 e CORE-04** (PA03):
 - Token de acesso expirado (Clock adiantado 15 min) é recusado com 401; renovação devolve um novo par
 - Refresh usado duas vezes: a segunda é recusada e **todos** os tokens daquele login são revogados
