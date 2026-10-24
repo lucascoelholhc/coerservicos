@@ -1,6 +1,8 @@
 package br.com.coe.servicos.compartilhado.censura;
 
 import java.text.Normalizer;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -71,23 +73,60 @@ public final class CensuraDeContato {
 
     private static final int DIGITOS_DE_TELEFONE = 8;
 
+    /** Para a máscara (no texto original): e-mail, link e @perfil inteiros. */
+    private static final Pattern CONTATO_ESCRITO = Pattern.compile(
+            "[\\w.%+-]+@[\\w-]+(?:\\.[\\w-]+)+|https?://\\S+|www\\.\\S+|(?<![\\w.])@[\\w.]{3,}",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS);
+
+    private static final Pattern NUMERO = Pattern.compile("\\p{Nd}");
+
     private CensuraDeContato() {}
 
     /** Verdadeiro se o texto tem contato; nulo e vazio não têm. */
     public static boolean temContato(String texto) {
+        return !regrasVioladas(texto).isEmpty();
+    }
+
+    /**
+     * As regras que o texto quebra, na ordem fixa telefone, email, link, perfil, rede, pedido (vão para
+     * {@code mensagem.regras_violadas} e para o motivo que o autor vê, RN48). Vazio = sem contato.
+     */
+    public static List<String> regrasVioladas(String texto) {
         if (texto == null || texto.isBlank()) {
-            return false;
+            return List.of();
         }
         String normalizado = normalizar(texto);
-        if (EMAIL.matcher(normalizado).find()
-                || LINK.matcher(normalizado).find()
-                || PERFIL.matcher(normalizado).find()
-                || REDE.matcher(normalizado).find()
-                || PEDIDO.matcher(normalizado).find()) {
-            return true;
-        }
+        List<String> regras = new ArrayList<>();
         String semPermitidos = remover(MEDIDA, remover(DATA, remover(DINHEIRO, remover(CEP, normalizado))));
-        return TELEFONE.matcher(semPermitidos).find() || numerosDitados(semPermitidos);
+        if (TELEFONE.matcher(semPermitidos).find() || numerosDitados(semPermitidos)) {
+            regras.add("telefone");
+        }
+        if (EMAIL.matcher(normalizado).find()) {
+            regras.add("email");
+        }
+        // "joao@gmail.com" é um e-mail, não também um link
+        if (LINK.matcher(remover(EMAIL, normalizado)).find()) {
+            regras.add("link");
+        }
+        if (PERFIL.matcher(normalizado).find()) {
+            regras.add("perfil");
+        }
+        if (REDE.matcher(normalizado).find()) {
+            regras.add("rede");
+        }
+        if (PEDIDO.matcher(normalizado).find()) {
+            regras.add("pedido");
+        }
+        return List.copyOf(regras);
+    }
+
+    /**
+     * O texto como ele pode ser guardado e mostrado à moderação: e-mail, link e @perfil viram "[contato]" e todo
+     * número vira "•" (LGPD: a mensagem bloqueada nunca guarda o telefone inteiro).
+     */
+    public static String mascararContato(String texto) {
+        String semEnderecos = CONTATO_ESCRITO.matcher(texto).replaceAll("[contato]");
+        return NUMERO.matcher(semEnderecos).replaceAll("•");
     }
 
     /**
