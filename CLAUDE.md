@@ -23,7 +23,7 @@ Público com pouca familiaridade com tecnologia: telas simples, poucos campos, b
 | Testes back | JUnit 5, AssertJ, Mockito, MockMvc, Testcontainers (Postgres real) |
 | Testes front | Vitest + Testing Library; Playwright para E2E |
 | Local | Postgres local ou Docker (`docker compose`, porta 5433); Mailpit (e-mail/SMS falso); **SeaweedFS** como S3 local (porta 8333, versão fixa; a imagem pública do MinIO deixou de existir; plano B: S3Proxy em memória) |
-| Pagamento | Gateway **A DEFINIR** (PA02). Até lá, adaptador falso atrás da interface `GatewayPagamento` |
+| Pagamento | Gateway **Asaas** (PA02, decidido em 23/10; modalidade de custódia **A DEFINIR** com o comercial, sugestão Conta Escrow com uma cobrança por diária). Até o AWS-09, adaptador falso atrás de `GatewayPagamento`, no formato do Asaas; a API real não é chamada |
 | Deploy | AWS depois do aceite local (ECS Fargate, RDS, S3, Secrets Manager) |
 
 ## Comandos

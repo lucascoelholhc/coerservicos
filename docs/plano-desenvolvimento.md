@@ -25,7 +25,7 @@ Monólito modular: um único projeto Spring, com um pacote por domínio (`usuari
 ### Fora do MVP
 - Itens marcados F2 nos requisitos.
 - App nativo. O React é mobile-first e basta no começo.
-- Integração real com o gateway. Entra quando o PA02 for decidido; até lá roda o adaptador falso.
+- Integração real com o gateway (Asaas, PA02 decidido em 23/10). Entra no AWS-09; até lá roda o adaptador falso.
 
 ### Marcos
 | Marco | Entrega que prova que acabou |
@@ -145,7 +145,7 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 | DOM-04 | Busca e perfil | Filtros (profissão, cidade no raio, dia livre, valor, experiência); perfil sem contato | Nenhum campo de contato sai antes do pagamento |
 | DOM-05 | Chat e censura | Censura no servidor; conta em análise após N tentativas; CEP passa (PA13); conta com `usuario.status = em_analise` entra normalmente (precisa cumprir diárias já pagas), mas fica **sem chat e sem contrato novo** até o admin decidir | Testes com padrões que bloqueiam e que passam (R$, medidas, datas, `CEP 89010-000`, `CEP 89010000`) |
 | DOM-06 | Contratação | Pedido, datas, agenda, LC 150 (janela de 7 dias), comissão congelada | 3ª diária na janela é recusada; dia ocupado é recusado |
-| DOM-07 | Pagamento e custódia | `GatewayPagamento` + adaptador falso; webhook assinado e idempotente; ledger; custódia rastreada por contrato | Webhook repetido não duplica nada; saldos batem; custódia por contrato nunca negativa |
+| DOM-07 | Pagamento e custódia | `GatewayPagamento` + adaptador falso **no formato do Asaas** (nomes, estados da cobrança e eventos do webhook iguais aos do Asaas, para a troca ser só de adaptador; a API real não é chamada); webhook assinado e idempotente; ledger; custódia rastreada por contrato. Modalidade de custódia no Asaas (sugestão: Conta Escrow, uma cobrança por diária) **A DEFINIR** com o comercial | Webhook repetido não duplica nada; saldos batem; custódia por contrato nunca negativa |
 | DOM-08 | Execução da diária | Cheguei, terminei com foto, aprovar; job das 12 h a partir do `terminou_em` (PA08, ShedLock); repasse | Duas instâncias não liberam a mesma diária |
 | DOM-09 | Disputa e reembolso | Reclamação trava só o dia; decisão do admin; reembolso = o que o cliente pagou; falta do profissional (PA07) com DB-14 | Os dois caminhos testados no ledger; casos obrigatórios da falta abaixo |
 | DOM-10 | Avaliações | Nota dos dois lados; média no perfil | Só avalia quem pagou pelo app |
@@ -471,7 +471,7 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 | AWS-06 | Pipeline | Testes → imagem → homologação; produção com aprovação manual |
 | AWS-07 | Domínio e HTTPS | Domínio, ACM, redirecionamento para HTTPS |
 | AWS-08 | Observabilidade | Logs, métricas, alarmes (5xx, disputas, job de liberação parado) |
-| AWS-09 | Gateway real | Adaptador do gateway escolhido (PA02) no sandbox |
+| AWS-09 | Gateway real | Adaptador do Asaas (PA02) no sandbox |
 | AWS-10 | Produção | Mesma infra com outras variáveis; aceite repetido em homologação |
 
 Tudo em código (Terraform ou AWS CDK), nada configurado à mão no console.
@@ -483,9 +483,9 @@ Tudo em código (Terraform ou AWS CDK), nada configurado à mão no console.
 ## 10. Decisões que travam tarefas
 | Ponto | Precisa estar decidido antes de | Proposta |
 |---|---|---|
-| PA02 Gateway | Dia 52 (AWS-09) | Escolher o gateway e **abrir o sandbox até o dia 40**, para o AWS-09 ter conta e credenciais de teste prontas |
+| PA02 Gateway | Dia 52 (AWS-09) | **Asaas (decidido em 23/10).** Falta: **abrir o sandbox até o dia 40** (para o AWS-09 ter conta e credenciais de teste) e combinar com o comercial a modalidade de custódia (sugestão: Conta Escrow, uma cobrança por diária) |
 
-Já decididos: PA01 (PostgreSQL), PA03 (JWT de 15 min + refresh de 30 dias em cookie HttpOnly, uma sessão por aparelho, MFA opcional), PA04 (React), PA05 (comissão paga pelo cliente), PA06 (reembolso = o que o cliente pagou), PA07 (falta do profissional, RN44a–RN44e), PA08 (12 h a partir do "Terminei o dia"), PA13 (CEP passa na censura), LC 150 em janela de 7 dias (confirmada com o advogado), uma diária por profissional por dia, idade mínima de 18 anos, retenção LGPD de 5 anos.
+Já decididos: PA01 (PostgreSQL), PA02 (Asaas; custódia a combinar com o comercial), PA03 (JWT de 15 min + refresh de 30 dias em cookie HttpOnly, uma sessão por aparelho, MFA opcional), PA04 (React), PA05 (comissão paga pelo cliente), PA06 (reembolso = o que o cliente pagou), PA07 (falta do profissional, RN44a–RN44e), PA08 (12 h a partir do "Terminei o dia"), PA13 (CEP passa na censura), LC 150 em janela de 7 dias (confirmada com o advogado), uma diária por profissional por dia, idade mínima de 18 anos, retenção LGPD de 5 anos.
 
 ### Tarefas futuras registradas
 - **Expurgo LGPD** (job agendado, idempotente, com log): 5 anos após a exclusão da conta, apaga CPF, chave Pix e data de nascimento; mantém o `cpf_hash` só de quem estiver inativado (`suspenso`). Precisa de migração nova: hoje o `ck_profissional_completo` exige esses campos fora do rascunho.
@@ -556,7 +556,7 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 | 37 | DOM-09 | Decisão; falta do profissional (PA07): reembolso integral, registro da falta | Casos obrigatórios do DOM-09 passam |
 | 38 | DOM-10 | Avaliações e média | Só quem pagou avalia |
 | 39 | DOM-11 | Usuários, faltas com alerta, inativar e reativar, configuração | Ações auditadas; alerta com 2 faltas em 90 dias |
-| 40 | DOM-11 | Financeiro do admin; notificações. **Prazo para abrir o sandbox do gateway (PA02)** | Painel bate com `saldo_conta` |
+| 40 | DOM-11 | Financeiro do admin; notificações. **Prazo para abrir o sandbox do Asaas (PA02)** | Painel bate com `saldo_conta` |
 | 41 | FE-07, FE-05 | Painel admin completo; reclamar e avaliar | Admin opera tudo pela tela |
 | 42 | FE-08 | Estados de carregando, vazio, erro e sem conexão | Nenhuma tela branca em erro |
 | 43 | FE-09, FE-10 | Vitest, Playwright (360 px e desktop), acessibilidade | **Tudo clicável, E2E verde** (**M4**) |
