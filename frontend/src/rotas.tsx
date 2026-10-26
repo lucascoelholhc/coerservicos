@@ -13,6 +13,12 @@ import { VerificacaoDoCadastro } from './paginas/admin/VerificacaoDoCadastro';
 import { Busca } from './paginas/busca/Busca';
 import { CadastroProfissional } from './paginas/cadastro/CadastroProfissional';
 import { PerfilPublico } from './paginas/perfil/PerfilPublico';
+import { Contratar } from './paginas/contratar/Contratar';
+import { ContratoDoCliente } from './paginas/contratos/ContratoDoCliente';
+import { MeusContratos } from './paginas/contratos/MeusContratos';
+import { Conversa } from './paginas/mensagens/Conversa';
+import { Conversar } from './paginas/mensagens/Conversar';
+import { Mensagens } from './paginas/mensagens/Mensagens';
 import { CriarContaCliente } from './paginas/criar-conta/CriarContaCliente';
 import { CriarContaProfissional } from './paginas/criar-conta/CriarContaProfissional';
 import { EscolhaDeConta } from './paginas/criar-conta/EscolhaDeConta';
@@ -98,6 +104,54 @@ export function Rotas() {
           element={
             <RotaPrivada papeis={['ADMIN']}>
               <VerificacaoDoCadastro />
+            </RotaPrivada>
+          }
+        />
+        <Route
+          path={`${CAMINHOS.contratar}/:id`}
+          element={
+            <RotaPrivada papeis={['CLIENTE']}>
+              <Contratar />
+            </RotaPrivada>
+          }
+        />
+        <Route
+          path={CAMINHOS.contratos}
+          element={
+            <RotaPrivada papeis={['CLIENTE']}>
+              <MeusContratos />
+            </RotaPrivada>
+          }
+        />
+        <Route
+          path={`${CAMINHOS.contratos}/:id`}
+          element={
+            <RotaPrivada papeis={['CLIENTE']}>
+              <ContratoDoCliente />
+            </RotaPrivada>
+          }
+        />
+        <Route
+          path={CAMINHOS.mensagens}
+          element={
+            <RotaPrivada>
+              <Mensagens />
+            </RotaPrivada>
+          }
+        />
+        <Route
+          path={`${CAMINHOS.mensagens}/:id`}
+          element={
+            <RotaPrivada>
+              <Conversa />
+            </RotaPrivada>
+          }
+        />
+        <Route
+          path={`${CAMINHOS.conversar}/:perfil`}
+          element={
+            <RotaPrivada>
+              <Conversar />
             </RotaPrivada>
           }
         />

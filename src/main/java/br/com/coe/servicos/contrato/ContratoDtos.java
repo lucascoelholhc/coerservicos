@@ -51,7 +51,25 @@ final class ContratoDtos {
 
     record Cidade(int codigoIbge, String nome, String uf) {}
 
-    record DiaDoContrato(UUID id, LocalDate data, String tipo, String status, Dinheiro valor) {}
+    /** {@code autoLiberaEm}: quando o dia aguardando é liberado sozinho (RN38); nulo antes do "Terminei". */
+    record DiaDoContrato(UUID id, LocalDate data, String tipo, String status, Dinheiro valor, Instant autoLiberaEm) {}
+
+    /** O profissional do contrato: nome em "Primeiro S." (o completo sai em {@code contato}, depois do pagamento). */
+    record ProfissionalDoContrato(UUID id, String nome, String profissao) {}
+
+    record DiaResumido(UUID id, LocalDate data, String status) {}
+
+    /** Um contrato na lista do cliente (FE-05). */
+    record Resumo(
+            UUID id,
+            long numero,
+            String status,
+            ProfissionalDoContrato profissional,
+            List<DiaResumido> dias,
+            Dinheiro valorTotal,
+            Instant criadoEm) {}
+
+    record Lista(List<Resumo> itens) {}
 
     /** O que o endereço guarda (rua, número, bairro, complemento); a cidade e o CEP ficam em claro no contrato. */
     record EnderecoGuardado(String logradouro, String numero, String bairro, String complemento) {
@@ -68,6 +86,7 @@ final class ContratoDtos {
             long numero,
             String status,
             UUID profissionalId,
+            ProfissionalDoContrato profissional,
             Cidade cidade,
             String cep,
             List<DiaDoContrato> dias,

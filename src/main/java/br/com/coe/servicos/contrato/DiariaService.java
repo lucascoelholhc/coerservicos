@@ -45,6 +45,7 @@ class DiariaService {
     private final ValidadorDeImagem validador;
     private final Armazenamento armazenamento;
     private final LiberacaoDeDiaria liberacao;
+    private final java.time.Duration validadeDaUrl;
     private final Clock clock;
 
     DiariaService(
@@ -55,6 +56,7 @@ class DiariaService {
             ValidadorDeImagem validador,
             Armazenamento armazenamento,
             LiberacaoDeDiaria liberacao,
+            br.com.coe.servicos.compartilhado.armazenamento.PropriedadesDoArmazenamento propriedades,
             Clock clock) {
         this.jdbc = jdbc;
         this.transacao = transacao;
@@ -63,10 +65,42 @@ class DiariaService {
         this.validador = validador;
         this.armazenamento = armazenamento;
         this.liberacao = liberacao;
+        this.validadeDaUrl = propriedades.validadeUrl();
         this.clock = clock;
     }
 
     private record Travada(UUID id, UUID contrato, StatusDiaria status, LocalDate data) {}
+
+    /** As fotos e o recado do dia, para o cliente e o profissional da diária (os outros: 404). */
+    DiariaDtos.FotosDoDia fotos(UUID id) {
+        Boolean participa = jdbc.queryForObject(
+                "SELECT EXISTS (SELECT 1 FROM diaria d JOIN profissional p ON p.id = d.profissional_id"
+                        + " WHERE d.id = :id AND (d.cliente_id = :eu OR p.usuario_id = :eu))",
+                new MapSqlParameterSource("id", id).addValue("eu", usuario.id()),
+                Boolean.class);
+        if (!Boolean.TRUE.equals(participa)) {
+            throw new RecursoNaoEncontradoException(NAO_ENCONTRADA);
+        }
+        Instant expira = clock.instant().plus(validadeDaUrl);
+        List<Map<String, Object>> linhas = jdbc.queryForList(
+                "SELECT id, chave_arquivo, observacao FROM evidencia_diaria"
+                        + " WHERE diaria_id = :id AND tipo = 'fim_do_dia' ORDER BY criado_em, id",
+                new MapSqlParameterSource("id", id));
+        String recado = null;
+        List<DiariaDtos.FotoDoDia> fotos = new java.util.ArrayList<>();
+        for (Map<String, Object> linha : linhas) {
+            fotos.add(new DiariaDtos.FotoDoDia(
+                    (UUID) linha.get("id"),
+                    armazenamento
+                            .urlAssinada((String) linha.get("chave_arquivo"), validadeDaUrl)
+                            .toString(),
+                    expira));
+            if (linha.get("observacao") != null) {
+                recado = (String) linha.get("observacao");
+            }
+        }
+        return new DiariaDtos.FotosDoDia(fotos, recado);
+    }
 
     /** O cliente aprova o dia (RN37): só de aguardando; contestada fica com a equipe; não se desfaz. */
     DiariaDtos.Diaria aprovar(UUID id) {
@@ -114,7 +148,7 @@ class DiariaService {
         return transacao.execute(t -> {
             Travada diaria = travarDoProfissional(id);
             exigirAndamento(diaria.status()); // de novo, dentro da trava
-            if (fotos(id) >= FOTOS_POR_DIA) {
+            if (quantasFotos(id) >= FOTOS_POR_DIA) {
                 throw new RegraDeNegocioException(
                         "limite-de-fotos", "Cada dia aceita até " + FOTOS_POR_DIA + " fotos do serviço.");
             }
@@ -138,7 +172,7 @@ class DiariaService {
         return transacao.execute(t -> {
             Travada diaria = travarDoProfissional(id);
             diaria.status().exigirIrPara(StatusDiaria.AGUARDANDO);
-            if (fotos(id) == 0) {
+            if (quantasFotos(id) == 0) {
                 throw new RegraDeNegocioException(
                         "foto-obrigatoria", "Mande pelo menos uma foto do serviço antes de terminar o dia.");
             }
@@ -200,7 +234,7 @@ class DiariaService {
         }
     }
 
-    private int fotos(UUID diaria) {
+    private int quantasFotos(UUID diaria) {
         Integer total = jdbc.queryForObject(
                 "SELECT count(*) FROM evidencia_diaria WHERE diaria_id = :id AND tipo = 'fim_do_dia'",
                 new MapSqlParameterSource("id", diaria),

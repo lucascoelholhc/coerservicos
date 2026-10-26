@@ -24,10 +24,28 @@ export const MENU_LOGADO: readonly (ItemDeMenu & { para: string })[] = [
   { rotulo: 'Minha conta', icone: 'user', para: CAMINHOS.conta },
 ];
 
+/** Menu de baixo do cliente (protótipo NAV.cliente): as diárias e as mensagens antes da conta. */
+export const MENU_CLIENTE: readonly (ItemDeMenu & { para: string })[] = [
+  { rotulo: 'Início', icone: 'home', para: CAMINHOS.inicio },
+  { rotulo: 'Buscar', icone: 'search', para: CAMINHOS.busca },
+  { rotulo: 'Diárias', icone: 'cal', para: CAMINHOS.contratos },
+  { rotulo: 'Mensagens', icone: 'chat', para: CAMINHOS.mensagens },
+  { rotulo: 'Minha conta', icone: 'user', para: CAMINHOS.conta },
+];
+
 /** Menu de cima (a partir de 900 px): sem "Entrar" (vira botão) e com as seções do Início. */
 export const MENU_TOPO_VISITANTE: readonly ItemDeMenu[] = [
   { rotulo: 'Início', icone: 'home', para: CAMINHOS.inicio },
   { rotulo: 'Buscar', icone: 'search', para: CAMINHOS.busca },
   { rotulo: 'Como funciona', icone: 'help', ancora: SECOES_DO_INICIO.comoFunciona },
   { rotulo: 'Para profissionais', icone: 'hand', ancora: SECOES_DO_INICIO.paraProfissionais },
+];
+
+/** Menu de cima do cliente: as diárias e as mensagens no lugar de "Para profissionais". */
+export const MENU_TOPO_CLIENTE: readonly ItemDeMenu[] = [
+  { rotulo: 'Início', icone: 'home', para: CAMINHOS.inicio },
+  { rotulo: 'Buscar', icone: 'search', para: CAMINHOS.busca },
+  { rotulo: 'Diárias', icone: 'cal', para: CAMINHOS.contratos },
+  { rotulo: 'Mensagens', icone: 'chat', para: CAMINHOS.mensagens },
+  { rotulo: 'Como funciona', icone: 'help', ancora: SECOES_DO_INICIO.comoFunciona },
 ];

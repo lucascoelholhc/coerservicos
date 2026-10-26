@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -60,7 +60,8 @@ describe('Perfil público', () => {
     const { container } = abrir();
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Valdir S.' })).toBeInTheDocument();
-    expect(document.title).toBe('Valdir S. · COE Serviços');
+    // o título vem do useEffect, logo depois do render: espera em vez de ler na hora (corrida sob carga)
+    await waitFor(() => expect(document.title).toBe('Valdir S. · COE Serviços'));
     expect(await screen.findByText('Pedreiro e pintor')).toBeInTheDocument();
     expect(screen.getByText('Documento conferido')).toBeInTheDocument();
     expect(screen.queryByText('NR-10 conferido')).not.toBeInTheDocument();
@@ -140,6 +141,22 @@ describe('Perfil público', () => {
     expect(within(caixa).getByText('Livre seg, 26/10')).toBeInTheDocument();
     expect(within(caixa).getByText('Telefone e WhatsApp aparecem depois de contratar.')).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/\(\d{2}\)|@|whatsapp\.com|\d{4,5}-\d{4}/i);
+  });
+
+  it('contratar e tirar dúvida pelo chat (FE-05): os links levam ao fluxo do cliente', async () => {
+    simular();
+    abrir();
+
+    const caixa = await screen.findByRole('complementary', { name: 'Valor e contratação' });
+    expect(within(caixa).getByRole('link', { name: 'Contratar diárias' })).toHaveAttribute(
+      'href',
+      `/contratar/${PERFIL_DE_EXEMPLO.id}`,
+    );
+    expect(within(caixa).getByRole('link', { name: 'Tirar dúvida pelo chat' })).toHaveAttribute(
+      'href',
+      `/conversar/${PERFIL_DE_EXEMPLO.id}`,
+    );
+    expect(within(caixa).queryByText(/em breve/)).not.toBeInTheDocument();
   });
 
   it('taxa paga pelo profissional: "Taxa já incluída"', async () => {

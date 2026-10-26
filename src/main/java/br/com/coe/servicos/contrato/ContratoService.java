@@ -35,6 +35,7 @@ import br.com.coe.servicos.compartilhado.erro.AcaoProibidaException;
 import br.com.coe.servicos.compartilhado.erro.ConflitoException;
 import br.com.coe.servicos.compartilhado.erro.RecursoNaoEncontradoException;
 import br.com.coe.servicos.compartilhado.erro.RegraDeNegocioException;
+import br.com.coe.servicos.compartilhado.pessoal.NomeDeExibicao;
 import br.com.coe.servicos.compartilhado.seguranca.UsuarioAutenticado;
 import br.com.coe.servicos.config.ConfiguracaoNegocio;
 
@@ -384,9 +385,12 @@ class ContratoService {
                 SELECT c.id, c.numero, c.status, c.profissional_id, c.cliente_id, c.cep, c.descricao, c.material,
                        c.valor_servicos, c.valor_comissao, c.valor_total, c.pagamento_expira_em, c.pago_em,
                        c.endereco_cifrado, c.contato_liberado_em, p.usuario_id AS profissional_usuario,
+                       u.nome AS profissional_nome, pr.nome AS profissao_nome,
                        ci.codigo_ibge, ci.nome AS cidade_nome, ci.uf
                   FROM contrato c
                   JOIN profissional p ON p.id = c.profissional_id
+                  JOIN usuario u ON u.id = p.usuario_id
+                  JOIN profissao pr ON pr.id = c.profissao_id
                   JOIN cidade ci ON ci.id = c.cidade_id
                  WHERE c.id = :id AND (c.cliente_id = :eu OR p.usuario_id = :eu)
                 """, new MapSqlParameterSource("id", id).addValue("eu", eu));
@@ -401,14 +405,17 @@ class ContratoService {
         ContratoDtos.EnderecoGuardado endereco =
                 veEndereco ? decifrarEndereco(id, (byte[]) c.get("endereco_cifrado")) : null;
         List<ContratoDtos.DiaDoContrato> dias = jdbc.query(
-                "SELECT id, data, tipo, status, valor FROM diaria WHERE contrato_id = :id ORDER BY data",
+                "SELECT id, data, tipo, status, valor, auto_libera_em FROM diaria WHERE contrato_id = :id ORDER BY data",
                 new MapSqlParameterSource("id", id),
                 (linha, n) -> new ContratoDtos.DiaDoContrato(
                         linha.getObject("id", UUID.class),
                         linha.getObject("data", LocalDate.class),
                         linha.getString("tipo"),
                         linha.getString("status"),
-                        new Dinheiro(linha.getBigDecimal("valor"))));
+                        new Dinheiro(linha.getBigDecimal("valor")),
+                        "aguardando".equals(linha.getString("status"))
+                                ? instante(linha.getTimestamp("auto_libera_em"))
+                                : null));
         List<String> servicos = jdbc.queryForList("""
                 SELECT s.nome FROM contrato_servico cs JOIN servico s ON s.id = cs.servico_id
                  WHERE cs.contrato_id = :id ORDER BY s.ordem, s.nome
@@ -418,6 +425,10 @@ class ContratoService {
                 ((Number) c.get("numero")).longValue(),
                 (String) c.get("status"),
                 (UUID) c.get("profissional_id"),
+                new ContratoDtos.ProfissionalDoContrato(
+                        (UUID) c.get("profissional_id"),
+                        NomeDeExibicao.de((String) c.get("profissional_nome")),
+                        (String) c.get("profissao_nome")),
                 new ContratoDtos.Cidade(
                         ((Number) c.get("codigo_ibge")).intValue(), (String) c.get("cidade_nome"), (String)
                                 c.get("uf")),
@@ -432,6 +443,53 @@ class ContratoService {
                 instante(c.get("pagamento_expira_em")),
                 endereco,
                 contatoDoOutroLado(c, souCliente));
+    }
+
+    /** Os contratos do cliente logado, do mais novo (até 50), com as diárias de cada um (FE-05). */
+    @Transactional(readOnly = true)
+    ContratoDtos.Lista listar() {
+        MapSqlParameterSource eu = new MapSqlParameterSource("eu", usuario.id());
+        List<Map<String, Object>> linhas = jdbc.queryForList("""
+                SELECT c.id, c.numero, c.status, c.valor_total, c.criado_em, c.profissional_id,
+                       u.nome AS profissional_nome, pr.nome AS profissao_nome
+                  FROM contrato c
+                  JOIN profissional p ON p.id = c.profissional_id
+                  JOIN usuario u ON u.id = p.usuario_id
+                  JOIN profissao pr ON pr.id = c.profissao_id
+                 WHERE c.cliente_id = :eu
+                 ORDER BY c.criado_em DESC, c.id
+                 LIMIT 50
+                """, eu);
+        if (linhas.isEmpty()) {
+            return new ContratoDtos.Lista(List.of());
+        }
+        Map<UUID, List<ContratoDtos.DiaResumido>> dias = new java.util.HashMap<>();
+        jdbc.query(
+                """
+                SELECT d.id, d.contrato_id, d.data, d.status FROM diaria d
+                 WHERE d.contrato_id IN (:contratos) ORDER BY d.data
+                """,
+                new MapSqlParameterSource(
+                        "contratos", linhas.stream().map(l -> l.get("id")).toList()),
+                (org.springframework.jdbc.core.RowCallbackHandler) linha -> dias.computeIfAbsent(
+                                linha.getObject("contrato_id", UUID.class), k -> new ArrayList<>())
+                        .add(new ContratoDtos.DiaResumido(
+                                linha.getObject("id", UUID.class),
+                                linha.getObject("data", LocalDate.class),
+                                linha.getString("status"))));
+        return new ContratoDtos.Lista(linhas.stream()
+                .map(c -> new ContratoDtos.Resumo(
+                        (UUID) c.get("id"),
+                        ((Number) c.get("numero")).longValue(),
+                        (String) c.get("status"),
+                        new ContratoDtos.ProfissionalDoContrato(
+                                (UUID) c.get("profissional_id"),
+                                NomeDeExibicao.de((String) c.get("profissional_nome")),
+                                (String) c.get("profissao_nome")),
+                        dias.getOrDefault((UUID) c.get("id"), List.of()),
+                        new Dinheiro((BigDecimal) c.get("valor_total")),
+                        instante(c.get("criado_em"))))
+                .toList());
     }
 
     /** RN29/RN32: nome e celular de quem está do outro lado, só depois do pagamento ({@code contato_liberado_em}). */

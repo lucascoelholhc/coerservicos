@@ -6,7 +6,7 @@ import { buscarCatalogo, profissoesDoCatalogo } from '../../api/catalogo';
 import { buscarRegras } from '../../api/regras';
 import type { FotoDoPerfil, PerfilPublico as Perfil, Regras } from '../../api/tipos';
 import { useRecurso } from '../../api/useRecurso';
-import { CAMINHOS } from '../../caminhos';
+import { CAMINHOS, caminhoDeContratar, caminhoDeConversarCom } from '../../caminhos';
 import { Avatar } from '../../componentes/Avatar/Avatar';
 import { Botao } from '../../componentes/Botao/Botao';
 import { Chip } from '../../componentes/Chip/Chip';
@@ -248,7 +248,7 @@ interface CaixaProps {
   primeiroNome: string;
 }
 
-/** Valor e contratação (protótipo: caixa-preco). A contratação pelo app chega no FE-05. */
+/** Valor e contratação (protótipo: caixa-preco): contratar e tirar dúvida pelo chat (FE-05). */
 function CaixaDePreco({ dados, regras, hoje, primeiroNome }: CaixaProps) {
   return (
     <aside className={estilos.caixa} aria-label="Valor e contratação">
@@ -266,7 +266,10 @@ function CaixaDePreco({ dados, regras, hoje, primeiroNome }: CaixaProps) {
         <Icone nome="cal" tamanho={18} />
         {textoDoProximoLivre(dados.diasLivres[0] ?? null, hoje)}
       </p>
-      <Nota>A contratação pelo app chega em breve.</Nota>
+      <Botao para={caminhoDeContratar(dados.id)}>Contratar diárias</Botao>
+      <Botao variante="contorno" para={caminhoDeConversarCom(dados.id)}>
+        Tirar dúvida pelo chat
+      </Botao>
       <p className={estilos.oculto}>
         <Icone nome="eyeoff" />
         <span>Telefone e WhatsApp aparecem depois de contratar.</span>

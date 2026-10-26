@@ -36,6 +36,15 @@ class CobrancaController {
                 .body(resultado.pagamento());
     }
 
+    /** Só com o gateway falso (local e test): paga a cobrança pendente pelo webhook simulado. */
+    @PostMapping("/simular")
+    @PreAuthorize("hasRole('CLIENTE')")
+    @LimitadoPorUsuario("pagamento-usuario")
+    ResponseEntity<Void> simular(@PathVariable UUID contrato) {
+        cobrancas.simular(contrato);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping
     @PreAuthorize("hasRole('CLIENTE')")
     CobrancaDtos.Pagamento ver(@PathVariable UUID contrato) {

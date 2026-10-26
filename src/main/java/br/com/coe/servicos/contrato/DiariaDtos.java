@@ -15,6 +15,11 @@ final class DiariaDtos {
 
     record FotoEnviada(UUID id) {}
 
+    /** Foto do serviço por URL assinada e curta (bucket privado). */
+    record FotoDoDia(UUID id, String url, Instant expiraEm) {}
+
+    record FotosDoDia(java.util.List<FotoDoDia> fotos, String recado) {}
+
     record Diaria(
             UUID id,
             UUID contratoId,

@@ -95,6 +95,21 @@ describe('Moldura', () => {
     expect(within(cabecalho).getByRole('link', { name: 'Minha conta' })).toHaveAttribute('href', '/conta');
     expect(within(cabecalho).queryByRole('link', { name: 'Entrar' })).not.toBeInTheDocument();
     expect(within(cabecalho).queryByRole('link', { name: 'Criar conta' })).not.toBeInTheDocument();
+    expect(within(menu).getAllByRole('link').map((link) => link.textContent)).toEqual([
+      'Início',
+      'Buscar',
+      'Diárias',
+      'Mensagens',
+      'Minha conta',
+    ]);
+    encerrarSessao();
+  });
+
+  it('logado sem o papel de cliente: o menu de baixo fica sem Diárias e Mensagens', () => {
+    iniciarSessao({ ...SESSAO_PADRAO, usuario: { ...SESSAO_PADRAO.usuario, papeis: ['ADMIN'] } });
+    abrirEm('/');
+    const menu = screen.getByRole('navigation', { name: 'Menu' });
+
     expect(within(menu).getAllByRole('link').map((link) => link.textContent)).toEqual(['Início', 'Buscar', 'Minha conta']);
     encerrarSessao();
   });

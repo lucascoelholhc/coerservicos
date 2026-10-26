@@ -446,6 +446,18 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 - **Teste no navegador (23/10, backend local e Vite):** marco da fatia 2 aprovado: conta nova → 11 etapas com uploads → celular confirmado → em análise (fora da busca) → admin aprova → busca pelo herói acha o profissional → perfil com as fotos do bucket e sem contato.
 - **Ficou:** manter a lista antiga enquanto busca de novo (hoje some e volta a cada filtro); folha aberta ao alargar a janela; `hoje` fixo na montagem (vira a meia-noite); calendário como lista/tabela para leitor de tela (hoje `role="img"` por dia com o rótulo completo); Minha conta com rascunho em andamento ainda diz "Cadastro de profissional — O cadastro é grátis"; host https do bucket de produção em `COE_ORIGEM_DAS_IMAGENS` (AWS-04/05).
 
+**FE-05, parte 1: contratar, pagar e chat (dia 33, feito em 24/10): decisões e pendências (conferir)**
+- **Telas** (só CLIENTE): `/contratar/:id` (1. dias livres do perfil e período inteira/meia; 2. serviços, descrição, material e endereço; o valor final sai da API), `/contratos` (minhas diárias) e `/contratos/:id` (valores da API, Pix copia e cola, cartão só pelo link do gateway, "Simular pagamento" só com o gateway falso, conferência sozinha a cada 5 s, contato liberado, diárias, pedido). Chat (qualquer logado): `/mensagens`, `/mensagens/:id` e `/conversar/:perfil` (abre a conversa e vai para ela). Perfil público com "Contratar diárias" e "Tirar dúvida pelo chat"; menu do cliente com Diárias e Mensagens.
+- **Backend** (no mesmo PR): `GET /api/contratos` (lista do cliente), `profissional {id, nome "Primeiro S.", profissao}` e `autoLiberaEm` no contrato, `POST /api/contratos/{id}/pagamento/simular` (só com o `GatewayFalso`: 404 com outro gateway; chama o mesmo webhook com o token), `simulavel` na cobrança, `GET /api/diarias/{id}/fotos` (cliente e profissional da diária, URL assinada; limite `foto-url-usuario`).
+- **Achado no teste no navegador e corrigido**: conversa aberta depois do pagamento nascia com o contato oculto (o webhook só liberava as que já existiam). Agora a conversa nova (ou reaberta) herda `contato_liberado_em` do contrato pago entre os dois.
+- **Decisões tomadas sozinho** (como desfazer):
+  - **Dias como pílulas** (texto "seg, 26/10") em vez do calendário de toque do protótipo: acessível e simples; desfazer trocando por um calendário selecionável.
+  - **Sem estimativa de valor antes de criar o contrato**: o total aparece na tela do contrato, vindo da API (nenhum cálculo de comissão no front).
+  - **Cidade escolhida numa lista** do catálogo (sem busca de CEP, que é pendência do CORE-02).
+  - **Conferência do pagamento a cada 5 s** só com a cobrança na tela.
+- **Revisões** (react, security): sem CRITICAL. HIGHs corrigidos: "Atualizar" não perde mais o Pix (recarga silenciosa), a tela confere sozinha (antes dizia que sim e não fazia), texto da liberação inclui a liberação automática (RN38). MEDIUMs corrigidos: trocar o jeito de pagar, erro de campo fora da etapa aparece, conversa por perfil (StrictMode e troca de perfil), foco na troca de etapa, aviso ao copiar o Pix e ao mandar mensagem vazia, limite próprio das fotos.
+- **Ficou:** acompanhar e aprovar os dias (dia 35, com as fotos do `GET /fotos`); avisos ao cliente (DOM-11); marcar como lidas as mensagens que chegam com a conversa aberta (hoje só na abertura); endereço salvo na conta (RF05).
+
 **FE-07, parte da verificação (dia 20, feito em 22/10): decisões (conferir)**
 - **Telas:** `/admin/verificacao` (fila do DOM-03, mais antiga primeiro, "Ver mais") e `/admin/verificacao/:id` (dados para conferir com o CPF completo, documentos e fotos, "Sobre", checklist da RN12, NR-10, mensagem por SMS e a decisão). Só ADMIN (`RotaPrivada papeis`; o backend decide). Minha conta do ADMIN ganhou "Painel da equipe" com o atalho.
 - **Decisões tomadas sozinho** (como desfazer):
@@ -633,7 +645,7 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 | 30 ✅ | DOM-08 | Cheguei, terminei com foto, histórico | Transição inválida recusada (**feito em 24/10**) |
 | 31 ✅ | DOM-08 | Aprovar e liberar pelo ledger | Saldos conferem (**feito em 24/10**) |
 | 32 ✅ | DOM-08 | Job das 12 h a partir do `terminou_em` (ShedLock); repasse | Sem liberação dupla (**feito em 24/10**; repasse Pix A DEFINIR com o Asaas) |
-| 33 | FE-05 | Contratar, pagar (adaptador falso) e chat | Contrato pago pelo navegador |
+| 33 ✅ | FE-05 | Contratar, pagar (adaptador falso) e chat | Contrato pago pelo navegador (**feito em 24/10**) |
 | 34 | FE-06 | Área do profissional: Hoje, Cheguei, Terminei, agenda, dinheiro | Fluxo do profissional completo |
 | 35 | FE-05 | Acompanhar e aprovar diárias | **Contratar, pagar, trabalhar e aprovar, pelo navegador** (**M3**) |
 

@@ -1,0 +1,115 @@
+/* Contratar (protótipo: V.contratar, .stepper, .actionbar, .bigopt). */
+
+.pagina {
+  padding-block: 20px 40px;
+}
+
+.etapa {
+  display: grid;
+  gap: 20px;
+  max-width: 720px;
+}
+
+.topo {
+  display: grid;
+  gap: 10px;
+}
+
+.voltar {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  justify-self: start;
+  padding-block: 10px;
+  color: var(--carimbo-txt);
+  font-weight: 700;
+}
+
+.passos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0;
+  padding: 0;
+  color: var(--tinta-2);
+  font-size: 0.95rem;
+  list-style: none;
+}
+
+.passos [aria-current='step'] {
+  color: var(--tinta);
+  font-weight: 800;
+}
+
+.quem {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+
+.quem span {
+  color: var(--tinta-2);
+}
+
+.apoio {
+  margin: 0;
+  color: var(--tinta-2);
+}
+
+.endereco {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+
+.endereco legend {
+  padding-inline: 4px;
+  font-weight: 800;
+}
+
+.linha {
+  display: grid;
+  gap: 14px;
+}
+
+.oculto {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0;
+  color: var(--tinta-2);
+  font-size: 0.95rem;
+}
+
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.total {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+}
+
+.total span {
+  color: var(--tinta-2);
+  font-size: 0.95rem;
+}
+
+@media (width >= 720px) {
+  .linha {
+    grid-template-columns: 160px 1fr;
+  }
+}

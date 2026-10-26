@@ -6,7 +6,7 @@ import { Botao } from '../componentes/Botao/Botao';
 import { Logo } from '../componentes/Logo/Logo';
 import { Icone } from '../icones/Icone';
 import estilos from './Cabecalho.module.css';
-import { MENU_TOPO_VISITANTE } from './navegacao';
+import { MENU_TOPO_CLIENTE, MENU_TOPO_VISITANTE } from './navegacao';
 
 /** Visitante: Entrar e Criar conta. Logado: "Olá, <nome>" e Minha conta. Verificando: nada (não pisca). */
 function AcoesDaConta() {
@@ -44,13 +44,15 @@ function primeiroNome(nome: string): string {
 }
 
 export function Cabecalho() {
+  const usuario = useSessao();
+  const menu = usuario?.papeis.includes('CLIENTE') ? MENU_TOPO_CLIENTE : MENU_TOPO_VISITANTE;
   return (
     <header className={estilos.cabecalho}>
       <div className={`largura ${estilos.dentro}`}>
         <Logo />
         <nav aria-label="Principal" className={estilos.topo}>
           <ul>
-            {MENU_TOPO_VISITANTE.map((item) => (
+            {menu.map((item) => (
               <li key={item.rotulo}>
                 {item.para === undefined ? (
                   <Link className={estilos.link} to={item.ancora ?? CAMINHOS.inicio}>
