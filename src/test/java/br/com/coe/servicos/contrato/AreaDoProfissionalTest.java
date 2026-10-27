@@ -63,6 +63,9 @@ class AreaDoProfissionalTest extends ExecucaoDeDiariaTeste {
         pagar();
         String corpo = minhasDiarias(doProfissional())
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.hoje")
+                        .value(br.com.coe.servicos.compartilhado.FusoDeNegocio.hoje(relogio)
+                                .toString()))
                 .andExpect(jsonPath("$.itens.length()").value(2))
                 .andExpect(jsonPath("$.itens[0].id").value(diarias.get(0).toString()))
                 .andExpect(jsonPath("$.itens[0].contratoId").value(contrato.toString()))

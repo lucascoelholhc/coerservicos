@@ -4,8 +4,9 @@ import type { AgendaDoProfissional, DiariaDoProfissional, DinheiroDoProfissional
 /** Área do profissional (FE-06). O perfil vem do token; os valores (repasse, saldo) vêm prontos da API. */
 const BASE = '/profissional';
 
-export function listarMinhasDiarias(sinal: AbortSignal): Promise<{ itens: DiariaDoProfissional[] }> {
-  return chamar<{ itens: DiariaDoProfissional[] }>(`${BASE}/diarias`, { sinal });
+/** `hoje`: o dia de negócio do servidor; a tela usa este, nunca a data do aparelho. */
+export function listarMinhasDiarias(sinal: AbortSignal): Promise<{ hoje: string; itens: DiariaDoProfissional[] }> {
+  return chamar<{ hoje: string; itens: DiariaDoProfissional[] }>(`${BASE}/diarias`, { sinal });
 }
 
 export function buscarDinheiro(sinal: AbortSignal): Promise<DinheiroDoProfissional> {

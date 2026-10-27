@@ -8,19 +8,20 @@ import { caminhoDoContratoDoProfissional } from '../../caminhos';
 import { FalhaAoCarregar } from '../../componentes/FalhaAoCarregar/FalhaAoCarregar';
 import { Nota } from '../../componentes/Nota/Nota';
 import { StatusDiaria } from '../../componentes/StatusDiaria/StatusDiaria';
-import { diaDaSemana, formatarDiaCurto, formatarDiaLongo, hojeEmSaoPaulo, somarDias } from '../../formatacao/datas';
+import { diaDaSemana, formatarDiaCurto, formatarDiaLongo, somarDias } from '../../formatacao/datas';
 import { useTitulo } from '../../layout/titulo';
 import { useEnvioUnico } from '../conta/useEnvioUnico';
 import estilos from './Profissional.module.css';
 
 interface DadosDaAgenda {
+  hoje: string;
   agenda: AgendaDoProfissional;
   diarias: DiariaDoProfissional[];
 }
 
 async function carregar(sinal: AbortSignal): Promise<DadosDaAgenda> {
   const [agenda, diarias] = await Promise.all([buscarAgenda(sinal), listarMinhasDiarias(sinal)]);
-  return { agenda, diarias: diarias.itens };
+  return { hoje: diarias.hoje, agenda, diarias: diarias.itens };
 }
 
 /** Quantos dias para frente a agenda mostra (as mesmas 4 semanas do perfil público). */
@@ -43,7 +44,7 @@ export function Agenda() {
 }
 
 function Conteudo({ dados }: { dados: DadosDaAgenda }) {
-  const hoje = hojeEmSaoPaulo();
+  const hoje = dados.hoje;
   const marcadas = dados.diarias.filter((d) => d.data >= hoje && d.status !== 'reembolsada');
   return (
     <>
