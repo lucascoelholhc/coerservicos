@@ -79,22 +79,24 @@ class AreaDoProfissionalService {
         linhas = new ArrayList<>(linhas);
         java.util.Collections.reverse(linhas);
         Map<UUID, List<String>> servicos = servicosDos(linhas);
-        return new AreaDoProfissionalDtos.Diarias(linhas.stream()
-                .map(d -> new AreaDoProfissionalDtos.Diaria(
-                        (UUID) d.get("id"),
-                        (UUID) d.get("contrato_id"),
-                        ((Number) d.get("numero")).longValue(),
-                        ((java.sql.Date) d.get("data")).toLocalDate(),
-                        (String) d.get("tipo"),
-                        (String) d.get("status"),
-                        repasse(d),
-                        NomeDeExibicao.de((String) d.get("cliente_nome")),
-                        new AreaDoProfissionalDtos.Cidade((String) d.get("cidade_nome"), (String) d.get("uf")),
-                        servicos.getOrDefault((UUID) d.get("contrato_id"), List.of()),
-                        instante(d.get("chegou_em")),
-                        instante(d.get("terminou_em")),
-                        "aguardando".equals(d.get("status")) ? instante(d.get("auto_libera_em")) : null))
-                .toList());
+        return new AreaDoProfissionalDtos.Diarias(
+                FusoDeNegocio.hoje(clock),
+                linhas.stream()
+                        .map(d -> new AreaDoProfissionalDtos.Diaria(
+                                (UUID) d.get("id"),
+                                (UUID) d.get("contrato_id"),
+                                ((Number) d.get("numero")).longValue(),
+                                ((java.sql.Date) d.get("data")).toLocalDate(),
+                                (String) d.get("tipo"),
+                                (String) d.get("status"),
+                                repasse(d),
+                                NomeDeExibicao.de((String) d.get("cliente_nome")),
+                                new AreaDoProfissionalDtos.Cidade((String) d.get("cidade_nome"), (String) d.get("uf")),
+                                servicos.getOrDefault((UUID) d.get("contrato_id"), List.of()),
+                                instante(d.get("chegou_em")),
+                                instante(d.get("terminou_em")),
+                                "aguardando".equals(d.get("status")) ? instante(d.get("auto_libera_em")) : null))
+                        .toList());
     }
 
     @Transactional(readOnly = true)

@@ -5,7 +5,7 @@ import { simularApi } from './apiSimulada';
 import { CONTA_PADRAO, SESSAO_PADRAO } from '../src/teste/dadosDaApi';
 import { CADASTRO_COMPLETO } from '../src/teste/dadosDoCadastro';
 import { CONTRATO_PAGO } from '../src/teste/dadosDosContratos';
-import { AGENDA, DIARIA_DE_HOJE, DIARIA_EM_ANDAMENTO, DIARIA_FUTURA, DINHEIRO } from '../src/teste/dadosDoProfissional';
+import { AGENDA, DIARIA_DE_HOJE, DIARIA_EM_ANDAMENTO, DIARIA_FUTURA, DINHEIRO, HOJE } from '../src/teste/dadosDoProfissional';
 
 const json = (rota: Route, corpo: unknown, status = 200) =>
   rota.fulfill({ status, contentType: 'application/json', body: JSON.stringify(corpo) });
@@ -28,7 +28,7 @@ async function simularProfissional(pagina: Page) {
   await pagina.route('**/api/profissional/**', async (rota) => {
     const caminho = new URL(rota.request().url()).pathname;
     if (caminho === '/api/profissional/diarias') {
-      return json(rota, { itens: [diaria, DIARIA_FUTURA] });
+      return json(rota, { hoje: HOJE, itens: [diaria, DIARIA_FUTURA] });
     }
     if (caminho === '/api/profissional/dinheiro') {
       return json(rota, DINHEIRO);

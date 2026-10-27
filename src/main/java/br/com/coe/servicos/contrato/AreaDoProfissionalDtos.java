@@ -33,7 +33,11 @@ final class AreaDoProfissionalDtos {
             Instant terminouEm,
             Instant autoLiberaEm) {}
 
-    record Diarias(List<Diaria> itens) {}
+    /**
+     * {@code hoje}: o dia de negócio do servidor (São Paulo). A tela usa este, nunca a data do aparelho (celular com a
+     * data errada mostraria a obra errada).
+     */
+    record Diarias(LocalDate hoje, List<Diaria> itens) {}
 
     /**
      * {@code liberado}: saldo da conta do profissional no livro-caixa. {@code vaiCair}: repasse das diárias já pagas

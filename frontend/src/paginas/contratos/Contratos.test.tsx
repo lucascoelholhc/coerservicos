@@ -160,4 +160,64 @@ describe('Contrato do cliente (FE-05): pagar e ver o contato liberado', () => {
     expect(screen.getByRole('radio', { name: /Cartão/ })).toBeInTheDocument();
   });
 
+  it('dia esperando aprovação: fotos do Terminei, recado, prazo da API e "Aprovar o dia" com o carimbo', async () => {
+    const dia = CONTRATO_PAGO.dias[0];
+    if (!dia) {
+      throw new Error('contrato sem dia');
+    }
+    let aprovado = false;
+    const esperando: Contrato = {
+      ...CONTRATO_PAGO,
+      dias: [{ ...dia, status: 'aguardando', autoLiberaEm: '2026-10-27T07:00:00Z' }],
+    };
+    const { pedidos } = simularFetch((pedido) => {
+      if (pedido.url === `/api/diarias/${dia.id}/fotos`) {
+        return json({
+          fotos: [{ id: 'f1', url: 'http://localhost:8333/coe/evidencia/f1.jpg?assinatura=x', expiraEm: '2026-10-27T07:05:00Z' }],
+          recado: 'Deixei tudo limpo',
+        });
+      }
+      if (pedido.url === `/api/diarias/${dia.id}/aprovar`) {
+        aprovado = true;
+        return json({ id: dia.id, status: 'liberada' });
+      }
+      return json(aprovado ? { ...esperando, dias: [{ ...dia, status: 'liberada', autoLiberaEm: null }] } : esperando);
+    });
+    const { container } = abrir(`/contratos/${CONTRATO_PAGO.id}`);
+
+    expect(await screen.findByRole('img', { name: 'Foto 1 do serviço do dia' })).toHaveAttribute(
+      'src',
+      'http://localhost:8333/coe/evidencia/f1.jpg?assinatura=x',
+    );
+    expect(screen.getByText('Recado: “Deixei tudo limpo”')).toBeInTheDocument();
+    expect(screen.getByText(/Se você não responder até 27\/10 às 04:00/)).toBeInTheDocument();
+    expect(screen.getByText('Aprove o dia')).toBeInTheDocument();
+    await semViolacoes(container);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Aprovar o dia' }));
+
+    expect(await screen.findByText(/Dia aprovado\. O dinheiro deste dia foi liberado/)).toBeInTheDocument();
+    expect(screen.getByText('Aprovado')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Aprovar o dia' })).not.toBeInTheDocument();
+    expect(pedidos.some((p) => p.metodo === 'POST' && p.url === `/api/diarias/${dia.id}/aprovar`)).toBe(true);
+  });
+
+  it('aprovar recusado mostra o erro da API e mantém o botão', async () => {
+    const dia = CONTRATO_PAGO.dias[0];
+    if (!dia) {
+      throw new Error('contrato sem dia');
+    }
+    simularFetch((pedido) => {
+      if (pedido.url.endsWith('/fotos')) {
+        return json({ fotos: [], recado: null });
+      }
+      if (pedido.url.endsWith('/aprovar')) {
+        return problema(409, 'diaria-indisponivel', 'Este dia já foi liberado.');
+      }
+      return json({ ...CONTRATO_PAGO, dias: [{ ...dia, status: 'aguardando', autoLiberaEm: null }] });
+    });
+    abrir(`/contratos/${CONTRATO_PAGO.id}`);
+    await userEvent.click(await screen.findByRole('button', { name: 'Aprovar o dia' }));
+    expect(await screen.findByText('Este dia já foi liberado.')).toBeInTheDocument();
+  });
 });

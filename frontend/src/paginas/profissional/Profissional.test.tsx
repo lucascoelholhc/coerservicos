@@ -19,6 +19,7 @@ import {
   DIARIA_FUTURA,
   DIARIA_LIBERADA,
   DINHEIRO,
+  HOJE,
 } from '../../teste/dadosDoProfissional';
 import { json, problema, simularFetch, type Pedido } from '../../teste/fetchSimulado';
 import { Agenda } from './Agenda';
@@ -60,7 +61,7 @@ function simular(inicial: DiariaDoProfissional[], extra: (pedido: Pedido) => Res
       return resposta;
     }
     if (pedido.url === '/api/profissional/diarias') {
-      return json({ itens: diarias });
+      return json({ hoje: HOJE, itens: diarias });
     }
     if (pedido.url === '/api/profissional/dinheiro') {
       return json(DINHEIRO);
@@ -139,6 +140,20 @@ describe('Área do profissional (FE-06)', () => {
     abrir('/profissional');
     expect(await screen.findByText('Nenhuma obra hoje')).toBeInTheDocument();
     expect(screen.getByText(/Sua próxima diária é/)).toBeInTheDocument();
+  });
+
+  it('Hoje usa o dia do servidor, não o do aparelho', async () => {
+    const amanha = { ...DIARIA_FUTURA, id: 'd-servidor' };
+    simularFetch((pedido) =>
+      pedido.url === '/api/profissional/diarias'
+        ? json({ hoje: amanha.data, itens: [amanha] })
+        : pedido.url === '/api/profissional/dinheiro'
+          ? json(DINHEIRO)
+          : json(CONTRATO_PAGO),
+    );
+    abrir('/profissional');
+    expect(await screen.findByRole('heading', { name: 'Obra de Carla M.' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Cheguei na obra/ })).toBeInTheDocument();
   });
 
   it('Hoje com erro da API: mensagem e "Tentar de novo"', async () => {

@@ -488,6 +488,20 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 - **Ficou:** teste de corrida com duas threads entre contratar e marcar folga; `lock_timeout` na trava da agenda (hoje espera a outra transação); recolher endereço e celular do contrato reembolsado ou cancelado depois do pago (RN29/RN32, DOM-09); editar o perfil aprovado; alternar entre a área do cliente e a do profissional.
 - **Teste no navegador** (backend real, perfil local, Valdir do seeder): Hoje com a diária paga da Juliana em "Próximos dias" e R$ 280,00 a cair; Agenda com o dia da diária travado, folga marcada e desmarcada; Dinheiro com liberado R$ 0,00 e vai cair R$ 280,00 (bate com o livro-caixa). Cheguei e Terminei de verdade ficam para o M3 (dia 35).
 
+**FE-05, acompanhar e aprovar (dia 35, feito em 26/10) e marco M3**
+- **Tela**: cada dia `aguardando` do contrato do cliente mostra as fotos do Terminei (`<img>` da URL assinada, só http/https), o recado, "Aprovar o dia" (um botão principal por tela: o do primeiro dia esperando) e "Se você não responder até {autoLiberaEm}, o dia é liberado sozinho" (prazo da API). Aprovado vira o carimbo "Aprovado" com aviso para o leitor de tela.
+- **`hoje` do servidor** em `GET /api/profissional/diarias`: achado no M3; a tela Hoje usava a data do aparelho (celular com data errada mostraria a obra errada). Agora a Hoje e a Agenda usam o dia de negócio do servidor.
+- **Relógio adiantado só no local** (`COE_RELOGIO_DESLOCAMENTO`, Duration ISO, só para frente; `RelogioLocalConfig` + `ConferenciaDoRelogio`, que impede a subida fora do perfil local ou junto do prod). **Decisão tomada sozinho** (desfazer: apagar as duas classes). As URLs assinadas do bucket continuam com a hora real (o SDK usa o próprio relógio).
+- **M3 no navegador** (backend real, gateway falso, perfil local), passo a passo:
+  1. Cliente novo "Carla Martins Teste" (celular `47900000071`, `m3.cliente@coe.local`) criado pela tela; o nome com dígito ("M3") é recusado pela validação (só letras).
+  2. Contratou o Osni (jardineiro do seeder) para 27/10 e 28/10: 2 × R$ 200,00 + taxa R$ 40,00 = R$ 440,00 (valores da API). Pix gerado e "Simular pagamento": contrato pago, contato liberado.
+  3. Relógio +10 h (27/10, 8 h): Osni viu a obra do dia com endereço e telefone, "Cheguei na obra" (08:18), "Terminei o dia" com foto JPEG pelo CORE-09 e recado; prazo 27/10 às 20:18 (12 h).
+  4. Carla viu a foto (o bucket serve a imagem, 200) e o recado e aprovou: carimbo "Aprovado". Livro-caixa do contrato: gateway −440,00; custódia 220,00; profissional 200,00; receita 20,00.
+  5. Relógio +34 h (28/10): Osni trabalhou o 2º dia (Cheguei 08:20, Terminei com foto). Ninguém aprovou.
+  6. Relógio +47 h (28/10, 21 h): o job liberou sozinho ("Diárias liberadas sozinhas depois do prazo: 1"); diária `liberada`/`automatica`. Livro-caixa: custódia 0,00; profissional 400,00; receita 40,00 (= 440,00 pago).
+  7. "Seu dinheiro" do Osni: liberado R$ 400,00, vai cair R$ 0,00; os dois dias "Pago".
+- **Ficou:** saudação do Hoje pela hora do aparelho (só o "Bom dia"); aviso ao cliente quando o profissional chega e termina (DOM-11); reclamar do dia (FE-05, dia 41).
+
 **FE-07, parte da verificação (dia 20, feito em 22/10): decisões (conferir)**
 - **Telas:** `/admin/verificacao` (fila do DOM-03, mais antiga primeiro, "Ver mais") e `/admin/verificacao/:id` (dados para conferir com o CPF completo, documentos e fotos, "Sobre", checklist da RN12, NR-10, mensagem por SMS e a decisão). Só ADMIN (`RotaPrivada papeis`; o backend decide). Minha conta do ADMIN ganhou "Painel da equipe" com o atalho.
 - **Decisões tomadas sozinho** (como desfazer):
@@ -676,8 +690,8 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 | 31 ✅ | DOM-08 | Aprovar e liberar pelo ledger | Saldos conferem (**feito em 24/10**) |
 | 32 ✅ | DOM-08 | Job das 12 h a partir do `terminou_em` (ShedLock); repasse | Sem liberação dupla (**feito em 24/10**; repasse Pix A DEFINIR com o Asaas) |
 | 33 ✅ | FE-05 | Contratar, pagar (adaptador falso) e chat | Contrato pago pelo navegador (**feito em 24/10**) |
-| 34 | FE-06 | Área do profissional: Hoje, Cheguei, Terminei, agenda, dinheiro | Fluxo do profissional completo |
-| 35 | FE-05 | Acompanhar e aprovar diárias | **Contratar, pagar, trabalhar e aprovar, pelo navegador** (**M3**) |
+| 34 ✅ | FE-06 | Área do profissional: Hoje, Cheguei, Terminei, agenda, dinheiro | Fluxo do profissional completo (**feito em 26/10**, PR #38) |
+| 35 ✅ | FE-05 | Acompanhar e aprovar diárias | **Contratar, pagar, trabalhar e aprovar, pelo navegador** (**M3**, aprovado em 26/10; ver seção 7) |
 
 ### Fatia 4: Problemas e administração (dias 36–44)
 | Dia | Tarefas | O que fazer | Pronto quando |

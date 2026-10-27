@@ -13,7 +13,7 @@ import { FalhaAoCarregar } from '../../componentes/FalhaAoCarregar/FalhaAoCarreg
 import { Nota } from '../../componentes/Nota/Nota';
 import { StatusDiaria } from '../../componentes/StatusDiaria/StatusDiaria';
 import { formatarCelular } from '../../formatacao/contato';
-import { formatarDiaEHora, formatarDiaLongo, hojeEmSaoPaulo } from '../../formatacao/datas';
+import { formatarDiaEHora, formatarDiaLongo } from '../../formatacao/datas';
 import { formatarReais } from '../../formatacao/dinheiro';
 import { Icone } from '../../icones/Icone';
 import { useTitulo } from '../../layout/titulo';
@@ -22,13 +22,14 @@ import estilos from './Profissional.module.css';
 import { horaEmSaoPaulo, saudacao } from './textos';
 
 interface DadosDeHoje {
+  hoje: string;
   diarias: DiariaDoProfissional[];
   dinheiro: DinheiroDoProfissional;
 }
 
 async function carregar(sinal: AbortSignal): Promise<DadosDeHoje> {
   const [diarias, dinheiro] = await Promise.all([listarMinhasDiarias(sinal), buscarDinheiro(sinal)]);
-  return { diarias: diarias.itens, dinheiro };
+  return { hoje: diarias.hoje, diarias: diarias.itens, dinheiro };
 }
 
 const PROXIMOS = 4;
@@ -54,7 +55,7 @@ export function Hoje() {
 }
 
 function Painel({ dados, aoMudar }: { dados: DadosDeHoje; aoMudar: () => void }) {
-  const hoje = hojeEmSaoPaulo();
+  const hoje = dados.hoje;
   const doDia = dados.diarias.find((d) => d.data === hoje && (d.status === 'paga' || d.status === 'andamento'));
   const esperando = dados.diarias.filter((d) => d.status === 'aguardando');
   const proximos = dados.diarias

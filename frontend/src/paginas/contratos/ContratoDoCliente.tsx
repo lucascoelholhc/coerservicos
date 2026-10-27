@@ -11,15 +11,15 @@ import { CampoTexto } from '../../componentes/CampoTexto/CampoTexto';
 import { FalhaAoCarregar } from '../../componentes/FalhaAoCarregar/FalhaAoCarregar';
 import { Nota } from '../../componentes/Nota/Nota';
 import { Opcoes } from '../../componentes/Opcoes/Opcoes';
-import { StatusDiaria } from '../../componentes/StatusDiaria/StatusDiaria';
 import { formatarCelular } from '../../formatacao/contato';
-import { formatarDiaEHora, formatarDiaLongo } from '../../formatacao/datas';
+import { formatarDiaEHora } from '../../formatacao/datas';
 import { formatarReais } from '../../formatacao/dinheiro';
 import { Icone } from '../../icones/Icone';
 import { useTitulo } from '../../layout/titulo';
 import { umaSo } from '../cadastro/etapas/comum';
 import { useEnvioUnico } from '../conta/useEnvioUnico';
 import estilos from './Contratos.module.css';
+import { DiaDoContrato } from './DiaDoContrato';
 import { MATERIAL, SITUACAO_DO_CONTRATO } from './textos';
 
 /** Um contrato do cliente (FE-05, protótipo V.contrato): pagar, ver o contato liberado e as diárias. */
@@ -90,15 +90,12 @@ function Detalhe({ inicial }: { inicial: Contrato }) {
         <h2 id="titulo-dias">Diárias</h2>
         <ul className={estilos.dias}>
           {contrato.dias.map((dia) => (
-            <li key={dia.id}>
-              <span>
-                <b>{formatarDiaLongo(dia.data)}</b>
-                <span className={estilos.apoio}>
-                  {dia.tipo === 'meia' ? 'Meia diária' : 'Diária inteira'} · {formatarReais(dia.valor)}
-                </span>
-              </span>
-              <StatusDiaria estado={dia.status} lado="cliente" />
-            </li>
+            <DiaDoContrato
+              key={dia.id}
+              dia={dia}
+              principal={dia.id === contrato.dias.find((d) => d.status === 'aguardando')?.id}
+              aoMudar={recarregar}
+            />
           ))}
         </ul>
       </section>
