@@ -162,6 +162,53 @@ class AreaDoProfissionalTest extends ExecucaoDeDiariaTeste {
     }
 
     @Test
+    void pedidoNaoPagoNaoApareceEDiariaContestadaVaiParaReclamacao() throws Exception {
+        minhasDiarias(doProfissional()).andExpect(jsonPath("$.itens.length()").value(0));
+        pagar();
+        jdbc.update("UPDATE diaria SET status = 'contestada' WHERE id = ?", diarias.get(1));
+        BigDecimal umDia = repasse();
+        dinheiro(doProfissional())
+                .andExpect(jsonPath("$.vaiCair").value(umDia.toPlainString()))
+                .andExpect(jsonPath("$.emReclamacao").value(umDia.toPlainString()));
+        minhasDiarias(doProfissional()).andExpect(jsonPath("$.itens[1].status").value("contestada"));
+    }
+
+    @Test
+    void todasAsRotasExigemLoginEPapelDeProfissional() throws Exception {
+        LocalDate livre = dia.plusWeeks(3);
+        for (var pedido : List.of(
+                get("/api/profissional/diarias"),
+                get("/api/profissional/dinheiro"),
+                get("/api/profissional/agenda"),
+                put("/api/profissional/agenda/folgas/" + livre),
+                delete("/api/profissional/agenda/folgas/" + livre))) {
+            mockMvc.perform(pedido).andExpect(status().isUnauthorized());
+        }
+        for (var pedido : List.of(
+                get("/api/profissional/diarias"),
+                get("/api/profissional/dinheiro"),
+                get("/api/profissional/agenda"),
+                put("/api/profissional/agenda/folgas/" + livre),
+                delete("/api/profissional/agenda/folgas/" + livre))) {
+            mockMvc.perform(pedido.header("Authorization", doCliente())).andExpect(status().isForbidden());
+        }
+    }
+
+    @Test
+    void tirarFolgaForaDaJanelaERecusadoERepetirNaoMudaNada() throws Exception {
+        mockMvc.perform(delete("/api/profissional/agenda/folgas/" + dia.minusYears(1))
+                        .header("Authorization", doProfissional()))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:dia-invalido"));
+        LocalDate livre = dia.plusWeeks(3);
+        for (int vez = 0; vez < 2; vez++) {
+            mockMvc.perform(delete("/api/profissional/agenda/folgas/" + livre)
+                            .header("Authorization", doProfissional()))
+                    .andExpect(status().isNoContent());
+        }
+    }
+
+    @Test
     void profissionalSemPerfilRecebe404() throws Exception {
         UUID semPerfil = contas.criarConfirmada(Papel.CLIENTE).id();
         minhasDiarias(bearer(semPerfil, Papel.PROFISSIONAL)).andExpect(status().isNotFound());

@@ -85,9 +85,14 @@ function Conteudo({ dados }: { dados: DadosDoPerfil }) {
       <Nota tipo="info">
         Para mudar o valor, os serviços, as cidades ou as fotos, fale com a equipe da COE. Em breve você muda por aqui.
       </Nota>
-      <Botao variante="suave" para={CAMINHOS.conta}>
-        Minha conta (senha, celular e sair)
-      </Botao>
+      <div className={estilos.acoes}>
+        <Botao variante="suave" para={CAMINHOS.contratos}>
+          Minhas contratações (como cliente)
+        </Botao>
+        <Botao variante="suave" para={CAMINHOS.conta}>
+          Minha conta (senha, celular e sair)
+        </Botao>
+      </div>
     </>
   );
 }

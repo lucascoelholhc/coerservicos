@@ -69,10 +69,15 @@ class AreaDoProfissionalService {
                   JOIN contrato c ON c.id = d.contrato_id
                   JOIN usuario u ON u.id = c.cliente_id
                   JOIN cidade ci ON ci.id = c.cidade_id
-                 WHERE d.profissional_id = :perfil AND d.data >= :desde AND d.status <> 'cancelada'
-                 ORDER BY d.data, d.id
+                 WHERE d.profissional_id = :perfil
+                   AND d.status NOT IN ('agendada', 'cancelada')
+                   AND (d.data >= :desde OR d.status IN ('paga', 'andamento', 'aguardando', 'contestada'))
+                 ORDER BY d.data DESC, d.id DESC
                  LIMIT :maximo
                 """, parametros);
+        // do mais novo para trás (o futuro e o que está em aberto nunca somem pelo limite); a tela recebe por data
+        linhas = new ArrayList<>(linhas);
+        java.util.Collections.reverse(linhas);
         Map<UUID, List<String>> servicos = servicosDos(linhas);
         return new AreaDoProfissionalDtos.Diarias(linhas.stream()
                 .map(d -> new AreaDoProfissionalDtos.Diaria(
@@ -167,7 +172,8 @@ class AreaDoProfissionalService {
         UUID perfil = meuPerfil();
         exigirDiaDeFolga(data);
         jdbc.update(
-                "DELETE FROM bloqueio_agenda WHERE profissional_id = :perfil AND data = :data",
+                // só a folga do próprio profissional; um bloqueio de outra origem (admin) não sai por aqui
+                "DELETE FROM bloqueio_agenda WHERE profissional_id = :perfil AND data = :data AND motivo = 'folga'",
                 new MapSqlParameterSource("perfil", perfil).addValue("data", data));
     }
 
