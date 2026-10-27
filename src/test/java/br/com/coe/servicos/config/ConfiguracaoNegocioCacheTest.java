@@ -43,6 +43,8 @@ class ConfiguracaoNegocioCacheTest {
         valores.put("DIARIA_MINIMA", "80.00");
         valores.put("MEIA_DIARIA_MINIMA", "50.00");
         valores.put("SOBRE_MINIMO_CARACTERES", "25");
+        valores.put("FALTAS_ALERTA", "2");
+        valores.put("FALTAS_JANELA_DIAS", "90");
         return valores;
     }
 

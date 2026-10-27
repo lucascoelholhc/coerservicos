@@ -14,5 +14,9 @@ public enum ChaveConfiguracao {
     VERSAO_TERMOS,
     DIARIA_MINIMA,
     MEIA_DIARIA_MINIMA,
-    SOBRE_MINIMO_CARACTERES
+    SOBRE_MINIMO_CARACTERES,
+    /** RN44d: quantas faltas acendem o alerta do profissional no painel (DB-14). */
+    FALTAS_ALERTA,
+    /** RN44d: a janela, em dias, para contar as faltas (DB-14). */
+    FALTAS_JANELA_DIAS
 }

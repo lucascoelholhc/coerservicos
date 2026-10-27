@@ -29,12 +29,14 @@ import br.com.coe.servicos.pagamento.LivroCaixa;
  * e o {@code uq_transacao_diaria_destino} garantem uma liberação só.
  */
 @Component
-class LiberacaoDeDiaria {
+public class LiberacaoDeDiaria {
 
     /** Quem liberou: o valor de {@code diaria.liberada_por} e a origem no histórico. */
     enum Por {
         CLIENTE("cliente", "cliente"),
-        AUTOMATICA("automatica", "sistema");
+        AUTOMATICA("automatica", "sistema"),
+        /** Decisão de uma reclamação a favor do profissional (DOM-09). */
+        ADMIN("admin", "admin");
 
         private final String codigo;
         private final String origem;
@@ -55,8 +57,21 @@ class LiberacaoDeDiaria {
         this.auditoria = auditoria;
     }
 
+    /**
+     * A reclamação decidida a favor do profissional (DOM-09): a diária contestada é liberada como as outras. Quem
+     * chama já travou o contrato e a diária e conferiu a disputa.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void liberarPorDecisao(UUID contrato, UUID diaria, UUID admin, OffsetDateTime agora) {
+        liberar(contrato, diaria, StatusDiaria.CONTESTADA, Por.ADMIN, admin, agora);
+    }
+
     @Transactional(propagation = Propagation.MANDATORY)
     void liberar(UUID contrato, UUID diaria, Por por, UUID ator, OffsetDateTime agora) {
+        liberar(contrato, diaria, StatusDiaria.AGUARDANDO, por, ator, agora);
+    }
+
+    private void liberar(UUID contrato, UUID diaria, StatusDiaria de, Por por, UUID ator, OffsetDateTime agora) {
         Map<String, Object> c = jdbc.queryForMap(
                 "SELECT numero, comissao_pct, taxa_paga_por FROM contrato WHERE id = :id",
                 new MapSqlParameterSource("id", contrato));
@@ -76,19 +91,23 @@ class LiberacaoDeDiaria {
                 """
                 UPDATE diaria SET status = 'liberada', liberada_em = :agora, liberada_por = :por,
                                   aprovada_em = CASE WHEN :por = 'cliente' THEN :agora ELSE aprovada_em END
-                 WHERE id = :id AND status = 'aguardando'
+                 WHERE id = :id AND status = :de
                 """,
-                new MapSqlParameterSource("id", diaria).addValue("agora", agora).addValue("por", por.codigo));
+                new MapSqlParameterSource("id", diaria)
+                        .addValue("agora", agora)
+                        .addValue("por", por.codigo)
+                        .addValue("de", de.codigo()));
         if (liberadas != 1) {
             // quem chama confere o status dentro da trava; chegar aqui é erro de programação, não do cliente
-            throw new IllegalStateException("Diária fora de aguardando na liberação: " + diaria);
+            throw new IllegalStateException("Diária fora de " + de.codigo() + " na liberação: " + diaria);
         }
         jdbc.update(
                 """
                 INSERT INTO historico_diaria (diaria_id, de_status, para_status, origem, ator_id, criado_em)
-                VALUES (:diaria, 'aguardando', 'liberada', :origem, :ator, :agora)
+                VALUES (:diaria, :de, 'liberada', :origem, :ator, :agora)
                 """,
                 new MapSqlParameterSource("diaria", diaria)
+                        .addValue("de", de.codigo())
                         .addValue("origem", por.origem)
                         .addValue("ator", ator)
                         .addValue("agora", agora));
@@ -123,12 +142,19 @@ class LiberacaoDeDiaria {
                 valores.repasseProfissional().valor().toPlainString(),
                 "comissao",
                 valores.comissao().valor().toPlainString());
-        if (por == Por.CLIENTE) {
+        if (por == Por.CLIENTE || por == Por.ADMIN) {
             auditoria.registrar(
-                    ator, "CLIENTE", "diaria.liberada", "diaria", diaria, Map.of("status", "aguardando"), depois, null);
+                    ator,
+                    por == Por.CLIENTE ? "CLIENTE" : "ADMIN",
+                    "diaria.liberada",
+                    "diaria",
+                    diaria,
+                    Map.of("status", de.codigo()),
+                    depois,
+                    null);
         } else {
             auditoria.registrarDoSistema(
-                    "diaria.liberada", "diaria", diaria, Map.of("status", "aguardando"), depois, null);
+                    "diaria.liberada", "diaria", diaria, Map.of("status", de.codigo()), depois, null);
         }
     }
 }

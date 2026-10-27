@@ -22,14 +22,15 @@ import br.com.coe.servicos.compartilhado.dinheiro.Dinheiro;
 public class LivroCaixa {
 
     /**
-     * Contas do livro-caixa: as da COE (sem dono) e a de cada profissional (dono = id do perfil, criada no primeiro
-     * lançamento). A do cliente entra com o reembolso (DOM-09).
+     * Contas do livro-caixa: as da COE (sem dono), a de cada profissional (dono = id do perfil) e a de cada cliente
+     * (dono = id do usuário; recebe o reembolso, DOM-09). As com dono nascem no primeiro lançamento.
      */
     public enum Conta {
         GATEWAY("gateway"),
         CUSTODIA("custodia"),
         RECEITA_COE("receita_coe"),
-        PROFISSIONAL("profissional");
+        PROFISSIONAL("profissional"),
+        CLIENTE("cliente");
 
         private final String tipo;
 
@@ -49,12 +50,15 @@ public class LivroCaixa {
         }
     }
 
-    /** {@code dono}: o id do perfil do profissional na conta PROFISSIONAL; nulo nas contas da COE. */
+    /**
+     * {@code dono}: o id do perfil na conta PROFISSIONAL, o id do usuário na conta CLIENTE; nulo nas contas da COE.
+     */
     public record Lancamento(Conta conta, Natureza natureza, Dinheiro valor, UUID dono) {
 
         public Lancamento {
-            if ((conta == Conta.PROFISSIONAL) != (dono != null)) {
-                throw new IllegalArgumentException("Só a conta do profissional tem dono: " + conta);
+            boolean temDono = conta == Conta.PROFISSIONAL || conta == Conta.CLIENTE;
+            if (temDono != (dono != null)) {
+                throw new IllegalArgumentException("Só as contas do profissional e do cliente têm dono: " + conta);
             }
         }
 
@@ -64,6 +68,11 @@ public class LivroCaixa {
 
         public static Lancamento paraProfissional(UUID profissional, Natureza natureza, Dinheiro valor) {
             return new Lancamento(Conta.PROFISSIONAL, natureza, valor, profissional);
+        }
+
+        /** A conta do cliente (usuário): recebe o reembolso até o estorno no gateway. */
+        public static Lancamento paraCliente(UUID usuario, Natureza natureza, Dinheiro valor) {
+            return new Lancamento(Conta.CLIENTE, natureza, valor, usuario);
         }
     }
 
@@ -112,18 +121,26 @@ public class LivroCaixa {
             return false;
         }
         for (Lancamento lancamento : transacao.lancamentos()) {
-            if (lancamento.dono() != null) {
+            if (lancamento.conta() == Conta.PROFISSIONAL) {
                 // a conta do profissional nasce no primeiro lançamento dele (uq_conta_razao segura a corrida)
                 jdbc.update("""
                         INSERT INTO conta_razao (tipo, profissional_id, nome)
                         VALUES ('profissional', :dono, 'Valores liberados ao profissional')
                         ON CONFLICT ON CONSTRAINT uq_conta_razao DO NOTHING
                         """, new MapSqlParameterSource("dono", lancamento.dono()));
+            } else if (lancamento.conta() == Conta.CLIENTE) {
+                jdbc.update("""
+                        INSERT INTO conta_razao (tipo, usuario_id, nome)
+                        VALUES ('cliente', :dono, 'Reembolsos ao cliente')
+                        ON CONFLICT ON CONSTRAINT uq_conta_razao DO NOTHING
+                        """, new MapSqlParameterSource("dono", lancamento.dono()));
             }
-            // com dono, o uq_conta_razao (tipo, profissional_id) serve de índice; sem dono, as três contas da COE
-            String conta = lancamento.dono() == null
-                    ? "tipo = :conta AND profissional_id IS NULL AND usuario_id IS NULL"
-                    : "tipo = :conta AND profissional_id = :dono AND usuario_id IS NULL";
+            // com dono, o uq_conta_razao (tipo, profissional_id, usuario_id) serve de índice; sem dono, as da COE
+            String conta = switch (lancamento.conta()) {
+                case PROFISSIONAL -> "tipo = :conta AND profissional_id = :dono AND usuario_id IS NULL";
+                case CLIENTE -> "tipo = :conta AND usuario_id = :dono AND profissional_id IS NULL";
+                default -> "tipo = :conta AND profissional_id IS NULL AND usuario_id IS NULL";
+            };
             int gravados = jdbc.update(
                     "INSERT INTO lancamento (transacao_id, conta_id, natureza, valor)"
                             + " SELECT :transacao, id, :natureza, :valor FROM conta_razao WHERE " + conta,
