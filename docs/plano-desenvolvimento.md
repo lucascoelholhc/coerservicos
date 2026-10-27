@@ -384,6 +384,16 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 - **Revisões** (security + java, database): sem CRITICAL nem HIGH. MEDIUMs corrigidos: diária com falha não bloqueia as outras, foto conferida antes de decodificar a imagem, conta do profissional pelo índice, liberação só de `aguardando` (UPDATE confere 1 linha), testes de concorrência sem engolir erro.
 - **Ficou:** aviso ao cliente no Cheguei e no Terminei (RN35, notificações do DOM-11); contrato `em_andamento`/`concluido` conforme as diárias; linha do tempo com as fotos (URL assinada) para o FE-06; contestação (DOM-09) usa a mesma trava e o `StatusDiaria`; todo movimento da custódia (webhook, liberação, reembolso) trava o contrato antes (regra para o DOM-09); conferir o pagamento da própria diária na liberação (hoje: custódia do contrato).
 
+**DOM-09 + DB-14, reclamação e falta (dias 36–37, feito em 26/10): decisões**
+- **V21** (DB-14): `ocorrencia_profissional` só de inserção (gatilhos + REVOKE; FKs RESTRICT: fica retida), `FALTAS_ALERTA` = 2 e `FALTAS_JANELA_DIAS` = 90 na `configuracao` (com CHECK) e lidos pelo `ConfiguracaoNegocio` (pendência do CORE-12 fechada), `disputa.demais_diarias`/`demais_escolhidas_em` com CHECK (só falta decidida a favor do cliente).
+- **Reembolso pendente**: o livro-caixa já move D custódia / C cliente e a linha `reembolso` nasce `pendente`; mandar o dinheiro de volta (estorno no Asaas) é do adaptador real (AWS-09). **Decisão tomada sozinho** (conservadora: nada sai do gateway falso).
+- **`paga → reembolsada`** acrescentada à máquina de estados (e ao diagrama das regras) só para o cancelamento das outras diárias depois de uma falta confirmada (RN44b): a regra já dizia "reembolso integral das futuras", o diagrama não tinha a transição. **Decisão tomada sozinho** (desfazer: tirar `REEMBOLSADA` de `PAGA` em `StatusDiaria` e o ramo "cancelar" do `demaisDiarias`).
+- "Diárias futuras" = as `paga` do contrato (ainda não começadas); `andamento`/`aguardando` não são canceladas pela escolha.
+- **Reclamar só a partir do dia da diária** (422 `reclamacao-antes-do-dia`): reclamar de um dia que não chegou travaria o "Cheguei" e viraria cancelamento pelo cliente (PA09, A DEFINIR). **Decisão tomada sozinho** (revisão de segurança).
+- **Sem censura de contato** na descrição, na resposta e na justificativa: o contrato já está pago e o contato liberado (RN29). **Decisão tomada sozinho** (desfazer: `CensuraDeContato.exigirSemContato` no `DisputaService`).
+- **Revisões** (database e security): sem CRITICAL/HIGH. Corrigidos: V22 (escolha e data juntas; uma falta por diária), ordem das travas no "demais diárias" (contrato → diárias → disputa), decisão com a diária fora de `contestada` = 409, descrição só de espaços. Abertos (LOW): N+1 limitado no cancelamento das outras diárias (até 27), cobrança do reembolso = a confirmada mais recente do contrato (rever no estorno real, AWS-09), `paga → reembolsada` sem guarda de chamador (só o `ReembolsoDeDiaria` usa), leituras do admin sem limite próprio.
+- **Ficou:** fotos na reclamação (`anexo_disputa`, RF24 "fotos opcionais"); aviso por SMS/e-mail na abertura e na decisão (DOM-11); prazo de 48 h vencido sem decisão só aparece na fila (nada automático); recolher endereço e celular do contrato reembolsado (RN29/RN32); status do contrato (`em_andamento`/`concluido`) pelas diárias.
+
 **Casos de teste obrigatórios do DOM-05** (PA13):
 - `CEP 89010-000` e `CEP 89010000` passam pela censura
 - Telefone (com e sem separadores) continua bloqueado
@@ -696,8 +706,8 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 ### Fatia 4: Problemas e administração (dias 36–44)
 | Dia | Tarefas | O que fazer | Pronto quando |
 |---|---|---|---|
-| 36 | DOM-09, DB-14 | Abrir disputa, resposta, prazo; migração do DB-14 (`ocorrencia_profissional`) | Uma disputa aberta por diária |
-| 37 | DOM-09 | Decisão; falta do profissional (PA07): reembolso integral, registro da falta | Casos obrigatórios do DOM-09 passam |
+| 36 ✅ | DOM-09, DB-14 | Abrir disputa, resposta, prazo; migração do DB-14 (`ocorrencia_profissional`) | Uma disputa aberta por diária (**feito em 26/10**) |
+| 37 ✅ | DOM-09 | Decisão; falta do profissional (PA07): reembolso integral, registro da falta | Casos obrigatórios do DOM-09 passam (**feito em 26/10**) |
 | 38 | DOM-10 | Avaliações e média | Só quem pagou avalia |
 | 39 | DOM-11 | Usuários, faltas com alerta, inativar e reativar, configuração | Ações auditadas; alerta com 2 faltas em 90 dias |
 | 40 | DOM-11 | Financeiro do admin; notificações; bootstrap do primeiro admin e Equipe (seção 6). **Prazo para abrir o sandbox do Asaas (PA02)** | Painel bate com `saldo_conta`; bootstrap repetido não faz nada |

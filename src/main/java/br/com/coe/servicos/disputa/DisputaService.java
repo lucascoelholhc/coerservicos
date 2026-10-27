@@ -41,6 +41,7 @@ class DisputaService {
 
     private static final String NAO_ENCONTRADA = "Reclamação não encontrada.";
     private static final int POR_PAGINA = 50;
+    private static final int DESCRICAO_MINIMA = 10;
     private static final List<String> EM_ABERTO = List.of("aberta", "em_analise");
 
     private final NamedParameterJdbcTemplate jdbc;
@@ -81,6 +82,19 @@ class DisputaService {
         }
         StatusDiaria status = travar(contratos.get(0), pedido.diariaId());
         status.exigirIrPara(StatusDiaria.CONTESTADA);
+        java.time.LocalDate data = jdbc.queryForObject(
+                "SELECT data FROM diaria WHERE id = :id",
+                new MapSqlParameterSource("id", pedido.diariaId()),
+                java.time.LocalDate.class);
+        if (data.isAfter(br.com.coe.servicos.compartilhado.FusoDeNegocio.hoje(clock))) {
+            // reclamar de um dia que não chegou travaria o "Cheguei" e viraria cancelamento (PA09, A DEFINIR)
+            throw new RegraDeNegocioException(
+                    "reclamacao-antes-do-dia", "Dá para reclamar de um dia a partir da data dele.");
+        }
+        if (pedido.descricao().strip().length() < DESCRICAO_MINIMA) {
+            throw new RegraDeNegocioException(
+                    "descricao-curta", "Conte o que aconteceu com pelo menos " + DESCRICAO_MINIMA + " letras.");
+        }
         OffsetDateTime agora = agora();
         jdbc.update(
                 "UPDATE diaria SET status = 'contestada' WHERE id = :id AND status = :de",
@@ -159,9 +173,12 @@ class DisputaService {
         if (eu.equals(d.get("cliente_id")) || eu.equals(d.get("profissional_usuario"))) {
             throw new AcaoProibidaException("disputa-propria", "Você não pode decidir uma reclamação sua.");
         }
-        travar(contrato, diaria);
+        StatusDiaria statusDaDiaria = travar(contrato, diaria);
         Map<String, Object> disputa = travarDisputa(id);
         exigirEmAberto(disputa);
+        if (statusDaDiaria != StatusDiaria.CONTESTADA) {
+            throw new ConflitoException("disputa-decidida", "Essa reclamação já foi decidida.", null);
+        }
         OffsetDateTime agora = agora();
         boolean aFavorDoCliente = "cliente".equals(pedido.favor());
         boolean falta = aFavorDoCliente && "nao_compareceu".equals(disputa.get("motivo"));
@@ -239,6 +256,11 @@ class DisputaService {
                 "SELECT id FROM contrato WHERE id = :contrato FOR UPDATE",
                 new MapSqlParameterSource("contrato", contrato),
                 UUID.class);
+        // a ordem de todo fluxo: contrato → diárias por data → disputa
+        List<UUID> pagas = jdbc.queryForList("""
+                SELECT id FROM diaria WHERE contrato_id = :contrato AND status = 'paga'
+                 ORDER BY data FOR UPDATE
+                """, new MapSqlParameterSource("contrato", contrato), UUID.class);
         Map<String, Object> disputa = travarDisputa(id);
         if (!"favor_cliente".equals(disputa.get("status")) || !"nao_compareceu".equals(disputa.get("motivo"))) {
             throw new RegraDeNegocioException(
@@ -251,11 +273,7 @@ class DisputaService {
         OffsetDateTime agora = agora();
         int canceladas = 0;
         if ("cancelar".equals(pedido.acao())) {
-            // diárias por data (a ordem das travas); só as pagas e ainda não começadas
-            List<UUID> pagas = jdbc.queryForList("""
-                    SELECT id FROM diaria WHERE contrato_id = :contrato AND status = 'paga'
-                     ORDER BY data FOR UPDATE
-                    """, new MapSqlParameterSource("contrato", contrato), UUID.class);
+            // só as pagas e ainda não começadas, já travadas por data
             for (UUID paga : pagas) {
                 reembolso.reembolsar(
                         contrato,

@@ -36,6 +36,8 @@ class DisputaTest extends ExecucaoDeDiariaTeste {
     @BeforeEach
     void pagarEPrepararAdmin() throws Exception {
         pagar();
+        // a reclamação vale a partir do dia da diária: os testes vivem no dia da primeira
+        noDia(dia);
         admin = contas.criarConfirmada(Papel.ADMIN).id();
     }
 
@@ -110,6 +112,26 @@ class DisputaTest extends ExecucaoDeDiariaTeste {
                 .andExpect(jsonPath("$.status").value("aberta"))
                 .andExpect(jsonPath("$.motivo").value("qualidade"))
                 .andExpect(jsonPath("$.valorDoDia").value(pagoPorDia().toPlainString()));
+    }
+
+    @Test
+    void reclamacaoAntesDoDiaOuComDescricaoSoDeEspacosERecusada() throws Exception {
+        noDia(dia);
+        mockMvc.perform(post("/api/disputas")
+                        .header("Authorization", doCliente())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"diariaId":"%s","motivo":"nao_compareceu","descricao":"Não veio trabalhar."}""".formatted(diarias.get(1))))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:reclamacao-antes-do-dia"));
+        mockMvc.perform(post("/api/disputas")
+                        .header("Authorization", doCliente())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"diariaId":"%s","motivo":"outro","descricao":"          x"}""".formatted(diarias.get(0))))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:descricao-curta"));
+        assertThat(statusDa(diarias.get(0))).isEqualTo("paga");
     }
 
     @Test
