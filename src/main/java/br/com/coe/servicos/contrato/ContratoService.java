@@ -105,6 +105,8 @@ class ContratoService {
             CensuraDeContato.exigirSemContato(descricao, "descricao");
         }
         exigirEnderecoSemContato(pedido.endereco());
+        // a mesma trava da folga (FE-06): um dia não vira folga e diária ao mesmo tempo
+        AreaDoProfissionalService.travarAgenda(jdbc, perfil.id());
         exigirDiasNaAgenda(perfil, pedido.dias());
         if (perfil.lc150()) {
             exigirLimiteLc150(eu, perfil, pedido.dias(), parametros.limiteDiaristaJanela7Dias());

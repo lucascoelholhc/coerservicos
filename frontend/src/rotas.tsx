@@ -29,6 +29,12 @@ import { EsqueciSenha } from './paginas/senha/EsqueciSenha';
 import { RedefinirSenha } from './paginas/senha/RedefinirSenha';
 import { Privacidade, Termos } from './paginas/termos/Rascunhos';
 import { Inicio } from './paginas/inicio/Inicio';
+import { Agenda } from './paginas/profissional/Agenda';
+import { ContratoDoProfissional } from './paginas/profissional/ContratoDoProfissional';
+import { Dinheiro } from './paginas/profissional/Dinheiro';
+import { Hoje } from './paginas/profissional/Hoje';
+import { MeuPerfil } from './paginas/profissional/MeuPerfil';
+import { TermineiODia } from './paginas/profissional/TermineiODia';
 import { NaoEncontrada } from './paginas/nao-encontrada/NaoEncontrada';
 
 /** Todas as rotas do front. Rota que não existe cai em "Página não encontrada". */
@@ -155,6 +161,16 @@ export function Rotas() {
             </RotaPrivada>
           }
         />
+        {[
+          { caminho: CAMINHOS.profissionalHoje, tela: <Hoje /> },
+          { caminho: CAMINHOS.profissionalAgenda, tela: <Agenda /> },
+          { caminho: CAMINHOS.profissionalDinheiro, tela: <Dinheiro /> },
+          { caminho: CAMINHOS.profissionalPerfil, tela: <MeuPerfil /> },
+          { caminho: `${CAMINHOS.profissionalContratos}/:id`, tela: <ContratoDoProfissional /> },
+          { caminho: `${CAMINHOS.profissionalTerminar}/:id`, tela: <TermineiODia /> },
+        ].map(({ caminho, tela }) => (
+          <Route key={caminho} path={caminho} element={<RotaPrivada papeis={['PROFISSIONAL']}>{tela}</RotaPrivada>} />
+        ))}
         <Route path={CAMINHOS.confirmarEmail} element={<ConfirmarEmail />} />
         <Route path={CAMINHOS.provarEmail} element={<ProvarEmail />} />
         <Route path={CAMINHOS.esqueciSenha} element={<EsqueciSenha />} />

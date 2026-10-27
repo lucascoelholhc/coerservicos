@@ -366,3 +366,57 @@ export interface EnvioDaMensagem {
   mensagem: MensagemDoChat;
   aviso: { tentativa: number; limite: number; contaEmAnalise: boolean } | null;
 }
+
+/** Execução da diária (DOM-08): resposta de cheguei, terminei e aprovar. */
+export interface DiariaExecutada {
+  id: string;
+  contratoId: string;
+  data: string;
+  tipo: 'inteira' | 'meia';
+  status: EstadoDaDiaria;
+  chegouEm: string | null;
+  terminouEm: string | null;
+  autoLiberaEm: string | null;
+  liberadaEm: string | null;
+  liberadaPor: 'cliente' | 'automatica' | 'admin' | null;
+}
+
+/** Fotos do "Terminei" por URL assinada e curta, e o recado do profissional. */
+export interface FotosDoDia {
+  fotos: { id: string; url: string; expiraEm: string }[];
+  recado: string | null;
+}
+
+/** Uma diária na área do profissional (GET /api/profissional/diarias). */
+export interface DiariaDoProfissional {
+  id: string;
+  contratoId: string;
+  numero: number;
+  data: string;
+  tipo: 'inteira' | 'meia';
+  status: EstadoDaDiaria;
+  /** O que o profissional recebe pelo dia (com a comissão e a taxa do contrato). */
+  repasse: string;
+  /** "Primeiro S."; o nome completo e o celular só no contrato, depois do pagamento. */
+  cliente: string;
+  cidade: { nome: string; uf: string };
+  servicos: string[];
+  chegouEm: string | null;
+  terminouEm: string | null;
+  autoLiberaEm: string | null;
+}
+
+/** GET /api/profissional/dinheiro: liberado (livro-caixa), o que vai cair e o que está em reclamação. */
+export interface DinheiroDoProfissional {
+  liberado: string;
+  vaiCair: string;
+  emReclamacao: string;
+}
+
+/** GET /api/profissional/agenda: dias da semana (0 = domingo) e folgas até `ate`. */
+export interface AgendaDoProfissional {
+  perfilId: string;
+  diasDaSemana: number[];
+  folgas: string[];
+  ate: string;
+}

@@ -33,6 +33,18 @@ export const MENU_CLIENTE: readonly (ItemDeMenu & { para: string })[] = [
   { rotulo: 'Minha conta', icone: 'user', para: CAMINHOS.conta },
 ];
 
+/** Menu de baixo do profissional (protótipo NAV.profissional): Hoje, Agenda, Dinheiro, Conversas e Perfil. */
+export const MENU_PROFISSIONAL: readonly (ItemDeMenu & { para: string })[] = [
+  { rotulo: 'Hoje', icone: 'home', para: CAMINHOS.profissionalHoje },
+  { rotulo: 'Agenda', icone: 'cal', para: CAMINHOS.profissionalAgenda },
+  { rotulo: 'Dinheiro', icone: 'wallet', para: CAMINHOS.profissionalDinheiro },
+  { rotulo: 'Conversas', icone: 'chat', para: CAMINHOS.mensagens },
+  { rotulo: 'Perfil', icone: 'user', para: CAMINHOS.profissionalPerfil },
+];
+
+/** Menu de cima do profissional: o mesmo do menu de baixo. */
+export const MENU_TOPO_PROFISSIONAL: readonly ItemDeMenu[] = MENU_PROFISSIONAL;
+
 /** Menu de cima (a partir de 900 px): sem "Entrar" (vira botão) e com as seções do Início. */
 export const MENU_TOPO_VISITANTE: readonly ItemDeMenu[] = [
   { rotulo: 'Início', icone: 'home', para: CAMINHOS.inicio },
@@ -49,3 +61,18 @@ export const MENU_TOPO_CLIENTE: readonly ItemDeMenu[] = [
   { rotulo: 'Mensagens', icone: 'chat', para: CAMINHOS.mensagens },
   { rotulo: 'Como funciona', icone: 'help', ancora: SECOES_DO_INICIO.comoFunciona },
 ];
+
+/** Quem também é PROFISSIONAL vê o menu do profissional (a área dele é o dia a dia); só CLIENTE, o do cliente. */
+export function menuDeBaixo(papeis: readonly string[]): readonly (ItemDeMenu & { para: string })[] {
+  if (papeis.includes('PROFISSIONAL')) {
+    return MENU_PROFISSIONAL;
+  }
+  return papeis.includes('CLIENTE') ? MENU_CLIENTE : MENU_LOGADO;
+}
+
+export function menuDeCima(papeis: readonly string[] | undefined): readonly ItemDeMenu[] {
+  if (papeis?.includes('PROFISSIONAL')) {
+    return MENU_TOPO_PROFISSIONAL;
+  }
+  return papeis?.includes('CLIENTE') ? MENU_TOPO_CLIENTE : MENU_TOPO_VISITANTE;
+}
