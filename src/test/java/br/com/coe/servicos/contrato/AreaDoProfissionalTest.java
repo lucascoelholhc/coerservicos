@@ -126,6 +126,8 @@ class AreaDoProfissionalTest extends ExecucaoDeDiariaTeste {
         assertThat(folgas).containsExactly(livre.toString());
         List<Integer> semana = JsonPath.read(agenda, "$.diasDaSemana");
         assertThat(semana).isNotEmpty();
+        assertThat((String) JsonPath.read(agenda, "$.perfilId"))
+                .isEqualTo(profissional.profissional().toString());
 
         String perfil = mockMvc.perform(get("/api/publico/profissionais/" + profissional.profissional()))
                 .andReturn()

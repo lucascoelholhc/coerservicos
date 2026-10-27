@@ -41,6 +41,9 @@ final class AreaDoProfissionalDtos {
      */
     record Saldo(Dinheiro liberado, Dinheiro vaiCair, Dinheiro emReclamacao) {}
 
-    /** {@code diasDaSemana}: 0 = domingo … 6 = sábado. {@code folgas}: de hoje até {@code ate}. */
-    record Agenda(List<Integer> diasDaSemana, List<LocalDate> folgas, LocalDate ate) {}
+    /**
+     * {@code perfilId}: o id do perfil público (link "Ver como o cliente vê"). {@code diasDaSemana}: 0 = domingo …
+     * 6 = sábado. {@code folgas}: de hoje até {@code ate}.
+     */
+    record Agenda(UUID perfilId, List<Integer> diasDaSemana, List<LocalDate> folgas, LocalDate ate) {}
 }

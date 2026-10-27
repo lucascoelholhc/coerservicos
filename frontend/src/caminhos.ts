@@ -26,7 +26,23 @@ export const CAMINHOS = {
   contratos: '/contratos',
   mensagens: '/mensagens',
   conversar: '/conversar',
+  profissionalHoje: '/profissional',
+  profissionalAgenda: '/profissional/agenda',
+  profissionalDinheiro: '/profissional/dinheiro',
+  profissionalPerfil: '/profissional/perfil',
+  profissionalContratos: '/profissional/contratos',
+  profissionalTerminar: '/profissional/terminar',
 } as const;
+
+/** Um contrato visto pelo profissional (endereço e celular só depois do pagamento). */
+export function caminhoDoContratoDoProfissional(id: string): string {
+  return `${CAMINHOS.profissionalContratos}/${encodeURIComponent(id)}`;
+}
+
+/** "Terminei o dia" de uma diária. */
+export function caminhoDeTerminar(diaria: string): string {
+  return `${CAMINHOS.profissionalTerminar}/${encodeURIComponent(diaria)}`;
+}
 
 /** Seções do Início abertas por âncora (o Router rola até elas, sem recarregar). */
 export const SECOES_DO_INICIO = {

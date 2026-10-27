@@ -40,6 +40,12 @@ describe('caminhos do front (um lugar só para menu, herói, rodapé e testes)',
       contratos: '/contratos',
       mensagens: '/mensagens',
       conversar: '/conversar',
+      profissionalHoje: '/profissional',
+      profissionalAgenda: '/profissional/agenda',
+      profissionalDinheiro: '/profissional/dinheiro',
+      profissionalPerfil: '/profissional/perfil',
+      profissionalContratos: '/profissional/contratos',
+      profissionalTerminar: '/profissional/terminar',
     });
     expect(SECOES_DO_INICIO).toEqual({
       categorias: '/#categorias',

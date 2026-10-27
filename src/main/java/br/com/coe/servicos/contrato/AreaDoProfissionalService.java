@@ -122,7 +122,8 @@ class AreaDoProfissionalService {
     AreaDoProfissionalDtos.Agenda agenda() {
         LocalDate hoje = FusoDeNegocio.hoje(clock);
         LocalDate ate = hoje.plusDays(DIAS_DE_FOLGA);
-        MapSqlParameterSource parametros = new MapSqlParameterSource("perfil", meuPerfil())
+        UUID perfil = meuPerfil();
+        MapSqlParameterSource parametros = new MapSqlParameterSource("perfil", perfil)
                 .addValue("hoje", hoje)
                 .addValue("ate", ate);
         List<Integer> semana = jdbc.queryForList(
@@ -134,7 +135,7 @@ class AreaDoProfissionalService {
                 SELECT data FROM bloqueio_agenda
                  WHERE profissional_id = :perfil AND data BETWEEN :hoje AND :ate ORDER BY data
                 """, parametros, (ResultSet linha, int n) -> linha.getObject("data", LocalDate.class));
-        return new AreaDoProfissionalDtos.Agenda(semana, folgas, ate);
+        return new AreaDoProfissionalDtos.Agenda(perfil, semana, folgas, ate);
     }
 
     /**
