@@ -271,6 +271,7 @@ npm run comparar         # protótipo x React lado a lado em frontend/test-resul
 - **API** `/api/diarias`: `POST /{id}/cheguei` (profissional, só no dia), `POST /fotos` (multipart `diaria` + `arquivo`, uma por vez, até 5, em andamento), `POST /{id}/terminei` `{recado?}` (pelo menos uma foto; recado censurado), `POST /{id}/aprovar` (cliente). Resposta `{id, contratoId, data, tipo, status, chegouEm, terminouEm, autoLiberaEm, liberadaEm, liberadaPor}`.
 - **Liberar** sempre pela `LiberacaoDeDiaria.liberar(contrato, diaria, por, ator, agora)` dentro da transação de quem já travou o contrato e a diária e conferiu o status: ela faz status, histórico, livro-caixa (`liberacao:<diaria>`) e auditoria. Job: `LiberacaoAutomatica` (ShedLock, V20); nos testes chame `executar()` ou `liberarUma(diaria)`.
 - **Livro-caixa**: `LivroCaixa.Lancamento.paraProfissional(perfil, natureza, valor)` para a conta do profissional.
+- **Relógio adiantado no local** (M3, dia 35): `COE_RELOGIO_DESLOCAMENTO=PT13H` (Duration ISO, só para frente) faz a aplicação viver no futuro, só no perfil `local` (`RelogioLocalConfig`, `@Primary`); em qualquer outro perfil, ou junto do prod, a aplicação não sobe (`ConferenciaDoRelogio`). Serve para testar no navegador o dia da diária e a liberação automática; reiniciar com outro valor = andar no tempo.
 - **Testes**: base `ExecucaoDeDiariaTeste` (contrato de quintas-feiras, `pagar()`, `trabalharODia(...)`, `aprovar(...)`, `saldoNoContrato(tipo)`).
 
 ### Pagamento (DOM-07)
