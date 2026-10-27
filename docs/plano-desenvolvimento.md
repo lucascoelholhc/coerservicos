@@ -149,7 +149,7 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 | DOM-08 | Execução da diária | Cheguei, terminei com foto, aprovar; job das 12 h a partir do `terminou_em` (PA08, ShedLock); repasse | Duas instâncias não liberam a mesma diária |
 | DOM-09 | Disputa e reembolso | Reclamação trava só o dia; decisão do admin; reembolso = o que o cliente pagou; falta do profissional (PA07) com DB-14 | Os dois caminhos testados no ledger; casos obrigatórios da falta abaixo |
 | DOM-10 | Avaliações | Nota dos dois lados; média no perfil | Só avalia quem pagou pelo app |
-| DOM-11 | Admin e notificações | Usuários, denúncias, financeiro, configuração; faltas por profissional com histórico e alerta (RN44d); inativar e reativar profissional (RN44e); SMS e e-mail | Toda ação do admin em `log_auditoria`; alerta com 2 faltas em 90 dias |
+| DOM-11 | Admin e notificações | Usuários, denúncias, financeiro, configuração; faltas por profissional com histórico e alerta (RN44d); inativar e reativar profissional (RN44e); SMS e e-mail; **primeiro admin em produção (bootstrap) e Equipe** (lacuna de 26/10, abaixo) | Toda ação do admin em `log_auditoria`; alerta com 2 faltas em 90 dias; segunda execução do bootstrap não faz nada; nunca fica sem ADMIN |
 
 **Casos de teste obrigatórios do DOM-07** (decididos no DB-12, ficaram fora da V11):
 - Custódia rastreada **por contrato**: liberar a diária de um contrato nunca usa dinheiro guardado de outro contrato.
@@ -400,6 +400,26 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 - Reativação pelo admin volta o profissional a `ativo`, auditada
 - O mesmo CPF não cria outro cadastro de profissional
 
+**Lacuna: administradores em produção (registrada em 26/10; backend no DOM-11, tela no FE-07, prazo antes da AWS-10/M6)**
+
+Hoje o único ADMIN nasce do seed do perfil local; em produção não há como criar o primeiro nem dar ou tirar o papel de outra pessoa.
+
+1. **Primeiro admin (bootstrap), DOM-11**
+   - Comando de uso único no servidor: perfil ou argumento próprio da aplicação (ex.: `--coe.bootstrap-admin`), rodado uma vez pela tarefa do ECS, que cria o primeiro ADMIN com nome, celular e e-mail vindos de variáveis de ambiente / Secrets Manager. **A senha nunca vem por variável**: a conta nasce sem senha utilizável e o admin define a senha pelo link de "redefinir senha" (CORE-05), mandado para o e-mail do bootstrap.
+   - Recusa rodar (sai sem mudar nada, com log) se já existir **qualquer** ADMIN. **Nunca roda no perfil local** (lá o seed já cria o ADMIN); com o perfil local ativo, a aplicação não sobe com o comando.
+   - No primeiro login: confirmar o celular e entrar com o código SMS (MFA obrigatório do ADMIN, CORE-04).
+   - Auditoria `admin.bootstrap` do SISTEMA, sem dado pessoal.
+   - Testes: cria o admin com a variável certa; **segunda execução não faz nada** (nem auditoria nova); recusa com ADMIN existente; recusa no perfil local; variável faltando = não sobe com mensagem clara; nada de senha nem contato no log.
+2. **Equipe (backend no DOM-11, tela no FE-07)**
+   - Listar os admins; convidar outra pessoa para virar ADMIN (conta existente, achada pelo celular ou e-mail, ou convite por link que cria a conta); tirar o papel de ADMIN.
+   - **Toda ação exige reautenticação na hora com código SMS**, mesmo já logado (desafio de uso único, como o segundo passo do login).
+   - **Nunca deixar o sistema sem ADMIN**: não dá para tirar o papel do último admin, nem o próprio se for o único (trava da linha para dois admins tirando ao mesmo tempo).
+   - Quem recebe ou perde o papel é avisado por e-mail e SMS (fila do `DespachoDeMensagens`); quem perde o papel tem **todas as sessões revogadas**.
+   - Auditoria `admin.convidar`, `admin.aceitar`, `admin.remover` (ator e alvo por id, sem dado pessoal em claro).
+   - Anti-IDOR, `@PreAuthorize("hasRole('ADMIN')")` em `/api/admin/**`, `@LimitadoPorUsuario` em todas as rotas que mudam algo; o convite por link tem token só com hash no banco, validade curta e uso único.
+   - Testes: sem código SMS = recusado; último admin não sai; dois admins removendo um ao outro ao mesmo tempo deixam pelo menos um; sessões revogadas; avisos enfileirados; auditoria sem dado pessoal; contato do convite entra no `VarreduraDeLogsTest`.
+3. **Prazo:** antes da AWS-10 (homologação, M6). Checklist da AWS-10: **rodar o bootstrap do primeiro admin e conferir o login com SMS**.
+
 **Teste de ponta a ponta da etapa:** profissional se cadastra, admin aprova, cliente busca, conversa, contrata 2 diárias, paga, profissional marca cheguei e terminei, cliente aprova uma e a outra libera sozinha em 12 h (relógio avançado). Os saldos do ledger batem centavo por centavo.
 
 ## 7. Etapa 4: Front em React
@@ -413,7 +433,7 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 | FE-04 | Cadastro do profissional | 11 etapas com upload de fotos e documentos |
 | FE-05 | Área do cliente | Contratar, pagar (adaptador falso), acompanhar diárias, aprovar, reclamar, avaliar, chat |
 | FE-06 | Área do profissional | Hoje, cheguei, terminei com foto, agenda, dinheiro, conversas, perfil |
-| FE-07 | Painel admin | Verificações, disputas, usuários, financeiro, configuração |
+| FE-07 | Painel admin | Verificações, disputas, usuários, financeiro, configuração; **Equipe** (listar admins, convidar, tirar o papel, cada ação com código SMS na hora; lacuna de 26/10, seção 6) |
 | FE-08 | Estados de tela | Carregando, vazio, erro e sem conexão |
 | FE-09 | Testes | Vitest nos componentes; Playwright no caminho feliz em 360 px e desktop |
 | FE-10 | Acessibilidade | axe nas telas principais + teste só com teclado |
@@ -572,7 +592,7 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 | AWS-07 | Domínio e HTTPS | Domínio, ACM, redirecionamento para HTTPS |
 | AWS-08 | Observabilidade | Logs, métricas, alarmes (5xx, disputas, job de liberação parado) |
 | AWS-09 | Gateway real | Adaptador do Asaas (PA02) no sandbox |
-| AWS-10 | Produção | Mesma infra com outras variáveis; aceite repetido em homologação |
+| AWS-10 | Produção | Mesma infra com outras variáveis; aceite repetido em homologação; **rodar o bootstrap do primeiro admin e conferir o login com SMS** (DOM-11) |
 
 Tudo em código (Terraform ou AWS CDK), nada configurado à mão no console.
 
@@ -656,8 +676,8 @@ Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "
 | 37 | DOM-09 | Decisão; falta do profissional (PA07): reembolso integral, registro da falta | Casos obrigatórios do DOM-09 passam |
 | 38 | DOM-10 | Avaliações e média | Só quem pagou avalia |
 | 39 | DOM-11 | Usuários, faltas com alerta, inativar e reativar, configuração | Ações auditadas; alerta com 2 faltas em 90 dias |
-| 40 | DOM-11 | Financeiro do admin; notificações. **Prazo para abrir o sandbox do Asaas (PA02)** | Painel bate com `saldo_conta` |
-| 41 | FE-07, FE-05 | Painel admin completo; reclamar e avaliar | Admin opera tudo pela tela |
+| 40 | DOM-11 | Financeiro do admin; notificações; bootstrap do primeiro admin e Equipe (seção 6). **Prazo para abrir o sandbox do Asaas (PA02)** | Painel bate com `saldo_conta`; bootstrap repetido não faz nada |
+| 41 | FE-07, FE-05 | Painel admin completo, com a Equipe; reclamar e avaliar | Admin opera tudo pela tela |
 | 42 | FE-08 | Estados de carregando, vazio, erro e sem conexão | Nenhuma tela branca em erro |
 | 43 | FE-09, FE-10 | Vitest, Playwright (360 px e desktop), acessibilidade | **Tudo clicável, E2E verde** (**M4**) |
 | 44 | Revisão | Teste de ponta a ponta da etapa 3; folga | |
@@ -679,4 +699,4 @@ Regra de cada fatia: primeiro a API, com testes; depois a tela. Assim uma mudan�
 | 50 | AWS-06 | GitHub Actions com OIDC | Push na `main` publica sozinho |
 | 51 | AWS-07, AWS-08 | Domínio, HTTPS, alarmes | Homologação em HTTPS |
 | 52 | AWS-09 | Gateway real no sandbox | Pagamento de teste via webhook |
-| 53 | AWS-10 | Aceite em homologação | **M6** |
+| 53 | AWS-10 | Aceite em homologação; bootstrap do primeiro admin e login com SMS | **M6** |
