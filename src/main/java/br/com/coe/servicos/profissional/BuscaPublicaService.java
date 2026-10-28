@@ -41,6 +41,8 @@ class BuscaPublicaService {
 
     static final int DIA_MAXIMO = 90;
     static final int FOTOS_NO_PERFIL = 12;
+    /** Avaliações mais recentes no perfil público (RN22). */
+    static final int AVALIACOES_NO_PERFIL = 10;
     /** Maior código de profissão ou nome de serviço do catálogo, com folga. */
     static final int TEXTO_MAXIMO = 80;
 
@@ -121,7 +123,9 @@ class BuscaPublicaService {
                         linha.distanciaKm(),
                         linha.proximoLivre(),
                         linha.selo(),
-                        linha.totalAvaliacoes() == 0))
+                        linha.totalAvaliacoes() == 0 ? null : linha.notaMedia(),
+                        linha.totalAvaliacoes(),
+                        linha.totalAvaliacoes() == 0 || linha.notaMedia() == null))
                 .toList();
         boolean temMais = itens.size() > POR_PAGINA;
         return new BuscaResposta.Busca(temMais ? itens.subList(0, POR_PAGINA) : itens, temMais);
@@ -160,7 +164,7 @@ class BuscaPublicaService {
                 consultas.diasLivres(id, amanha, amanha.plusDays(JANELA_DE_DIAS - 1L)),
                 textoDoSobre(dados.frases(), dados.bio()),
                 dados.selo(),
-                avaliacoes(dados.totalAvaliacoes(), dados.notaMedia()),
+                avaliacoes(dados.totalAvaliacoes(), dados.notaMedia(), id),
                 fotos);
     }
 
@@ -190,10 +194,10 @@ class BuscaPublicaService {
     }
 
     /** RN23: sem avaliações, "Novo na COE" e nota nula, nunca uma nota inventada. */
-    private static BuscaResposta.Avaliacoes avaliacoes(int total, BigDecimal nota) {
+    private BuscaResposta.Avaliacoes avaliacoes(int total, BigDecimal nota, UUID perfil) {
         return total == 0 || nota == null
-                ? new BuscaResposta.Avaliacoes(0, null, true)
-                : new BuscaResposta.Avaliacoes(total, nota, false);
+                ? new BuscaResposta.Avaliacoes(0, null, true, List.of())
+                : new BuscaResposta.Avaliacoes(total, nota, false, consultas.recentes(perfil, AVALIACOES_NO_PERFIL));
     }
 
     private static BuscaDeProfissionais.Ordem ordem(String ordem) {
@@ -204,9 +208,10 @@ class BuscaPublicaService {
             case "livre" -> BuscaDeProfissionais.Ordem.LIVRE;
             case "preco" -> BuscaDeProfissionais.Ordem.PRECO;
             case "experiencia" -> BuscaDeProfissionais.Ordem.EXPERIENCIA;
+            case "avaliacao" -> BuscaDeProfissionais.Ordem.AVALIACAO;
             default ->
                 throw new RegraDeNegocioException(
-                        "ordem-invalida", "Ordene por quem está livre antes, menor preço ou experiência.");
+                        "ordem-invalida", "Ordene por quem está livre antes, menor preço, experiência ou avaliação.");
         };
     }
 

@@ -34,6 +34,8 @@ final class BuscaResposta {
             BigDecimal distanciaKm,
             LocalDate proximoDiaLivre,
             boolean seloNr10,
+            BigDecimal nota,
+            int totalAvaliacoes,
             boolean novoNaCoe) {}
 
     record Servico(String profissao, String nome) {}
@@ -42,7 +44,10 @@ final class BuscaResposta {
     record Foto(UUID id, String servico, String legenda, String url, Instant expiraEm) {}
 
     /** {@code nota} só existe com avaliações (RN23: nunca nota inventada); sem elas, "Novo na COE". */
-    record Avaliacoes(int total, BigDecimal nota, boolean novoNaCoe) {}
+    record Avaliacoes(int total, BigDecimal nota, boolean novoNaCoe, List<Comentario> recentes) {}
+
+    /** Avaliação de um cliente no perfil (só as visíveis): autor em "Primeiro S.", comentário já passado pela censura. */
+    record Comentario(int nota, String comentario, String autor, Instant criadoEm) {}
 
     record Perfil(
             UUID id,
