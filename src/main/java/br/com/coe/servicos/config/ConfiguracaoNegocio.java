@@ -178,22 +178,36 @@ public class ConfiguracaoNegocio {
     }
 
     private Parametros carregar() {
-        Map<String, String> brutos = fonte.lerVigentes();
+        return montar(fonte.lerVigentes());
+    }
+
+    /**
+     * Confere um conjunto de valores com a mesma regra da subida (DOM-11: o admin só grava o que a aplicação aceitaria
+     * ler). Inválido lança {@link IllegalStateException} com a chave, o valor e o motivo (nenhum dado pessoal).
+     */
+    public static void validar(Map<String, String> brutos) {
+        montar(brutos);
+    }
+
+    private static Parametros montar(Map<String, String> brutos) {
         return new Parametros(
                 ler(brutos, ChaveConfiguracao.COMISSAO, ConfiguracaoNegocio::comissao),
                 ler(brutos, ChaveConfiguracao.TAXA_PAGA_POR, TaxaPagaPor::deCodigo),
-                ler(brutos, ChaveConfiguracao.AUTO_LIBERA_HORAS, texto -> Duration.ofHours(positivo(texto))),
-                ler(brutos, ChaveConfiguracao.PRAZO_DISPUTA_HORAS, texto -> Duration.ofHours(positivo(texto))),
+                ler(brutos, ChaveConfiguracao.AUTO_LIBERA_HORAS, texto -> Duration.ofHours(ate(texto, 720))),
+                ler(brutos, ChaveConfiguracao.PRAZO_DISPUTA_HORAS, texto -> Duration.ofHours(ate(texto, 720))),
                 ler(brutos, ChaveConfiguracao.LIMITE_DOMESTICO_SEMANA, ConfiguracaoNegocio::limiteLc150),
-                ler(brutos, ChaveConfiguracao.TENTATIVAS_ANTES_ANALISE, ConfiguracaoNegocio::positivo),
-                ler(brutos, ChaveConfiguracao.MEIA_DIARIA_HORAS, texto -> Duration.ofHours(positivo(texto))),
-                ler(brutos, ChaveConfiguracao.PAGAMENTO_EXPIRA_MINUTOS, texto -> Duration.ofMinutes(positivo(texto))),
+                ler(brutos, ChaveConfiguracao.TENTATIVAS_ANTES_ANALISE, texto -> ate(texto, 100)),
+                ler(brutos, ChaveConfiguracao.MEIA_DIARIA_HORAS, texto -> Duration.ofHours(ate(texto, 24))),
+                ler(
+                        brutos,
+                        ChaveConfiguracao.PAGAMENTO_EXPIRA_MINUTOS,
+                        texto -> Duration.ofMinutes(ate(texto, 10_080))),
                 ler(brutos, ChaveConfiguracao.VERSAO_TERMOS, ConfiguracaoNegocio::naoVazio),
                 ler(brutos, ChaveConfiguracao.DIARIA_MINIMA, ConfiguracaoNegocio::dinheiroPositivo),
                 ler(brutos, ChaveConfiguracao.MEIA_DIARIA_MINIMA, ConfiguracaoNegocio::dinheiroPositivo),
-                ler(brutos, ChaveConfiguracao.SOBRE_MINIMO_CARACTERES, ConfiguracaoNegocio::positivo),
-                ler(brutos, ChaveConfiguracao.FALTAS_ALERTA, ConfiguracaoNegocio::positivo),
-                ler(brutos, ChaveConfiguracao.FALTAS_JANELA_DIAS, texto -> Duration.ofDays(positivo(texto))));
+                ler(brutos, ChaveConfiguracao.SOBRE_MINIMO_CARACTERES, texto -> ate(texto, 300)),
+                ler(brutos, ChaveConfiguracao.FALTAS_ALERTA, texto -> ate(texto, 100)),
+                ler(brutos, ChaveConfiguracao.FALTAS_JANELA_DIAS, texto -> Duration.ofDays(ate(texto, 365))));
     }
 
     /** Comissão até o teto de 30% (RN31); o banco tem o mesmo CHECK (V12). */
@@ -217,6 +231,15 @@ public class ConfiguracaoNegocio {
         int valor = Integer.parseInt(texto);
         if (valor <= 0) {
             throw new IllegalArgumentException("precisa ser maior que zero");
+        }
+        return valor;
+    }
+
+    /** Inteiro positivo com teto (horas, dias e minutos somados a datas nunca estouram; DOM-11). */
+    private static int ate(String texto, int teto) {
+        int valor = positivo(texto);
+        if (valor > teto) {
+            throw new IllegalArgumentException("não pode passar de " + teto);
         }
         return valor;
     }
