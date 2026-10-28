@@ -394,6 +394,13 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 - **Revisões** (database e security): sem CRITICAL/HIGH. Corrigidos: V22 (escolha e data juntas; uma falta por diária), ordem das travas no "demais diárias" (contrato → diárias → disputa), decisão com a diária fora de `contestada` = 409, descrição só de espaços. Abertos (LOW): N+1 limitado no cancelamento das outras diárias (até 27), cobrança do reembolso = a confirmada mais recente do contrato (rever no estorno real, AWS-09), `paga → reembolsada` sem guarda de chamador (só o `ReembolsoDeDiaria` usa), leituras do admin sem limite próprio.
 - **Ficou:** fotos na reclamação (`anexo_disputa`, RF24 "fotos opcionais"); aviso por SMS/e-mail na abertura e na decisão (DOM-11); prazo de 48 h vencido sem decisão só aparece na fila (nada automático); recolher endereço e celular do contrato reembolsado (RN29/RN32); status do contrato (`em_andamento`/`concluido`) pelas diárias.
 
+**DOM-10 (dia 38, feito em 28/10, sessão autônoma): decisões (conferir)**
+- **API**: `POST /api/avaliacoes` `{contratoId, nota (1–5), comentario? (até 500)}` (cliente ou profissional do contrato; limite `avaliacao-usuario`) → 201; `GET /api/avaliacoes/contratos/{id}` → `{podeAvaliar, minha}`. Outro usuário = 404 igual a inexistente. Erros 422 `avaliacao-indisponivel`, `texto-com-contato`; 409 `avaliacao-ja-feita`. Sem migração (tabela da V8).
+- **"Paga e aprovada pelo app" (RN55)** = pelo menos uma diária `liberada` no contrato (aprovação do cliente, liberação em 12 h ou decisão do admin a favor do profissional). **Decisão tomada sozinho.**
+- **Média** (`MediaDoProfissional.refazer`, na mesma transação, `FOR NO KEY UPDATE` na linha do profissional): só avaliações visíveis de clientes; o DOM-11 chama o mesmo ao ocultar. Perfil com `avaliacoes.recentes` (10, autor "Primeiro S."); busca com `nota`, `totalAvaliacoes` e `ordem=avaliacao` (nota nula por último). Média crua, sem peso pelo número de avaliações (**decisão tomada sozinho**; rever com volume: média bayesiana ou mínimo de avaliações).
+- **Comentário com contato** = 422, sem gravar `tentativa_contato` (igual ao "Sobre"); a avaliação do profissional sobre o cliente fica guardada e não aparece em lugar nenhum (RF46 é F2). Conta em análise continua podendo avaliar. **Decisões tomadas sozinho.**
+- **Revisões** java e database: sem CRITICAL/HIGH; corrigidos a trava (`FOR NO KEY UPDATE`, sem bloquear contrato novo) e o recálculo compartilhado.
+
 **Casos de teste obrigatórios do DOM-05** (PA13):
 - `CEP 89010-000` e `CEP 89010000` passam pela censura
 - Telefone (com e sem separadores) continua bloqueado

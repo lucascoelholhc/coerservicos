@@ -16,6 +16,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import br.com.coe.servicos.compartilhado.dinheiro.Dinheiro;
+import br.com.coe.servicos.compartilhado.pessoal.NomeDeExibicao;
 
 /**
  * Consultas públicas da busca e do perfil (DOM-04, RN18 a RN23). Só perfil {@code ativo} de conta ativa (RN20).
@@ -30,7 +31,9 @@ class BuscaDeProfissionais {
     enum Ordem {
         LIVRE("proximo_livre ASC NULLS LAST, p.experiencia_anos DESC, p.id"),
         PRECO("p.valor_diaria ASC, proximo_livre ASC NULLS LAST, p.id"),
-        EXPERIENCIA("p.experiencia_anos DESC, proximo_livre ASC NULLS LAST, p.id");
+        EXPERIENCIA("p.experiencia_anos DESC, proximo_livre ASC NULLS LAST, p.id"),
+        /** RF09: maior nota antes; quem não tem histórico (nota nula) vai para o fim, sem nota inventada. */
+        AVALIACAO("p.nota_media DESC NULLS LAST, p.total_avaliacoes DESC, proximo_livre ASC NULLS LAST, p.id");
 
         private final String sql;
 
@@ -67,7 +70,8 @@ class BuscaDeProfissionais {
             BigDecimal distanciaKm,
             LocalDate proximoLivre,
             boolean selo,
-            int totalAvaliacoes) {}
+            int totalAvaliacoes,
+            BigDecimal notaMedia) {}
 
     record Dados(
             UUID id,
@@ -133,7 +137,7 @@ class BuscaDeProfissionais {
                 .addValue("deslocamento", filtro.deslocamento());
         StringBuilder sql = new StringBuilder("SELECT p.id, u.nome, pr.codigo AS profissao, p.valor_diaria,"
                         + " p.valor_meia_diaria, p.experiencia_anos, cb.codigo_ibge, cb.nome AS cidade_nome, cb.uf,"
-                        + " p.nr10_status = 'verificado' AS selo, p.total_avaliacoes, ")
+                        + " p.nr10_status = 'verificado' AS selo, p.total_avaliacoes, p.nota_media, ")
                 .append(OUTRAS_PROFISSOES)
                 .append(" AS outras, ")
                 .append(PROXIMO_LIVRE)
@@ -206,7 +210,31 @@ class BuscaDeProfissionais {
                         linha.getBigDecimal("distancia_km"),
                         linha.getObject("proximo_livre", LocalDate.class),
                         linha.getBoolean("selo"),
-                        linha.getInt("total_avaliacoes")));
+                        linha.getInt("total_avaliacoes"),
+                        linha.getBigDecimal("nota_media")));
+    }
+
+    /**
+     * As avaliações mais recentes que clientes deram ao profissional (só as visíveis; RN22). O autor sai só com o
+     * nome, para virar "Primeiro S."; conta anonimizada (nome nulo) sai como "Cliente".
+     */
+    List<BuscaResposta.Comentario> recentes(UUID perfil, int quantas) {
+        return jdbc.query(
+                """
+                SELECT a.nota, a.comentario, a.criado_em, u.nome
+                  FROM avaliacao a
+                  JOIN profissional p ON p.usuario_id = a.avaliado_id
+                  JOIN usuario u ON u.id = a.autor_id
+                 WHERE p.id = :perfil AND a.papel_autor = 'cliente' AND a.visivel
+                 ORDER BY a.criado_em DESC, a.id
+                 LIMIT :quantas
+                """,
+                new MapSqlParameterSource("perfil", perfil).addValue("quantas", quantas),
+                (linha, n) -> new BuscaResposta.Comentario(
+                        linha.getInt("nota"),
+                        linha.getString("comentario"),
+                        linha.getString("nome") == null ? "Cliente" : NomeDeExibicao.de(linha.getString("nome")),
+                        linha.getTimestamp("criado_em").toInstant()));
     }
 
     /** Só de perfil ativo e conta ativa; senão vazio (o perfil responde 404 igual a inexistente). */

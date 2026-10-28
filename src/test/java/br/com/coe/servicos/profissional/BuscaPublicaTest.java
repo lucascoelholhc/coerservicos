@@ -343,6 +343,31 @@ class BuscaPublicaTest extends IntegracaoTest {
     }
 
     @Test
+    @DisplayName(
+            "ordem por avaliação: maior nota antes, quem não tem histórico por último; nota e total no item (RF09, RN23)")
+    void ordemPorAvaliacao() throws Exception {
+        Molde semNota = criar(m -> m.anos = 20);
+        Molde nota4 = criar(m -> m.anos = 1);
+        Molde nota5 = criar(m -> m.anos = 10);
+        jdbc.update("UPDATE profissional SET nota_media = 4.20, total_avaliacoes = 5 WHERE id = ?", nota4.profissional);
+        jdbc.update("UPDATE profissional SET nota_media = 4.90, total_avaliacoes = 2 WHERE id = ?", nota5.profissional);
+
+        Map<String, Map<String, Object>> achados = buscar("cidade", String.valueOf(ITAJAI), "ordem", "avaliacao");
+
+        assertThat(ordemDe(achados, semNota, nota4, nota5))
+                .containsExactly(
+                        nota5.profissional.toString(), nota4.profissional.toString(), semNota.profissional.toString());
+        assertThat(achados.get(nota4.profissional.toString()))
+                .containsEntry("nota", 4.2)
+                .containsEntry("totalAvaliacoes", 5)
+                .containsEntry("novoNaCoe", false);
+        assertThat(achados.get(semNota.profissional.toString()))
+                .containsEntry("nota", null)
+                .containsEntry("totalAvaliacoes", 0)
+                .containsEntry("novoNaCoe", true);
+    }
+
+    @Test
     @DisplayName("dia livre: dia da semana que trabalha, sem bloqueio na agenda e sem diária marcada")
     void diaLivre() throws Exception {
         Molde p = criar(m -> m.cidade = NAVEGANTES);
