@@ -162,6 +162,7 @@ coe:
       foto-url-usuario: { capacidade: 300, janela: 1h }   # ver as fotos do dia (URL assinada, FE-05)
       diaria-usuario: { capacidade: 60, janela: 1h }      # Cheguei, Terminei e aprovar (DOM-08)
       agenda-usuario: { capacidade: 120, janela: 1h }     # marcar e tirar folga (FE-06)
+      disputa-usuario: { capacidade: 30, janela: 1h }     # reclamar, responder e escolher as outras diárias (DOM-09)
       pagamento-usuario: { capacidade: 20, janela: 1h }   # pedir a cobrança do contrato (DOM-07): cada uma chama o gateway
   mensageria:
     # Envio assíncrono de SMS e e-mail depois do commit (decisão de 07/10): filas próprias e limitadas.

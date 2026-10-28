@@ -29,6 +29,7 @@ class StatusDiariaTest {
         }
         assertThat(StatusDiaria.CONTESTADA.podeIrPara(StatusDiaria.LIBERADA)).isTrue();
         assertThat(StatusDiaria.CONTESTADA.podeIrPara(StatusDiaria.REEMBOLSADA)).isTrue();
+        assertThat(StatusDiaria.PAGA.podeIrPara(StatusDiaria.REEMBOLSADA)).isTrue();
     }
 
     @ParameterizedTest
@@ -58,7 +59,9 @@ class StatusDiariaTest {
                 "ANDAMENTO>CONTESTADA",
                 "AGUARDANDO>CONTESTADA",
                 "CONTESTADA>LIBERADA",
-                "CONTESTADA>REEMBOLSADA");
+                "CONTESTADA>REEMBOLSADA",
+                // RN44b: depois de uma falta confirmada, o cliente cancela as outras diárias pagas (reembolso integral)
+                "PAGA>REEMBOLSADA");
         int recusadas = 0;
         for (StatusDiaria de : StatusDiaria.values()) {
             for (StatusDiaria para : StatusDiaria.values()) {

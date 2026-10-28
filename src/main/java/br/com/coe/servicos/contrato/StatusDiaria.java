@@ -58,7 +58,8 @@ public enum StatusDiaria {
     private Set<StatusDiaria> proximos() {
         return switch (this) {
             case AGENDADA -> EnumSet.of(PAGA, CANCELADA);
-            case PAGA -> EnumSet.of(ANDAMENTO, CONTESTADA);
+            // RN44b: depois de uma falta confirmada, o cliente pode cancelar as outras diárias pagas (reembolso)
+            case PAGA -> EnumSet.of(ANDAMENTO, CONTESTADA, REEMBOLSADA);
             case ANDAMENTO -> EnumSet.of(AGUARDANDO, CONTESTADA);
             case AGUARDANDO -> EnumSet.of(LIBERADA, CONTESTADA);
             case CONTESTADA -> EnumSet.of(LIBERADA, REEMBOLSADA);

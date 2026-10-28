@@ -132,6 +132,7 @@ São 61 regras em 11 grupos. Toda regra que mexe com dinheiro, status ou contato
 | `aguardando` | `liberada` | cliente aprova, ou job após 12 h sem resposta |
 | `paga` / `andamento` / `aguardando` | `contestada` | cliente reclama |
 | `contestada` | `liberada` ou `reembolsada` | decisão do admin |
+| `paga` | `reembolsada` | cliente cancela as outras diárias depois de uma falta confirmada (RN44b) |
 | `agendada` | `cancelada` | pedido não pago a tempo (expirou) ou cancelado antes do pagamento |
 
 - `liberada`, `reembolsada` e `cancelada` são **estados finais**.

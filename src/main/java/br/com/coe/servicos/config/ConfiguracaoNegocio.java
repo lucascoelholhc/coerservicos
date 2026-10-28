@@ -53,7 +53,9 @@ public class ConfiguracaoNegocio {
             String versaoTermos,
             Dinheiro diariaMinima,
             Dinheiro meiaDiariaMinima,
-            int sobreMinimoCaracteres) {}
+            int sobreMinimoCaracteres,
+            int faltasAlerta,
+            Duration faltasJanela) {}
 
     private record Snapshot(Parametros parametros, Instant lidoEm, long geracao) {}
 
@@ -154,6 +156,16 @@ public class ConfiguracaoNegocio {
         return parametros().sobreMinimoCaracteres();
     }
 
+    /** RN44d: faltas na janela que acendem o alerta do profissional. */
+    public int faltasAlerta() {
+        return parametros().faltasAlerta();
+    }
+
+    /** RN44d: a janela para contar as faltas. */
+    public Duration faltasJanela() {
+        return parametros().faltasJanela();
+    }
+
     public void invalidarCache() {
         geracao.incrementAndGet();
     }
@@ -179,7 +191,9 @@ public class ConfiguracaoNegocio {
                 ler(brutos, ChaveConfiguracao.VERSAO_TERMOS, ConfiguracaoNegocio::naoVazio),
                 ler(brutos, ChaveConfiguracao.DIARIA_MINIMA, ConfiguracaoNegocio::dinheiroPositivo),
                 ler(brutos, ChaveConfiguracao.MEIA_DIARIA_MINIMA, ConfiguracaoNegocio::dinheiroPositivo),
-                ler(brutos, ChaveConfiguracao.SOBRE_MINIMO_CARACTERES, ConfiguracaoNegocio::positivo));
+                ler(brutos, ChaveConfiguracao.SOBRE_MINIMO_CARACTERES, ConfiguracaoNegocio::positivo),
+                ler(brutos, ChaveConfiguracao.FALTAS_ALERTA, ConfiguracaoNegocio::positivo),
+                ler(brutos, ChaveConfiguracao.FALTAS_JANELA_DIAS, texto -> Duration.ofDays(positivo(texto))));
     }
 
     /** Comissão até o teto de 30% (RN31); o banco tem o mesmo CHECK (V12). */
