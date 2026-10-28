@@ -10,7 +10,9 @@ enum FinalidadeSms {
     /** Ligar ou desligar o MFA. */
     CONFIGURAR_MFA("configurar_mfa"),
     COMPROVAR_POSSE("comprovar_posse"),
-    RECUPERAR_SENHA("recuperar_senha");
+    RECUPERAR_SENHA("recuperar_senha"),
+    /** Ação da Equipe (convidar, aceitar, remover admin): código na hora, mesmo já logado (DOM-11). */
+    ACAO_ADMIN("acao_admin");
 
     private final String valor;
 

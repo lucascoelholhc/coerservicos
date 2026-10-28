@@ -228,7 +228,7 @@ class ServicoDeCodigoSms {
     /** Fila de envio (CORE-07): entrar, MFA e recuperar a senha não esperam a posse nem as confirmações. */
     static MensagemPronta.Prioridade prioridade(FinalidadeSms finalidade) {
         return switch (finalidade) {
-            case LOGIN, MFA, CONFIGURAR_MFA, RECUPERAR_SENHA -> MensagemPronta.Prioridade.PRIORITARIA;
+            case LOGIN, MFA, CONFIGURAR_MFA, RECUPERAR_SENHA, ACAO_ADMIN -> MensagemPronta.Prioridade.PRIORITARIA;
             case VERIFICAR_CELULAR, TROCAR_CELULAR, COMPROVAR_POSSE -> MensagemPronta.Prioridade.NORMAL;
         };
     }

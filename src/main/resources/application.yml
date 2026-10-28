@@ -165,6 +165,7 @@ coe:
       disputa-usuario: { capacidade: 30, janela: 1h }     # reclamar, responder e escolher as outras diárias (DOM-09)
       avaliacao-usuario: { capacidade: 20, janela: 1h }   # avaliar o outro lado do contrato (DOM-10)
       denuncia-usuario: { capacidade: 10, janela: 24h }   # denunciar quem está na conversa (DOM-11)
+      equipe-usuario: { capacidade: 20, janela: 1h }      # convidar, aceitar e remover admin (DOM-11): mudam privilégio
       pagamento-usuario: { capacidade: 20, janela: 1h }   # pedir a cobrança do contrato (DOM-07): cada uma chama o gateway
   mensageria:
     # Envio assíncrono de SMS e e-mail depois do commit (decisão de 07/10): filas próprias e limitadas.
