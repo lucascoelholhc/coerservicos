@@ -4,6 +4,7 @@ import java.net.URI;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -11,6 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,6 +52,7 @@ class VerificacaoService {
     private final Clock clock;
     private final Duration validadeDoDocumento;
     private final Duration validadeDaFoto;
+    private final NamedParameterJdbcTemplate jdbc;
 
     VerificacaoService(
             ProfissionalRepository profissionais,
@@ -63,7 +67,9 @@ class VerificacaoService {
             ApplicationEventPublisher eventos,
             Clock clock,
             PropriedadesDoArmazenamento propriedades,
-            @Value("${coe.cadastro.validade-url-documento:2m}") Duration validadeDoDocumento) {
+            @Value("${coe.cadastro.validade-url-documento:2m}") Duration validadeDoDocumento,
+            NamedParameterJdbcTemplate jdbc) {
+        this.jdbc = jdbc;
         this.profissionais = profissionais;
         this.documentos = documentos;
         this.fotos = fotos;
@@ -125,7 +131,11 @@ class VerificacaoService {
 
     @Transactional
     VerificacaoResposta.Decisao aprovar(UUID id, PedidosDaVerificacao.Aprovacao pedido) {
+        // ordem das travas: a conta antes do profissional (um admin suspendendo a conta espera esta aprovação)
+        List<String> statusDaConta = travarConta(id);
         Profissional p = paraDecidir(id);
+        exigirContaAtiva(statusDaConta);
+        exigirDocumentosVistos(p);
         if (!pedido.itens().todos()) {
             throw new RegraDeNegocioException(
                     "checklist-incompleto", "Confira todos os itens antes de aprovar o cadastro.");
@@ -203,6 +213,41 @@ class VerificacaoService {
                     null);
         }
         return p;
+    }
+
+    /** Trava a conta do dono do cadastro ({@code FOR SHARE}) e devolve o status; cadastro inexistente = vazio. */
+    private List<String> travarConta(UUID perfil) {
+        return jdbc.queryForList("""
+                SELECT u.status FROM usuario u JOIN profissional p ON p.usuario_id = u.id
+                 WHERE p.id = :perfil FOR SHARE OF u
+                """, new MapSqlParameterSource("perfil", perfil), String.class);
+    }
+
+    /** Conta suspensa ou excluída enquanto o cadastro esperava: não vira profissional (409). */
+    private static void exigirContaAtiva(List<String> status) {
+        if (status.isEmpty() || !"ativo".equals(status.get(0))) {
+            throw new ConflitoException(
+                    "conta-indisponivel", "A conta dessa pessoa não está ativa. Confira antes de aprovar.", null);
+        }
+    }
+
+    /**
+     * Quem aprova precisa ter aberto o documento e a selfie (RN13): cada documento de identidade e a selfie do cadastro
+     * têm um "documento-visto-admin" deste admin na auditoria. O certificado de NR-10 tem decisão própria.
+     */
+    private void exigirDocumentosVistos(Profissional p) {
+        Long faltando = jdbc.queryForObject(
+                """
+                SELECT count(*) FROM documento_verificacao d
+                 WHERE d.profissional_id = :perfil AND d.tipo <> 'certificado_nr10'
+                   AND NOT EXISTS (SELECT 1 FROM log_auditoria a
+                                    WHERE a.entidade = 'documento_verificacao' AND a.entidade_id = d.id
+                                      AND a.acao = 'profissional.documento-visto-admin' AND a.ator_id = :admin)
+                """, new MapSqlParameterSource("perfil", p.id()).addValue("admin", usuario.id()), Long.class);
+        if (faltando != null && faltando > 0) {
+            throw new RegraDeNegocioException(
+                    "documentos-nao-vistos", "Abra o documento e a selfie antes de aprovar o cadastro.");
+        }
     }
 
     /** Com certificado em análise, a decisão do NR-10 é obrigatória; sem certificado, não existe. */

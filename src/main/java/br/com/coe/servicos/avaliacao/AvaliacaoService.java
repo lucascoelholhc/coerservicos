@@ -12,6 +12,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.com.coe.servicos.compartilhado.auditoria.RegistroDeAuditoria;
 import br.com.coe.servicos.compartilhado.censura.CensuraDeContato;
 import br.com.coe.servicos.compartilhado.erro.ConflitoException;
 import br.com.coe.servicos.compartilhado.erro.RecursoNaoEncontradoException;
@@ -32,13 +33,19 @@ class AvaliacaoService {
     private final NamedParameterJdbcTemplate jdbc;
     private final UsuarioAutenticado usuario;
     private final MediaDoProfissional media;
+    private final RegistroDeAuditoria auditoria;
     private final Clock clock;
 
     AvaliacaoService(
-            NamedParameterJdbcTemplate jdbc, UsuarioAutenticado usuario, MediaDoProfissional media, Clock clock) {
+            NamedParameterJdbcTemplate jdbc,
+            UsuarioAutenticado usuario,
+            MediaDoProfissional media,
+            RegistroDeAuditoria auditoria,
+            Clock clock) {
         this.jdbc = jdbc;
         this.usuario = usuario;
         this.media = media;
+        this.auditoria = auditoria;
         this.clock = clock;
     }
 
@@ -128,5 +135,109 @@ class AvaliacaoService {
                 "SELECT EXISTS (SELECT 1 FROM diaria WHERE contrato_id = :contrato AND status = 'liberada')",
                 new MapSqlParameterSource("contrato", contrato),
                 Boolean.class));
+    }
+
+    /** Avaliação como a equipe vê na moderação (nomes completos: só o admin chega aqui). */
+    record NaModeracao(
+            UUID id,
+            UUID contratoId,
+            int nota,
+            String comentario,
+            String papelAutor,
+            String autor,
+            String avaliado,
+            boolean visivel,
+            java.time.Instant criadoEm) {}
+
+    record PaginaDaModeracao(List<NaModeracao> itens, boolean temMais) {}
+
+    private static final int POR_PAGINA = 50;
+
+    @Transactional(readOnly = true)
+    PaginaDaModeracao listarParaModeracao(UUID profissional, int pagina) {
+        MapSqlParameterSource parametros = new MapSqlParameterSource("limite", POR_PAGINA + 1)
+                .addValue("deslocamento", (long) Math.max(pagina, 0) * POR_PAGINA);
+        StringBuilder sql = new StringBuilder("""
+                SELECT a.id, a.contrato_id, a.nota, a.comentario, a.papel_autor, a.visivel, a.criado_em,
+                       ua.nome AS autor, uv.nome AS avaliado
+                  FROM avaliacao a
+                  JOIN usuario ua ON ua.id = a.autor_id
+                  JOIN usuario uv ON uv.id = a.avaliado_id
+                """);
+        if (profissional != null) {
+            sql.append(" JOIN profissional pf ON pf.usuario_id = a.avaliado_id AND pf.id = :profissional");
+            parametros.addValue("profissional", profissional);
+        }
+        sql.append(" ORDER BY a.criado_em DESC, a.id LIMIT :limite OFFSET :deslocamento");
+        List<NaModeracao> itens = jdbc.query(
+                sql.toString(),
+                parametros,
+                (linha, n) -> new NaModeracao(
+                        linha.getObject("id", UUID.class),
+                        linha.getObject("contrato_id", UUID.class),
+                        linha.getInt("nota"),
+                        linha.getString("comentario"),
+                        linha.getString("papel_autor"),
+                        linha.getString("autor"),
+                        linha.getString("avaliado"),
+                        linha.getBoolean("visivel"),
+                        linha.getObject("criado_em", OffsetDateTime.class).toInstant()));
+        boolean temMais = itens.size() > POR_PAGINA;
+        return new PaginaDaModeracao(temMais ? itens.subList(0, POR_PAGINA) : itens, temMais);
+    }
+
+    /** Ocultar ou mostrar de novo (RN59, auditado); a média do profissional é refeita na mesma transação. */
+    @Transactional
+    NaModeracao mudarVisibilidade(UUID id, boolean visivel) {
+        List<Map<String, Object>> linhas = jdbc.queryForList(
+                "SELECT visivel, papel_autor, avaliado_id FROM avaliacao WHERE id = :id FOR UPDATE",
+                new MapSqlParameterSource("id", id));
+        if (linhas.isEmpty()) {
+            throw new RecursoNaoEncontradoException("Avaliação não encontrada.");
+        }
+        Map<String, Object> linha = linhas.get(0);
+        boolean antes = (Boolean) linha.get("visivel");
+        if (antes != visivel) {
+            jdbc.update(
+                    "UPDATE avaliacao SET visivel = :visivel WHERE id = :id",
+                    new MapSqlParameterSource("id", id).addValue("visivel", visivel));
+            if ("cliente".equals(linha.get("papel_autor"))) {
+                jdbc.queryForList(
+                                "SELECT id FROM profissional WHERE usuario_id = :avaliado",
+                                new MapSqlParameterSource("avaliado", linha.get("avaliado_id")),
+                                UUID.class)
+                        .forEach(media::refazer);
+            }
+            auditoria.registrar(
+                    usuario.id(),
+                    "ADMIN",
+                    visivel ? "avaliacao.mostrar" : "avaliacao.ocultar",
+                    "avaliacao",
+                    id,
+                    Map.of("visivel", antes),
+                    Map.of("visivel", visivel),
+                    null);
+        }
+        return jdbc.query(
+                        """
+                        SELECT a.id, a.contrato_id, a.nota, a.comentario, a.papel_autor, a.visivel, a.criado_em,
+                               ua.nome AS autor, uv.nome AS avaliado
+                          FROM avaliacao a
+                          JOIN usuario ua ON ua.id = a.autor_id
+                          JOIN usuario uv ON uv.id = a.avaliado_id
+                         WHERE a.id = :id
+                        """,
+                        new MapSqlParameterSource("id", id),
+                        (l, n) -> new NaModeracao(
+                                l.getObject("id", UUID.class),
+                                l.getObject("contrato_id", UUID.class),
+                                l.getInt("nota"),
+                                l.getString("comentario"),
+                                l.getString("papel_autor"),
+                                l.getString("autor"),
+                                l.getString("avaliado"),
+                                l.getBoolean("visivel"),
+                                l.getObject("criado_em", OffsetDateTime.class).toInstant()))
+                .get(0);
     }
 }

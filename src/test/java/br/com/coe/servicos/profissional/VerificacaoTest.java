@@ -84,7 +84,25 @@ class VerificacaoTest extends IntegracaoTest {
         return contas.criarConfirmada(Papel.ADMIN).id();
     }
 
+    /** Para aprovar, o admin abre antes o documento e a selfie (pendência do DOM-03, fechada no DOM-11). */
     private ResultActions decidir(UUID admin, UUID profissional, String acao, String json) throws Exception {
+        if ("aprovar".equals(acao)) {
+            verDocumentos(admin, profissional);
+        }
+        return decidirSemVer(admin, profissional, acao, json);
+    }
+
+    private void verDocumentos(UUID admin, UUID profissional) throws Exception {
+        for (UUID documento : jdbc.queryForList(
+                "SELECT id FROM documento_verificacao WHERE profissional_id = ? AND tipo <> 'certificado_nr10'",
+                UUID.class,
+                profissional)) {
+            mockMvc.perform(get(BASE + "/" + profissional + "/documentos/" + documento + "/url")
+                    .header("Authorization", bearer(admin, Papel.ADMIN)));
+        }
+    }
+
+    private ResultActions decidirSemVer(UUID admin, UUID profissional, String acao, String json) throws Exception {
         return mockMvc.perform(post(BASE + "/" + profissional + "/" + acao)
                 .header("Authorization", bearer(admin, Papel.ADMIN))
                 .contentType(MediaType.APPLICATION_JSON)
@@ -466,5 +484,65 @@ segunda linha"}""").andExpect(status().isBadRequest());
 
         assertThat(nr10De(enviado.profissional())).isEqualTo("nao_tem");
         decidir(admin, enviado.profissional(), "aprovar", TODOS_OS_ITENS).andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("aprovar sem ter aberto o documento e a selfie: 422 documentos-nao-vistos (pendência do DOM-03)")
+    void aprovarSemVerDocumentos() throws Exception {
+        Enviado enviado = enviado();
+        UUID admin = admin();
+        decidirSemVer(admin, enviado.profissional(), "aprovar", TODOS_OS_ITENS)
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:documentos-nao-vistos"));
+        // outro admin ter aberto não vale: quem aprova precisa ter visto
+        verDocumentos(admin(), enviado.profissional());
+        decidirSemVer(admin, enviado.profissional(), "aprovar", TODOS_OS_ITENS)
+                .andExpect(status().isUnprocessableEntity());
+        assertThat(statusDe(enviado.profissional())).isEqualTo("em_analise");
+        decidir(admin, enviado.profissional(), "aprovar", TODOS_OS_ITENS).andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("conta suspensa enquanto o cadastro espera: aprovar dá 409 conta-indisponivel (pendência do DOM-03)")
+    void contaSuspensa() throws Exception {
+        Enviado enviado = enviado();
+        jdbc.update("UPDATE usuario SET status = 'suspenso', motivo_status = 'Teste' WHERE id = ?", enviado.usuario());
+        decidir(admin(), enviado.profissional(), "aprovar", TODOS_OS_ITENS)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:conta-indisponivel"));
+        assertThat(statusDe(enviado.profissional())).isEqualTo("em_analise");
+    }
+
+    @Test
+    @DisplayName("dois admins aprovando ao mesmo tempo: um aprova, o outro recebe 409 (pendência do DOM-03)")
+    void corridaDeDoisAdmins() throws Exception {
+        Enviado enviado = enviado();
+        UUID primeiro = admin();
+        UUID segundo = admin();
+        verDocumentos(primeiro, enviado.profissional());
+        verDocumentos(segundo, enviado.profissional());
+        java.util.concurrent.CountDownLatch largada = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.ExecutorService fila = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            java.util.List<java.util.concurrent.Future<Integer>> respostas = new java.util.ArrayList<>();
+            for (UUID admin : List.of(primeiro, segundo)) {
+                respostas.add(fila.submit(() -> {
+                    largada.await();
+                    return decidirSemVer(admin, enviado.profissional(), "aprovar", TODOS_OS_ITENS)
+                            .andReturn()
+                            .getResponse()
+                            .getStatus();
+                }));
+            }
+            largada.countDown();
+            java.util.List<Integer> codigos = new java.util.ArrayList<>();
+            for (java.util.concurrent.Future<Integer> resposta : respostas) {
+                codigos.add(resposta.get(30, java.util.concurrent.TimeUnit.SECONDS));
+            }
+            assertThat(codigos).containsExactlyInAnyOrder(200, 409);
+        } finally {
+            fila.shutdownNow();
+        }
+        assertThat(statusDe(enviado.profissional())).isEqualTo("ativo");
     }
 }
