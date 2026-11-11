@@ -23,6 +23,12 @@ A COE é um marketplace de serviços por diária: o cliente paga antes, o dinhei
 | Falta do profissional | Reembolso integral da diária; cliente decide sobre as outras; falta registrada; inativação manual e reversível | RN44a–RN44e, PA07 |
 | Retenção LGPD | CPF e Pix de quem excluiu a conta: 5 anos (confirmado com o contador), depois expurgo | RN60, RNF16 |
 | Parâmetros | Todos na tabela `configuracao`, nunca fixos no código | RN31, RN38, RN44, RN49, RN52 |
+| Gateway e custódia | Asaas em **conta única** da COE (sem subcontas): o cliente paga na conta da COE e a COE repassa por Pix na liberação de cada diária (11/11) | PA02, RN34a–RN34f |
+| Cancelamento pelo cliente | Até 24 h antes do dia: reembolso integral; com menos de 24 h não cancela (reclama no dia) (11/11) | PA09, RN29a |
+| Meia diária | Até 4 horas, com o preço que o profissional define; conta como um dia na LC 150 (11/11) | PA10, RN26 |
+| Profissional suspenso | Diárias futuras pagas e não iniciadas: reembolso integral automático; as outras seguem o fluxo (11/11) | RN44f |
+| SMS em produção | AWS SNS (End User Messaging), transacional (11/11) | PA17 |
+| Domínio | `coeservicos.com.br`, site e API no mesmo domínio (11/11) | PA18 |
 
 
 ## Visão geral
@@ -82,7 +88,9 @@ São 61 regras em 11 grupos. Toda regra que mexe com dinheiro, status ou contato
 - **RN12** A verificação confere: CPF válido e no nome da pessoa, documento legível e válido, selfie igual ao documento, fotos de trabalhos reais e texto sem contato. Eletricista com certificado de NR-10 tem esse item a mais.
 - **RN13** O admin só aprova com todos os itens conferidos. Pode também pedir correção ou recusar; o profissional é avisado por SMS com o motivo.
 - **RN14** Eletricista com NR-10 aprovado recebe o selo "NR-10 conferido" no perfil.
-- **RN15** A chave Pix precisa estar no nome e CPF do profissional e é conferida antes do primeiro repasse.
+- **RN15** A chave Pix precisa estar no nome e CPF do profissional e é conferida antes do primeiro repasse. **(11/11)** O admin marca a chave como conferida (auditado); sem isso nenhum repasse sai. Trocar a chave desfaz a conferência.
+- **RN15a (11/11)** Depois de aprovado, o profissional muda **na hora** valor da diária e da meia, dias, cidades, serviços e "Sobre" (com a censura de contato), tudo auditado; contrato já fechado não muda. **Documento ou foto nova volta para análise**: só o item novo fica pendente até o admin conferir (o perfil continua na busca com o que já foi aprovado; detalhe em "Decisões que tomei sozinho" no plano).
+- **RN15b (11/11)** O CPF é único **também no rascunho** (confirma o que já está implementado): CPF de outro cadastro recebe a mesma mensagem neutra, com auditoria e sem revelar o CPF.
 - **RN16** Documentos e selfie nunca aparecem no perfil público.
 
 ### 3. Área de atendimento
@@ -102,10 +110,11 @@ São 61 regras em 11 grupos. Toda regra que mexe com dinheiro, status ou contato
 
 - **RN24** Só cliente logado contrata. Visitante que tenta contratar vai para Entrar/Criar conta e volta ao mesmo perfil depois.
 - **RN25** O cliente escolhe dias livres no calendário (próximas 4 semanas). Dias passados, de folga ou já ocupados não podem ser escolhidos.
-- **RN26** Com meia diária disponível, o cliente escolhe o período (inteira ou meia). O profissional tem no máximo uma diária por dia, inteira ou meia: duas meias-diárias no mesmo dia não são permitidas no MVP (período manhã/tarde fica para a fase 2).
+- **RN26** Com meia diária disponível, o cliente escolhe o período (inteira ou meia). O profissional tem no máximo uma diária por dia, inteira ou meia: duas meias-diárias no mesmo dia não são permitidas no MVP (período manhã/tarde fica para a fase 2). **(11/11, PA10)** Meia diária = **até 4 horas**, com o preço que o profissional define no cadastro (respeitando o mínimo da configuração); conta como um dia na LC 150 (RN51).
 - **RN27** O pedido exige ao menos um serviço marcado ou uma descrição com 15+ caracteres. Fotos do local são opcionais (até 8).
 - **RN28** Material: "já tenho", "vou comprar" ou "combino pelo chat". O material é sempre do cliente.
 - **RN29** Endereço: um salvo na conta ou outro informado por CEP + número. O profissional só vê o endereço completo depois do pagamento; antes, só a cidade.
+- **RN29a (11/11, PA09)** O cliente cancela uma diária paga **até 24 h antes do início do dia dela** (00:00 do dia no fuso de negócio, São Paulo), com **reembolso integral** (o que pagou por ela: diária + comissão quando a taxa é do cliente, RN34). Com menos de 24 h não cancela; no dia, pode reclamar (RN41). Cancelar não mexe nas outras diárias do contrato.
 
 ### 6. Pagamento e comissão
 
@@ -114,6 +123,12 @@ São 61 regras em 11 grupos. Toda regra que mexe com dinheiro, status ou contato
 - **RN32** O contrato nasce aguardando pagamento e só vira **pago** (diárias pagas, contato liberado) quando o gateway confirma o pagamento por webhook, nunca pelo clique do cliente. Sem confirmação no prazo, o contrato expira e as diárias são canceladas.
 - **RN33** Toda movimentação vira uma linha no livro-caixa (recebido, retido, liberado, reembolsado, comissão). O saldo é calculado, nunca editado.
 - **RN34** A comissão só vira receita da COE quando a diária é liberada. Em reembolso, o cliente recebe exatamente o que pagou por aquela diária: diária + comissão quando a taxa é do cliente; só a diária quando a taxa é do profissional.
+- **RN34a (11/11, PA02)** **Conta única**: o dinheiro entra na conta Asaas da COE (uma cobrança por contrato, Pix ou cartão, `externalReference` = id do contrato). Na liberação de cada diária, a COE transfere por **Pix** o repasse (da `CalculadoraDiaria`) para a chave do profissional, decifrada só na hora do envio e nunca em log. Um repasse por diária (`externalReference` = id da diária), com status pendente, enviado, confirmado ou falhou, atualizado pelo webhook de transferência. Falha (chave inválida, titular diferente) = alerta no painel do admin e nova tentativa manual, auditada. Os termos de uso dizem que a COE recebe em nome do profissional e repassa.
+- **RN34b (11/11)** Reembolso de uma diária = **estorno parcial** da cobrança do contrato no valor exato do que o cliente pagou por ela, um por diária.
+- **RN34c (11/11)** **Dinheiro recebido sem pedido pendente** (pedido já pago, expirado ou cancelado, valor diferente): **estorno integral**, nunca reativa o pedido; fica como "a devolver" no livro-caixa até o estorno ser confirmado.
+- **RN34d (11/11)** As **taxas do Asaas** (Pix, cartão, transferência) ficam na `configuracao` e entram no livro-caixa como despesa da COE; nunca são descontadas do profissional sem regra decidida.
+- **RN34e (11/11)** **Conciliação diária**: o saldo da conta Asaas é comparado com o livro-caixa (custódia + a repassar + receita, mais o que estiver a devolver ou a estornar, menos as taxas); diferença = alerta no painel do admin e auditoria.
+- **RN34f (11/11)** O profissional **não vê comissão nem total pago pelo cliente**: só o repasse dele (diária a diária e no "Dinheiro").
 
 ### 7. Execução, aprovação e liberação
 
@@ -152,6 +167,8 @@ A reclamação pode ser aberta com a diária paga, em andamento ou aguardando ap
 - **RN44c** Toda falta confirmada é registrada numa tabela só de inserção (`ocorrencia_profissional`), que fica retida mesmo se a conta for excluída.
 - **RN44d** O painel do admin mostra as faltas de cada profissional, com histórico, e alerta a partir de 2 faltas em 90 dias (parâmetros `FALTAS_ALERTA` e `FALTAS_JANELA_DIAS`).
 - **RN44e** A inativação do profissional é decisão **manual** do admin, nunca automática: status `suspenso` com motivo, auditado. O cadastro **continua inteiro** e pode ser **reativado** pelo admin, também auditado. A mesma pessoa (mesmo CPF, `cpf_hash`) não cria outro cadastro de profissional: se voltar, volta pelo mesmo.
+- **RN44f (11/11)** Ao suspender o profissional: as diárias **futuras pagas e ainda não iniciadas** (`paga`) recebem **reembolso integral automático** ao cliente pelo livro-caixa, com aviso ao cliente; diária em andamento ou aguardando aprovação segue o fluxo normal (aprovação ou liberação em 12 h); contestada segue a disputa.
+- **RN44g (11/11)** Ações do admin: **mudar a configuração exige código SMS na hora** (reautenticação, como a Equipe); suspender conta **não** pede SMS, mas exige motivo e auditoria. **Reativar uma conta zera a contagem de tentativas de contato** (RN49); a contagem anterior fica na auditoria.
 
 ### 9. Contato e censura
 
@@ -176,7 +193,7 @@ A reclamação pode ser aberta com a diária paga, em andamento ou aguardando ap
 - **RN57** Fotos novas do portfólio passam por conferência antes de aparecer.
 - **RN58** Um login serve para cliente e profissional. Entra-se com celular **ou** e-mail + senha.
 - **RN59** Toda ação do admin gera registro de auditoria (quem, quando, o quê, antes e depois).
-- **RN60** O cliente pode baixar seus dados e pedir exclusão da conta; contratos em andamento precisam terminar antes. A exclusão é por **anonimização** (a conta nunca é apagada): nome, celular, e-mail e senha são removidos. Do profissional, CPF, chave Pix e data de nascimento ficam retidos por **5 anos** (dados financeiros e fiscais; prazo confirmado com o contador). Depois disso, um job de expurgo apaga CPF, chave Pix e data de nascimento; o `cpf_hash` só é mantido para quem estiver inativado (`suspenso`), para que a mesma pessoa não crie outro cadastro. Voltar a trabalhar depois de excluir a conta: **A DEFINIR** (reativação); enquanto isso, o mesmo CPF não cria novo cadastro.
+- **RN60** O cliente pode baixar seus dados e pedir exclusão da conta; contratos em andamento precisam terminar antes. A exclusão é por **anonimização** (a conta nunca é apagada): nome, celular, e-mail e senha são removidos. Do profissional, CPF, chave Pix e data de nascimento ficam retidos por **5 anos** (dados financeiros e fiscais; prazo confirmado com o contador). Depois disso, um job de expurgo apaga CPF, chave Pix e data de nascimento; o `cpf_hash` só é mantido para quem estiver inativado (`suspenso`), para que a mesma pessoa não crie outro cadastro. Voltar a trabalhar depois de excluir a conta: **decidido (11/11)**: só pelo admin, manual e auditado (a pessoa pede ao suporte); o mesmo CPF continua sem criar novo cadastro.
 - **RN61** Celular ou e-mail **não confirmado não fica reservado**. Se o dono verdadeiro confirmar o dado (código por SMS ou link por e-mail) em outra conta, o dado passa para a conta dele; a conta que o tinha perde esse dado e precisa cadastrar e confirmar outro antes de voltar a usar o app. Como o login aceita celular ou e-mail (RN58), quem perdeu um deles continua entrando pelo outro. **Fluxo (CORE-04, dia 7b):** no cadastro, contato de outra conta responde sempre o mesmo "Esse contato já está em uso. Se ele for seu, confirme que é seu para usar nesta conta." (confirmado ou não, para não revelar o estado do contato), e o app oferece provar a posse; quem prova a posse (código por SMS ou link por e-mail) recebe um comprovante de 30 min e cria a conta já com o dado confirmado; a conta antiga perde o dado (e o MFA, se perder o celular), tem as sessões encerradas e fica limitada até cadastrar e confirmar outro contato (só entrar, ver a conta, cadastrar e confirmar contato e, a partir do DOM-08, terminar diárias já pagas). Dado confirmado nunca é tomado. Se a conta antiga ficaria sem nenhum contato, a transferência é recusada e vai para o suporte (a decidir antes do lançamento: anonimizar automaticamente conta sem histórico financeiro). Conta da equipe (ADMIN) nunca perde contato por esta regra. Pelo mesmo motivo da RN61, o link de recuperação de senha só vai para e-mail confirmado (RF01).
 
 
@@ -325,18 +342,20 @@ São 58 requisitos em 7 módulos, cada um ligado às regras que implementa. Prio
 | # | Decisão | Opções | Situação / impacto |
 | --- | --- | --- | --- |
 | PA01 | Banco de dados | MySQL ou PostgreSQL | **Decidido: PostgreSQL 16 + Flyway** |
-| PA02 | Gateway de pagamento com custódia e split | Asaas, Pagar.me, Iugu ou Mercado Pago | **Decidido (23/10): Asaas.** Modalidade de custódia **A DEFINIR** com o comercial do Asaas (sugestão: Conta Escrow, com uma cobrança por diária, para liberar ou reembolsar dia a dia). Até o AWS-09, adaptador falso atrás de `GatewayPagamento`, com nomes, estados e webhooks no formato do Asaas (a troca é só de adaptador). Ação: abrir o sandbox do Asaas **até o dia 40** |
+| PA02 | Gateway de pagamento com custódia e split | Asaas, Pagar.me, Iugu ou Mercado Pago | **Decidido (23/10): Asaas. Modalidade decidida (11/11): conta ÚNICA**, sem subcontas: o cliente paga na conta da COE e a COE repassa ao profissional por Pix na liberação de cada diária (RN34a–RN34e). **Antes de operar:** validar o modelo com o contador; termos de uso dizendo que a COE recebe em nome do profissional e repassa. **Protótipo:** conta Asaas no **CPF do Lucas** (sandbox agora; produção depois, ainda no CPF); passar para o **CNPJ** da COE é só troca de credenciais e configuração, sem código: **pendência obrigatória antes de operar com clientes reais**. Tudo atrás de `GatewayPagamento` (adaptador falso até o AWS-09), para a migração futura a subcontas/BaaS (evolução, sem prazo) trocar só o adaptador. Taxas do Asaas na `configuracao` (R$ 0,00 até confirmar com o comercial) |
 | PA03 | Autenticação | JWT ou sessão com cookie | **Decidido: JWT.** token de acesso de **15 min** (HS256, chave com `kid` no Secrets Manager), guardado **só na memória** do front e enviado no header `Authorization`; dentro dele só o id do usuário, os papéis, emissão, expiração e um id único (nada de celular, CPF ou nome). Refresh token de **30 dias**, renovado a cada uso, em cookie **HttpOnly/Secure/SameSite=Strict** enviado só ao endpoint de renovação, guardado como **hash** no banco; revogado no logout, na troca de senha e quando o admin inativa a conta; refresh reutilizado (sinal de roubo) revoga todos os tokens daquele login. **Uma sessão por aparelho**, com "sair de todos os aparelhos". **MFA**: obrigatório para o **ADMIN**; opcional para cliente e profissional (quem quiser liga o segundo passo com código por SMS). O login padrão é celular **ou** e-mail + senha. Entrar só com código por SMS continua como alternativa à senha (RF01). A confirmação do celular (RN08) é outra coisa: obrigatória para o profissional, opcional para o cliente. Comissão com teto de 30% (CHECK na V12). **Teto absoluto da sessão: 90 dias desde o login** (depois disso, senha de novo), validado na renovação; o refresh renovado nunca passa desse teto. **Reuso de refresh revoga só a família daquele aparelho** (uma família = um login = um aparelho), com registro no log; o aviso por e-mail ao usuário fica para quando houver envio de e-mail (DOM-11). As tabelas `spring_session*` da V2 saem na V12 |
 | PA04 | Front final | HTML puro ou React | **Decidido: React + TypeScript + Vite**, seguindo as telas do protótipo HTML aprovado |
 | PA05 | Quem paga a comissão de 10% | Cliente (somada) ou profissional (descontada) | **Decidido: cliente** (somada ao total). Valor padrão da `configuracao` confirmado |
 | PA06 | Reembolso de diária | Devolve só a diária ou também a comissão | **Decidido:** devolve o que o cliente pagou pela diária (RN34) |
 | PA07 | Profissional falta | Cancela só o dia ou todas as diárias futuras do contrato | **Decidido** (RN44a–RN44e): reembolso integral da diária da falta; o cliente escolhe manter ou cancelar as outras; falta registrada; inativação manual e reversível |
 | PA08 | Marco inicial das 12 h | Envio da foto do fim do dia ou horário fixo (ex.: 20 h) | **Decidido:** a partir do "Terminei o dia" (`terminou_em`) |
-| PA09 | Política de cancelamento pelo cliente | Prazos e percentual devolvido | **A DEFINIR**. Sem regra, nenhum reembolso por cancelamento é implementado |
-| PA10 | Meia diária | Até 4 h, preço livre ou metade da diária | **Decidido em parte:** uma diária por profissional por dia (RN26) e meia conta como dia na LC 150 (RN51); duração e preço em aberto |
+| PA09 | Política de cancelamento pelo cliente | Prazos e percentual devolvido | **Decidido (11/11):** até 24 h antes do dia (fuso de negócio), reembolso integral (diária + comissão); com menos de 24 h não cancela e pode reclamar no dia (RN29a) |
+| PA10 | Meia diária | Até 4 h, preço livre ou metade da diária | **Decidido (11/11):** até 4 horas, com o preço que o profissional define no cadastro; uma diária por profissional por dia (RN26); meia conta como dia na LC 150 (RN51) |
 | PA11 | Substituição de profissional | Equipe COE indica outro ou só reembolso | **A DEFINIR** (planos recorrentes, fase 2) |
 | PA12 | Uma conta com dois perfis | Mesmo login ou contas separadas | Mesmo login com dois papéis (RN58) |
 | PA13 | Censura: CEP marcado como telefone | Liberar o padrão 00000-000 ou pedir CEP só em campo próprio | **Decidido:** o formato de CEP passa (`00000-000` ou 8 dígitos precedidos de "CEP"); telefone continua bloqueado |
 | PA14 | Leitura de texto em fotos (OCR) | MVP, fase 2 ou não fazer | **A DEFINIR** |
 | PA15 | Selo NR-10 do eletricista | Conferência manual ou integração | Conferência manual no MVP (RN12, RN14) |
 | PA16 | Cidades do lançamento e geolocalização | Lista inicial do Vale do Itajaí; raio por CEP ou coordenadas | Lista do Vale do Itajaí em migração versionada; raio por coordenadas da cidade (Haversine). Conferir códigos IBGE |
+| PA17 | Provedor de SMS em produção | AWS SNS, Twilio, Zenvia | **Decidido (11/11): AWS SNS (AWS End User Messaging)**, região `sa-east-1` se houver SMS lá, tipo **transacional**; custo de referência ~US$ 0,03 por SMS para o Brasil (conferir na AWS). Adaptador real atrás do `EnviadorSms` na etapa AWS (dia 49), com **limite de gasto mensal** na conta AWS e **alarme de custo**. Até lá nada muda (SMS falso no local; prod não sobe sem provedor) |
+| PA18 | Domínio de produção | — | **Decidido (11/11): `coeservicos.com.br`** (Registro.br em 11/11/2026, válido até 11/11/2028). Site em `https://coeservicos.com.br` e API em `https://coeservicos.com.br/api`; `www` redireciona (301) para o domínio sem `www`. E-mail `nao-responda@coeservicos.com.br` pelo SES (SPF, DKIM, DMARC). Opcional: registrar `coeservicos.com` e `coeservices.com.br` com 301 para o principal |
