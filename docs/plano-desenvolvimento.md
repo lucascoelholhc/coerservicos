@@ -364,12 +364,12 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 - **Livro-caixa** (`LivroCaixa`): transação só dentro de outra aberta (MANDATORY), balanceada em Java e no banco, idempotente pela chave; `saldoDeCustodia(contrato)` pelas transações do contrato.
 - **Contato**: `GET /api/contratos/{id}` traz `contato {nome, celular}` do outro lado só depois do pagamento.
 - **Decisões tomadas sozinho** (como desfazer):
-  - **Uma cobrança por contrato** (não por diária, como a sugestão de Conta Escrow): o schema já é assim e a modalidade de custódia está A DEFINIR com o comercial do Asaas. Desfazer: cobrança por diária na AWS-09, se o Asaas exigir.
+  - **Uma cobrança por contrato** (não por diária, como a sugestão de Conta Escrow): o schema já é assim. **Confirmado em 11/11 (PA02, conta única)**, com `externalReference` = id do contrato.
   - **Pix e cartão podem ficar pendentes juntos**; o primeiro confirmado vence e expira o outro.
   - **Dinheiro recebido sem pedido pendente** (pedido já pago ou expirado, valor divergente, cobrança desconhecida): **sem regra de dinheiro** (A DEFINIR: devolver ou reativar); fica no `evento_gateway.erro` e na auditoria (`pagamento.sem-contrato-pendente`, `valor-divergente`, `cobranca-desconhecida`), sem lançamento no livro-caixa.
   - **Expiração** marca as cobranças pendentes como `expirada` (cancelar no Asaas fica para o adaptador real).
 - **Revisões** (java, security, database): sem CRITICAL. HIGH corrigido: limite do webhook por IP antes do global (sem token não esgota o teto do gateway). Aceito para a AWS-09: chamada ao gateway dentro da trava do contrato (com o real, criar fora da trava com `externalReference` = id da cobrança e reconciliar as órfãs). MEDIUMs corrigidos: NUL no JSON, inválido sem payload, outra cobrança expira, auditorias, erro se a chave do livro-caixa repetir depois do pago.
-- **Ficou:** lançamento "a devolver" e fluxo de devolução do dinheiro sem pedido (A DEFINIR); lista de IPs do Asaas e expurgo dos eventos inválidos (AWS-09); custódia nunca negativa com liberações concorrentes e liberação de um contrato sem usar dinheiro de outro: com a liberação (DOM-08); teste de dois webhooks iguais ao mesmo tempo; o `type` do 400 de evento ilegível sai `requisicao-invalida` (o `TratadorDeErros` traduz o `ErrorResponseException`).
+- **Ficou:** lançamento "a devolver" e fluxo de devolução do dinheiro sem pedido (decidido em 11/11: estorno integral, RN34c; entra na `feat/PA02-conta-unica`); lista de IPs do Asaas e expurgo dos eventos inválidos (AWS-09); custódia nunca negativa com liberações concorrentes e liberação de um contrato sem usar dinheiro de outro: com a liberação (DOM-08); teste de dois webhooks iguais ao mesmo tempo; o `type` do 400 de evento ilegível sai `requisicao-invalida` (o `TratadorDeErros` traduz o `ErrorResponseException`).
 
 **DOM-08 (dias 30–32, feito em 24/10): decisões e pendências (conferir)**
 - **Máquina de estados** (`contrato.StatusDiaria`, RN40): as transições do diagrama e nenhuma outra (422 `transicao-invalida`), 100% de cobertura; liberada, reembolsada e cancelada são finais.
@@ -377,7 +377,7 @@ Correções HIGH revisadas em 02/10, **aplicadas na V11 (DB-12)** junto com os d
 - **Liberação** (`LiberacaoDeDiaria`, RN37–RN39): na trava do contrato e da diária, D custódia o que o cliente pagou pelo dia, C conta do profissional o repasse, C receita a comissão (comissão e taxa congeladas no contrato, `CalculadoraDiaria`); confere a custódia daquele contrato (nunca usa dinheiro de outro); chave `liberacao:<diaria>`; histórico; auditoria `diaria.liberada` (repasse e comissão, sem dado pessoal). A conta do profissional no livro-caixa nasce no primeiro lançamento.
 - **Liberação automática** (`LiberacaoAutomatica`, RN38/PA08): a cada `coe.contrato.liberacao` (1 min; 24 h nos testes), diárias aguardando com o prazo vencido, uma por transação, status reconferido dentro da trava; ShedLock 7.10.1 (V20 `shedlock`, horário do banco). Testes: aprovação e job ao mesmo tempo e duas instâncias = uma liberação só.
 - **Decisões tomadas sozinho** (como desfazer):
-  - **Repasse por Pix ao profissional não implementado**: o envio depende da modalidade de custódia no Asaas (A DEFINIR); a liberação fica no livro-caixa (conta do profissional) e o repasse entra com o adaptador real. Desfazer: o fluxo da tabela `repasse` (V6) na AWS-09.
+  - **Repasse por Pix ao profissional não implementado**: a modalidade foi decidida em 11/11 (conta única, RN34a) e o repasse entra na `feat/PA02-conta-unica`; a liberação fica no livro-caixa (conta do profissional) e o repasse entra com o adaptador real. Desfazer: o fluxo da tabela `repasse` (V6) na AWS-09.
   - **Cheguei só no dia da diária** (RN35 "no dia"); terminar pode ser depois (atraso).
   - **Fotos uma por pedido** (`POST /api/diarias/fotos`) por causa do teto de 11 MB do multipart; o recado fica na última foto (`evidencia_diaria.observacao`).
   - **Diária que falha na liberação automática** sai da fila daquela instância por 1 h (um log de erro só).
@@ -632,7 +632,7 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 | Postgres local | RDS for PostgreSQL 16, subnet privada, backup automático |
 | S3 local (CORE-09) | S3 privado com URL assinada |
 | `.env` | Secrets Manager + KMS |
-| Mailpit / SMS falso | Amazon SES + provedor de SMS |
+| Mailpit / SMS falso | Amazon SES + AWS SNS (PA17) |
 | Logs no terminal | CloudWatch Logs e alarmes |
 | `localhost` | Route 53 + certificado ACM (HTTPS) |
 | Build na máquina | GitHub Actions → ECR, acesso à AWS por OIDC |
@@ -642,12 +642,12 @@ O React reproduz as telas do protótipo "Dia carimbado" com dados reais. Como a 
 | AWS-01 | Conta e acesso | MFA no root, IAM Identity Center, alerta de orçamento |
 | AWS-02 | Rede | VPC com subnets públicas (ALB) e privadas (app e banco) |
 | AWS-03 | Banco | RDS; Flyway na subida; teste de restaurar backup |
-| AWS-04 | Arquivos e segredos | S3, Secrets Manager, KMS |
-| AWS-05 | Aplicação | ECR, ECS, ALB com health check |
+| AWS-04 | Arquivos e segredos | S3, Secrets Manager, KMS; host https do bucket de produção em `COE_ORIGEM_DAS_IMAGENS` (vira o `img-src` da CSP do prod) |
+| AWS-05 | Aplicação | ECR, ECS, ALB com health check; **adaptador real do `EnviadorSms` pelo AWS SNS** (PA17: End User Messaging, `sa-east-1` se houver SMS lá, tipo transacional), com limite de gasto mensal de SMS na conta e alarme de custo |
 | AWS-06 | Pipeline | Testes → imagem → homologação; produção com aprovação manual |
-| AWS-07 | Domínio e HTTPS | Domínio, ACM, redirecionamento para HTTPS |
-| AWS-08 | Observabilidade | Logs, métricas, alarmes (5xx, disputas, job de liberação parado) |
-| AWS-09 | Gateway real | Adaptador do Asaas (PA02) no sandbox |
+| AWS-07 | Domínio e HTTPS | `coeservicos.com.br` (PA18): zona no Route 53, certificado ACM para `coeservicos.com.br` e `www`, `www` → 301 para sem `www`, HTTP → HTTPS; troca dos servidores DNS no Registro.br (**tarefa do Lucas**, passo a passo abaixo); SES com SPF, DKIM e DMARC para `nao-responda@coeservicos.com.br`; HSTS no prod e decisão de `includeSubDomains`/`preload` |
+| AWS-08 | Observabilidade | Logs, métricas, alarmes (5xx, disputas, job de liberação parado, repasse falho, conciliação divergente, gasto de SMS) |
+| AWS-09 | Gateway real | Adaptador do Asaas (PA02, **conta única**) no sandbox da conta no CPF do Lucas: cobrança por contrato, transferência Pix do repasse, estorno parcial e integral, saldo para a conciliação, webhooks de pagamento, transferência e estorno; IPs do Asaas. Só o adaptador muda (as regras já estão no backend com o falso) |
 | AWS-10 | Produção | Mesma infra com outras variáveis; aceite repetido em homologação; **rodar o bootstrap do primeiro admin e conferir o login com SMS** (DOM-11) |
 
 Tudo em código (Terraform ou AWS CDK), nada configurado à mão no console.
@@ -659,13 +659,47 @@ Tudo em código (Terraform ou AWS CDK), nada configurado à mão no console.
 ## 10. Decisões que travam tarefas
 | Ponto | Precisa estar decidido antes de | Proposta |
 |---|---|---|
-| PA02 Gateway | Dia 52 (AWS-09) | **Asaas (decidido em 23/10).** Falta: **abrir o sandbox até o dia 40** (para o AWS-09 ter conta e credenciais de teste) e combinar com o comercial a modalidade de custódia (sugestão: Conta Escrow, uma cobrança por diária) |
+| PA02 Gateway | Dia 52 (AWS-09) | **Asaas, conta única (decidido em 23/10 e 11/11).** Falta: sandbox na conta do CPF do Lucas (para o AWS-09); taxas reais do comercial (hoje R$ 0,00 na configuração); validar com o contador; termos de uso; **passar a conta para o CNPJ antes de operar com clientes reais** (só credenciais e configuração) |
 
-Já decididos: PA01 (PostgreSQL), PA02 (Asaas; custódia a combinar com o comercial), PA03 (JWT de 15 min + refresh de 30 dias em cookie HttpOnly, uma sessão por aparelho, MFA opcional), PA04 (React), PA05 (comissão paga pelo cliente), PA06 (reembolso = o que o cliente pagou), PA07 (falta do profissional, RN44a–RN44e), PA08 (12 h a partir do "Terminei o dia"), PA13 (CEP passa na censura), LC 150 em janela de 7 dias (confirmada com o advogado), uma diária por profissional por dia, idade mínima de 18 anos, retenção LGPD de 5 anos.
+Já decididos: PA01 (PostgreSQL), PA02 (Asaas em conta única, 11/11), PA09 (cancelamento até 24 h antes, 11/11), PA10 (meia diária até 4 h, 11/11), PA17 (SMS pelo AWS SNS, 11/11), PA18 (domínio `coeservicos.com.br`, 11/11), PA03 (JWT de 15 min + refresh de 30 dias em cookie HttpOnly, uma sessão por aparelho, MFA opcional), PA04 (React), PA05 (comissão paga pelo cliente), PA06 (reembolso = o que o cliente pagou), PA07 (falta do profissional, RN44a–RN44e), PA08 (12 h a partir do "Terminei o dia"), PA13 (CEP passa na censura), LC 150 em janela de 7 dias (confirmada com o advogado), uma diária por profissional por dia, idade mínima de 18 anos, retenção LGPD de 5 anos.
 
 ### Tarefas futuras registradas
 - **Expurgo LGPD** (job agendado, idempotente, com log): 5 anos após a exclusão da conta, apaga CPF, chave Pix e data de nascimento; mantém o `cpf_hash` só de quem estiver inativado (`suspenso`). Precisa de migração nova: hoje o `ck_profissional_completo` exige esses campos fora do rascunho.
-- **Reativação após exclusão de conta**: **A DEFINIR**. Enquanto isso, o mesmo CPF não cria novo cadastro.
+- **Reativação após exclusão de conta** (decidido em 11/11): só pelo admin, manual e auditada; entra junto da exclusão de conta (RN60). O mesmo CPF continua sem criar novo cadastro.
+- **Subcontas/BaaS no Asaas** (evolução do PA02, sem prazo): quando a COE crescer; troca só o adaptador atrás de `GatewayPagamento`.
+- **Domínios extras** (opcional, PA18): `coeservicos.com` e `coeservices.com.br` com 301 para `coeservicos.com.br`.
+
+### Decisões de 11/11: onde cada uma entra
+Registradas em `regras-negocio.md` (PA02, PA09, PA10, PA17, PA18, RN15a/b, RN26, RN29a, RN34a–f, RN44f/g, RN60). O código entra na ordem das tarefas, com TDD, revisões e PR; o plano detalhado de cada bloco é montado com o Lucas antes de codar.
+
+| Decisão | Onde entra | Observação |
+|---|---|---|
+| PA02 conta única: repasse Pix com conferência da chave (RN15, RN34a), estorno parcial (RN34b), dinheiro sem pedido "a devolver" (RN34c), taxas como despesa (RN34d), conciliação diária (RN34e) | Branch própria `feat/PA02-conta-unica`, depois do DOM-11 parte 2b (o financeiro do admin mostra os alertas) | Migração nova (contas `a_devolver` e `despesa_coe`, conferência da chave, devolução, alertas); só o adaptador falso; o real no AWS-09 |
+| Profissional suspenso: reembolso automático das diárias `paga` (RN44f) | DOM-11 parte 2b (ou junto do PA02, se o estorno vier antes) | Usa o `ReembolsoDeDiaria`; aviso ao cliente pela notificação |
+| Código SMS para mudar a configuração; reativar zera tentativas (RN44g) | DOM-11 parte 2b | Hoje a configuração não pede código e a reativação não zera |
+| Cancelamento pelo cliente até 24 h antes (RN29a, PA09) | Backend junto do FE-05 (reclamar e avaliar), API antes da tela | Nova transição `paga → reembolsada` pelo cliente, com o prazo pelo `Clock` |
+| Perfil editável depois de aprovado (RN15a) | Backend + "Meu perfil" do FE-06 (hoje só leitura), antes do FE-08 | Documento/foto nova pendente até o admin conferir |
+| Profissional não vê comissão nem total (RN34f) | **Correção** no próximo PR que mexer em contrato | Hoje o `GET /api/contratos/{id}` manda `valorComissao` e `valorTotal` também ao profissional |
+| Meia diária até 4 h (PA10) | Textos do front (contratar, perfil, cadastro) no FE-08 | Regra de preço já é a do cadastro |
+| SMS pelo AWS SNS (PA17) | AWS-05 (dia 49) | Limite de gasto e alarme na conta |
+| Domínio (PA18) | AWS-07 (dia 51) | Passo a passo abaixo |
+| CPF único no rascunho (RN15b) | Já implementado (DOM-02) | Só confirmado |
+
+**Decisões que tomei sozinho (11/11)** (como desfazer entre parênteses):
+- Cancelamento: o prazo de 24 h conta até **00:00 do dia da diária** no fuso de São Paulo, não até o horário de começo (a diária não tem hora marcada). (Trocar o marco no serviço quando houver horário.)
+- Cancelar uma diária não mexe nas outras do mesmo contrato. (O cliente cancela uma a uma.)
+- Documento ou foto nova depois de aprovado: **só o item novo** fica pendente; o perfil continua na busca com o que já foi aprovado (foto nova não aparece até ser conferida, como a RN57; documento novo não troca o antigo até ser conferido). (Alternativa mais rígida: o perfil inteiro volta para `em_analise`.)
+- Taxas do Asaas com R$ 0,00 até o comercial confirmar (escolha do Lucas).
+- Dinheiro de **cobrança desconhecida** (id que a COE não conhece): só alerta, sem estorno automático (pode não ser dinheiro de pedido da COE). (Estornar pelo id do pagamento, se o Lucas preferir.)
+
+**Passo a passo do domínio (AWS-07, tarefa do Lucas no Registro.br):**
+1. Depois que a zona `coeservicos.com.br` existir no Route 53 (pelo Terraform/CDK), copiar os 4 servidores de nome (NS) que a AWS mostra.
+2. No painel do Registro.br: domínio `coeservicos.com.br` → "Alterar servidores DNS" → colar os 4 NS da AWS → salvar.
+3. Esperar a troca (até 24–48 h; o Registro.br mostra quando publicou) e conferir com `nslookup -type=NS coeservicos.com.br`.
+4. Só então validar o certificado do ACM (registros CNAME criados pela infra) e os registros do SES (SPF, DKIM, DMARC).
+5. Nada de criar registros à mão no painel do Registro.br: depois da troca, tudo fica no Route 53, em código.
+
+**Perfil prod (AWS-07/AWS-10):** `coe.seguranca.origens-permitidas = https://coeservicos.com.br`, `COE_FRONT_URL_BASE = https://coeservicos.com.br`, `COE_EMAIL_REMETENTE = nao-responda@coeservicos.com.br`. Sem mudança de código: são variáveis do ambiente.
 
 ## 11. Cronograma dia a dia
 Cada dia começa com `/resume-session` e termina com commit, `/save-session` e "Status atual" do CLAUDE.md atualizado. Os dias 11, 22 e 44 são de revisão e servem de folga se o cronograma atrasar. Sem uma decisão necessária, marque o dia como travado e adiante o seguinte.
