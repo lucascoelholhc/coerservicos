@@ -181,6 +181,11 @@ class Profissional implements Persistable<UUID> {
     }
 
     /** Rascunho e correção pedida podem ser editados; em análise, ativo e afins, não. */
+    /** Já passou pela verificação e está na busca ou pausado (RN15a: o perfil muda na hora). */
+    boolean aprovado() {
+        return ATIVO.equals(status) || "pausado".equals(status);
+    }
+
     boolean editavel() {
         return RASCUNHO.equals(status) || CORRECAO_PEDIDA.equals(status);
     }
