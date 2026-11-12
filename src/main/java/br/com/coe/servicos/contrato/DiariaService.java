@@ -23,6 +23,7 @@ import br.com.coe.servicos.compartilhado.armazenamento.ValidadorDeImagem;
 import br.com.coe.servicos.compartilhado.censura.CensuraDeContato;
 import br.com.coe.servicos.compartilhado.erro.RecursoNaoEncontradoException;
 import br.com.coe.servicos.compartilhado.erro.RegraDeNegocioException;
+import br.com.coe.servicos.compartilhado.notificacao.Avisos;
 import br.com.coe.servicos.compartilhado.seguranca.UsuarioAutenticado;
 import br.com.coe.servicos.config.ConfiguracaoNegocio;
 
@@ -45,6 +46,7 @@ class DiariaService {
     private final ValidadorDeImagem validador;
     private final Armazenamento armazenamento;
     private final LiberacaoDeDiaria liberacao;
+    private final Avisos avisos;
     private final java.time.Duration validadeDaUrl;
     private final Clock clock;
 
@@ -56,6 +58,7 @@ class DiariaService {
             ValidadorDeImagem validador,
             Armazenamento armazenamento,
             LiberacaoDeDiaria liberacao,
+            Avisos avisos,
             br.com.coe.servicos.compartilhado.armazenamento.PropriedadesDoArmazenamento propriedades,
             Clock clock) {
         this.jdbc = jdbc;
@@ -65,6 +68,7 @@ class DiariaService {
         this.validador = validador;
         this.armazenamento = armazenamento;
         this.liberacao = liberacao;
+        this.avisos = avisos;
         this.validadeDaUrl = propriedades.validadeUrl();
         this.clock = clock;
     }
@@ -128,6 +132,7 @@ class DiariaService {
                     "UPDATE diaria SET status = 'andamento', chegou_em = :agora WHERE id = :id",
                     new MapSqlParameterSource("id", id).addValue("agora", agora));
             historico(id, diaria.status(), StatusDiaria.ANDAMENTO, agora);
+            avisos.avisarSobreDiaria(id, Avisos.Para.CLIENTE, Avisos.Aviso.CHEGUEI); // RN35
             return detalhe(id);
         });
     }
@@ -194,6 +199,7 @@ class DiariaService {
                             .addValue("agora", agora)
                             .addValue("libera", agora.plus(configuracao.autoLiberacao())));
             historico(id, diaria.status(), StatusDiaria.AGUARDANDO, agora);
+            avisos.avisarSobreDiaria(id, Avisos.Para.CLIENTE, Avisos.Aviso.TERMINEI);
             return detalhe(id);
         });
     }

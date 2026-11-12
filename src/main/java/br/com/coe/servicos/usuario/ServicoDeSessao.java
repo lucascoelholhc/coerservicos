@@ -16,6 +16,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import br.com.coe.servicos.compartilhado.auditoria.RegistroDeAuditoria;
+import br.com.coe.servicos.compartilhado.notificacao.Avisos;
 
 /**
  * Sessões por aparelho (PA03): refresh de 30 dias, renovado a cada uso; reuso depois de 30 s
@@ -50,6 +51,7 @@ class ServicoDeSessao {
     private final TransactionTemplate transacao;
     private final Clock clock;
     private final RegistroDeAuditoria auditoria;
+    private final Avisos avisos;
     private final Duration duracaoMaxima;
 
     ServicoDeSessao(
@@ -58,8 +60,10 @@ class ServicoDeSessao {
             PlatformTransactionManager transacoes,
             Clock clock,
             @Value("${coe.auth.sessao.duracao-maxima}") Duration duracaoMaxima,
-            RegistroDeAuditoria auditoria) {
+            RegistroDeAuditoria auditoria,
+            Avisos avisos) {
         this.auditoria = auditoria;
+        this.avisos = avisos;
         this.tokens = tokens;
         this.usuarios = usuarios;
         this.transacao = new TransactionTemplate(transacoes);
@@ -132,6 +136,7 @@ class ServicoDeSessao {
                     Map.of("familia", "revogada"),
                     ip);
             LOG.warn("Refresh reutilizado, sessão do aparelho revogada: {}", atual.getUsuarioId());
+            avisos.avisar(atual.getUsuarioId(), Avisos.Aviso.REUSO_DE_SESSAO, Map.of());
             return RECUSADA;
         }
         if (!agora.isBefore(atual.getSessaoIniciadaEm().plus(duracaoMaxima))) {

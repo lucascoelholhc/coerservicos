@@ -22,6 +22,7 @@ import br.com.coe.servicos.compartilhado.erro.AcaoProibidaException;
 import br.com.coe.servicos.compartilhado.erro.ConflitoException;
 import br.com.coe.servicos.compartilhado.erro.RecursoNaoEncontradoException;
 import br.com.coe.servicos.compartilhado.log.Mascara;
+import br.com.coe.servicos.compartilhado.notificacao.Avisos;
 import br.com.coe.servicos.compartilhado.seguranca.UsuarioAutenticado;
 
 /**
@@ -40,6 +41,7 @@ class AdminUsuariosService {
     private final RefreshTokenRepository sessoes;
     private final UsuarioAutenticado usuario;
     private final RegistroDeAuditoria auditoria;
+    private final Avisos avisos;
     private final Clock clock;
 
     AdminUsuariosService(
@@ -47,7 +49,9 @@ class AdminUsuariosService {
             RefreshTokenRepository sessoes,
             UsuarioAutenticado usuario,
             RegistroDeAuditoria auditoria,
+            Avisos avisos,
             Clock clock) {
+        this.avisos = avisos;
         this.jdbc = jdbc;
         this.sessoes = sessoes;
         this.usuario = usuario;
@@ -138,6 +142,7 @@ class AdminUsuariosService {
                         .addValue("motivo", pedido.motivo().strip()));
         sessoes.revogarDoUsuario(id, clock.instant(), "admin");
         auditar("conta.suspender", id, antes, "suspenso");
+        avisos.avisar(id, Avisos.Aviso.CONTA_SUSPENSA, java.util.Map.of());
         return buscar(id);
     }
 
@@ -152,6 +157,7 @@ class AdminUsuariosService {
                 "UPDATE usuario SET status = 'ativo', motivo_status = NULL WHERE id = :id",
                 new MapSqlParameterSource("id", id));
         auditar("conta.reativar", id, antes, "ativo");
+        avisos.avisar(id, Avisos.Aviso.CONTA_REATIVADA, java.util.Map.of());
         return buscar(id);
     }
 

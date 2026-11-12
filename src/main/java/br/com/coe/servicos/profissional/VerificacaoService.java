@@ -8,10 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -25,7 +22,7 @@ import br.com.coe.servicos.compartilhado.erro.AcaoProibidaException;
 import br.com.coe.servicos.compartilhado.erro.ConflitoException;
 import br.com.coe.servicos.compartilhado.erro.RecursoNaoEncontradoException;
 import br.com.coe.servicos.compartilhado.erro.RegraDeNegocioException;
-import br.com.coe.servicos.compartilhado.mensageria.MensagemPronta;
+import br.com.coe.servicos.compartilhado.notificacao.Avisos;
 import br.com.coe.servicos.compartilhado.seguranca.UsuarioAutenticado;
 
 /**
@@ -36,7 +33,6 @@ import br.com.coe.servicos.compartilhado.seguranca.UsuarioAutenticado;
 @Service
 class VerificacaoService {
 
-    private static final Logger LOG = LoggerFactory.getLogger(VerificacaoService.class);
     private static final String CADASTRO_NAO_ENCONTRADO = "Cadastro não encontrado.";
 
     private final ProfissionalRepository profissionais;
@@ -48,7 +44,7 @@ class VerificacaoService {
     private final Armazenamento armazenamento;
     private final UsuarioAutenticado usuario;
     private final RegistroDeAuditoria auditoria;
-    private final ApplicationEventPublisher eventos;
+    private final Avisos avisos;
     private final Clock clock;
     private final Duration validadeDoDocumento;
     private final Duration validadeDaFoto;
@@ -64,7 +60,7 @@ class VerificacaoService {
             Armazenamento armazenamento,
             UsuarioAutenticado usuario,
             RegistroDeAuditoria auditoria,
-            ApplicationEventPublisher eventos,
+            Avisos avisos,
             Clock clock,
             PropriedadesDoArmazenamento propriedades,
             @Value("${coe.cadastro.validade-url-documento:2m}") Duration validadeDoDocumento,
@@ -79,7 +75,7 @@ class VerificacaoService {
         this.armazenamento = armazenamento;
         this.usuario = usuario;
         this.auditoria = auditoria;
-        this.eventos = eventos;
+        this.avisos = avisos;
         this.clock = clock;
         this.validadeDoDocumento = validadeDoDocumento;
         this.validadeDaFoto = propriedades.validadeUrl();
@@ -158,7 +154,10 @@ class VerificacaoService {
         profissionais.save(p);
         contas.darPapelProfissional(p.usuarioId());
         auditar("profissional.aprovar", "profissional", p.id(), Map.of("status", p.status(), "nr10", p.nr10Status()));
-        avisar(p, "COE: seu cadastro foi aprovado! Entre no app para ver o seu perfil.");
+        avisar(
+                p,
+                Avisos.Aviso.CADASTRO_APROVADO,
+                "COE: seu cadastro foi aprovado! Entre no app para ver o seu perfil.");
         return decisao(p);
     }
 
@@ -170,7 +169,10 @@ class VerificacaoService {
         profissionais.save(p);
         // o motivo é texto livre do admin: fica na linha do profissional, não na auditoria
         auditar("profissional.pedir-correcao", "profissional", p.id(), Map.of("status", p.status()));
-        avisar(p, "COE: precisamos de uma correção no seu cadastro. " + motivo + " Entre no app para corrigir.");
+        avisar(
+                p,
+                Avisos.Aviso.CADASTRO_CORRECAO,
+                "COE: precisamos de uma correção no seu cadastro. " + motivo + " Entre no app para corrigir.");
         return decisao(p);
     }
 
@@ -181,7 +183,7 @@ class VerificacaoService {
         p.recusar(motivo);
         profissionais.save(p);
         auditar("profissional.recusar", "profissional", p.id(), Map.of("status", p.status()));
-        avisar(p, "COE: seu cadastro não foi aprovado. Motivo: " + motivo);
+        avisar(p, Avisos.Aviso.CADASTRO_RECUSADO, "COE: seu cadastro não foi aprovado. Motivo: " + motivo);
         return decisao(p);
     }
 
@@ -286,14 +288,11 @@ class VerificacaoService {
     }
 
     /**
-     * SMS depois do commit (DespachoDeMensagens), só para celular confirmado (RN61: número não provado não recebe
-     * o motivo); sem ele, só o log (o app mostra o status).
+     * Aviso depois do commit (DOM-11: registrado em {@code notificacao}), só para contato confirmado (RN61: número não
+     * provado não recebe o motivo); sem contato, o app mostra o status.
      */
-    private void avisar(Profissional p, String texto) {
-        contas.celular(p.usuarioId())
-                .ifPresentOrElse(
-                        celular -> eventos.publishEvent(MensagemPronta.sms(celular, texto)),
-                        () -> LOG.warn("Profissional {} sem celular para o aviso da verificação", p.id()));
+    private void avisar(Profissional p, Avisos.Aviso aviso, String texto) {
+        avisos.avisar(p.usuarioId(), aviso, Map.of("mensagem", texto));
     }
 
     private static VerificacaoResposta.Decisao decisao(Profissional p) {

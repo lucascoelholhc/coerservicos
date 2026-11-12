@@ -24,6 +24,7 @@ import br.com.coe.servicos.compartilhado.erro.AcaoProibidaException;
 import br.com.coe.servicos.compartilhado.erro.ConflitoException;
 import br.com.coe.servicos.compartilhado.erro.RecursoNaoEncontradoException;
 import br.com.coe.servicos.compartilhado.erro.RegraDeNegocioException;
+import br.com.coe.servicos.compartilhado.notificacao.Avisos;
 import br.com.coe.servicos.compartilhado.pessoal.NomeDeExibicao;
 import br.com.coe.servicos.compartilhado.seguranca.UsuarioAutenticado;
 import br.com.coe.servicos.config.ConfiguracaoNegocio;
@@ -50,6 +51,7 @@ class DisputaService {
     private final LiberacaoDeDiaria liberacao;
     private final ReembolsoDeDiaria reembolso;
     private final RegistroDeAuditoria auditoria;
+    private final Avisos avisos;
     private final Clock clock;
 
     DisputaService(
@@ -59,6 +61,7 @@ class DisputaService {
             LiberacaoDeDiaria liberacao,
             ReembolsoDeDiaria reembolso,
             RegistroDeAuditoria auditoria,
+            Avisos avisos,
             Clock clock) {
         this.jdbc = jdbc;
         this.usuario = usuario;
@@ -66,6 +69,7 @@ class DisputaService {
         this.liberacao = liberacao;
         this.reembolso = reembolso;
         this.auditoria = auditoria;
+        this.avisos = avisos;
         this.clock = clock;
     }
 
@@ -130,6 +134,7 @@ class DisputaService {
                 Map.of("status", status.codigo()),
                 Map.of("motivo", pedido.motivo()),
                 null);
+        avisos.avisarSobreDiaria(pedido.diariaId(), Avisos.Para.PROFISSIONAL, Avisos.Aviso.DISPUTA_ABERTA);
         return detalhe(id);
     }
 
@@ -216,6 +221,8 @@ class DisputaService {
                 Map.of("status", disputa.get("status")),
                 Map.of("favor", pedido.favor(), "motivo", disputa.get("motivo")),
                 null);
+        avisos.avisarSobreDiaria(diaria, Avisos.Para.CLIENTE, Avisos.Aviso.DISPUTA_DECIDIDA);
+        avisos.avisarSobreDiaria(diaria, Avisos.Para.PROFISSIONAL, Avisos.Aviso.DISPUTA_DECIDIDA);
         return detalhe(id);
     }
 

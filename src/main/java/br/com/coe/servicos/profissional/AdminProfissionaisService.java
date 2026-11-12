@@ -21,6 +21,7 @@ import br.com.coe.servicos.compartilhado.auditoria.RegistroDeAuditoria;
 import br.com.coe.servicos.compartilhado.erro.AcaoProibidaException;
 import br.com.coe.servicos.compartilhado.erro.ConflitoException;
 import br.com.coe.servicos.compartilhado.erro.RecursoNaoEncontradoException;
+import br.com.coe.servicos.compartilhado.notificacao.Avisos;
 import br.com.coe.servicos.compartilhado.seguranca.UsuarioAutenticado;
 import br.com.coe.servicos.config.ConfiguracaoNegocio;
 
@@ -40,6 +41,7 @@ class AdminProfissionaisService {
     private final ConfiguracaoNegocio configuracao;
     private final UsuarioAutenticado usuario;
     private final RegistroDeAuditoria auditoria;
+    private final Avisos avisos;
     private final Clock clock;
 
     AdminProfissionaisService(
@@ -47,7 +49,9 @@ class AdminProfissionaisService {
             ConfiguracaoNegocio configuracao,
             UsuarioAutenticado usuario,
             RegistroDeAuditoria auditoria,
+            Avisos avisos,
             Clock clock) {
+        this.avisos = avisos;
         this.jdbc = jdbc;
         this.configuracao = configuracao;
         this.usuario = usuario;
@@ -184,6 +188,7 @@ class AdminProfissionaisService {
                         .addValue("motivo", pedido.motivo().strip())
                         .addValue("agora", OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC)));
         auditar("profissional.suspender", id, antes, "suspenso");
+        avisos.avisar(donoDoPerfil(id), Avisos.Aviso.PERFIL_SUSPENSO, java.util.Map.of());
         return detalhe(id);
     }
 
@@ -198,7 +203,15 @@ class AdminProfissionaisService {
                 "UPDATE profissional SET status = 'ativo', motivo_suspensao = NULL, suspenso_em = NULL WHERE id = :id",
                 new MapSqlParameterSource("id", id));
         auditar("profissional.reativar", id, antes, "ativo");
+        avisos.avisar(donoDoPerfil(id), Avisos.Aviso.PERFIL_REATIVADO, java.util.Map.of());
         return detalhe(id);
+    }
+
+    private UUID donoDoPerfil(UUID perfil) {
+        return jdbc.queryForObject(
+                "SELECT usuario_id FROM profissional WHERE id = :id",
+                new MapSqlParameterSource("id", perfil),
+                UUID.class);
     }
 
     /** Trava a linha (dois admins ao mesmo tempo passam um de cada vez) e devolve o status atual. */
