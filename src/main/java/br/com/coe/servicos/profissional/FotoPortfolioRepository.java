@@ -20,4 +20,11 @@ interface FotoPortfolioRepository extends JpaRepository<FotoPortfolio, UUID> {
     /** Próxima posição: maior + 1 (a contagem repetiria a ordem depois de apagar uma foto do meio). */
     @Query("SELECT COALESCE(MAX(f.ordem) + 1, 0) FROM FotoPortfolio f WHERE f.profissionalId = :profissional")
     int proximaOrdem(@Param("profissional") UUID profissional);
+
+    /** Foto nova de perfil aprovado: oculta e pendente até o admin aprovar (RN15a). */
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query(
+            value = "UPDATE foto_portfolio SET visivel = false, pendente = true WHERE id = :id",
+            nativeQuery = true)
+    void marcarPendente(@org.springframework.data.repository.query.Param("id") UUID id);
 }

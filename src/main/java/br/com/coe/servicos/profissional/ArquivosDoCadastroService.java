@@ -93,7 +93,7 @@ class ArquivosDoCadastroService {
         }
         ArquivoValidado arquivo = validador.validar(bytes, tipo.categoria());
         return transacao.execute(status -> {
-            Profissional p = cadastro.rascunhoEditavel();
+            Profissional p = cadastro.perfilEditavel();
             if (tipo == TipoDeDocumento.CERTIFICADO_NR10) {
                 exigirNr10(profissoesDe(p));
             }
@@ -106,6 +106,25 @@ class ArquivosDoCadastroService {
             String chave = armazenamento.guardar(arquivo, tipo.categoria());
             DocumentoVerificacao documento = documentos.save(new DocumentoVerificacao(p.id(), tipo, chave));
             auditarDocumento("profissional.documento-enviado", documento);
+            if (p.aprovado()) {
+                // RN15a: documento novo de perfil aprovado = o cadastro volta inteiro para a conferência do admin
+                // (sai da busca; o selo NR-10 volta a depender do certificado), pela fila de verificação do DOM-03
+                p.enviarParaAnalise(
+                        clock.instant(),
+                        documentos
+                                .findByProfissionalIdAndTipo(p.id(), TipoDeDocumento.CERTIFICADO_NR10.codigo())
+                                .isPresent());
+                profissionais.save(p);
+                auditoria.registrar(
+                        usuario.id(),
+                        "PROFISSIONAL",
+                        "profissional.voltou-para-analise",
+                        "profissional",
+                        p.id(),
+                        java.util.Map.of("status", "ativo"),
+                        java.util.Map.of("motivo", "documento-novo"),
+                        null);
+            }
             return new CadastroResposta.DocumentoResposta(documento.getId(), documento.tipo(), documento.status());
         });
     }
@@ -143,14 +162,18 @@ class ArquivosDoCadastroService {
         ArquivoValidado arquivo = validador.validar(bytes, Categoria.PORTFOLIO);
         return transacao.execute(status -> {
             // travado: dois envios ao mesmo tempo não passam juntos do limite
-            Profissional p = cadastro.rascunhoEditavel();
+            Profissional p = cadastro.perfilEditavel();
             if (fotos.countByProfissionalId(p.id()) >= FOTOS_MAXIMAS) {
                 throw new RegraDeNegocioException(
                         "limite-de-fotos", "Você já mandou " + FOTOS_MAXIMAS + " fotos. Tire uma para pôr outra.");
             }
             String chave = armazenamento.guardar(arquivo, Categoria.PORTFOLIO);
             short ordem = (short) fotos.proximaOrdem(p.id());
-            FotoPortfolio foto = fotos.save(new FotoPortfolio(p.id(), servicoId, chave, texto, ordem));
+            FotoPortfolio foto = fotos.saveAndFlush(new FotoPortfolio(p.id(), servicoId, chave, texto, ordem));
+            if (p.aprovado()) {
+                // RN15a/RN57: com o perfil na busca, a foto nova só aparece depois de o admin aprovar
+                fotos.marcarPendente(foto.getId());
+            }
             return new CadastroResposta.FotoResposta(foto.getId(), montador.nomeDoServico(foto), foto.legenda());
         });
     }

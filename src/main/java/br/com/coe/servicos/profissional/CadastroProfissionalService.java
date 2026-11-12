@@ -146,7 +146,7 @@ class CadastroProfissionalService {
 
     @Transactional
     CadastroResposta servicos(PedidosDoCadastro.Servicos pedido) {
-        Profissional p = rascunhoEditavel();
+        Profissional p = perfilEditavel();
         Set<UUID> permitidas = profissoesDe(p);
         Set<UUID> servicos = new HashSet<>();
         for (PedidosDoCadastro.ServicoEscolhido escolhido : pedido.servicos()) {
@@ -155,7 +155,7 @@ class CadastroProfissionalService {
                     .id());
         }
         p.definirServicos(servicos);
-        return salvar(p);
+        return salvarPerfil(p, "servicos");
     }
 
     @Transactional
@@ -172,10 +172,10 @@ class CadastroProfissionalService {
     CadastroResposta valor(PedidosDoCadastro.Valor pedido) {
         exigirValorMinimo(pedido.valorDiaria(), pedido.valorMeiaDiaria());
         CensuraDeContato.exigirSemContato(pedido.horario(), "horario");
-        Profissional p = rascunhoEditavel();
+        Profissional p = perfilEditavel();
         p.definirValor(
                 pedido.valorDiaria(), pedido.valorMeiaDiaria(), pedido.horario().strip());
-        return salvar(p);
+        return salvarPerfil(p, "valor");
     }
 
     @Transactional
@@ -186,18 +186,18 @@ class CadastroProfissionalService {
             outras.add(cidadeAtiva(codigo));
         }
         outras.remove(base);
-        Profissional p = rascunhoEditavel();
+        Profissional p = perfilEditavel();
         p.definirOnde(base, pedido.raioKm().shortValue(), outras);
-        return salvar(p);
+        return salvarPerfil(p, "onde");
     }
 
     @Transactional
     CadastroResposta dias(PedidosDoCadastro.Dias pedido) {
         Set<Short> dias = new HashSet<>();
         pedido.dias().forEach(dia -> dias.add(dia.shortValue()));
-        Profissional p = rascunhoEditavel();
+        Profissional p = perfilEditavel();
         p.definirDias(dias);
-        return salvar(p);
+        return salvarPerfil(p, "dias");
     }
 
     @Transactional
@@ -211,14 +211,14 @@ class CadastroProfissionalService {
                 ? null
                 : pedido.texto().strip();
         CensuraDeContato.exigirSemContato(texto, "texto");
-        Profissional p = rascunhoEditavel();
+        Profissional p = perfilEditavel();
         p.definirSobre(frases, texto);
         int minimo = configuracao.sobreMinimoCaracteres();
         if (p.textoSobre().length() < minimo) {
             throw new RegraDeNegocioException(
                     "sobre-curto", "Conte um pouco mais sobre você: pelo menos " + minimo + " letras.");
         }
-        return salvar(p);
+        return salvarPerfil(p, "sobre");
     }
 
     @Transactional
@@ -318,6 +318,36 @@ class CadastroProfissionalService {
     private void auditar(UUID dono, String acao, UUID profissional, Map<String, ?> depois) {
         auditoria.registrar(
                 dono, contas.de(dono).papelPrincipal(), acao, "profissional", profissional, null, depois, null);
+    }
+
+    /**
+     * RN15a (11/11): no rascunho, como sempre; com o perfil aprovado (ativo ou pausado), as etapas do perfil (serviços,
+     * valor, onde, dias e "Sobre") mudam na hora. Pix, dados pessoais e experiência continuam travados.
+     */
+    Profissional perfilEditavel() {
+        java.util.Optional<Profissional> existente = profissionais.travarPorUsuario(usuario.id());
+        if (existente.isPresent() && existente.get().aprovado()) {
+            return existente.get();
+        }
+        return rascunhoEditavel();
+    }
+
+    /** Salva a etapa; com o perfil aprovado, a mudança fica na auditoria (só a etapa, nenhum dado pessoal). */
+    private CadastroResposta salvarPerfil(Profissional p, String etapa) {
+        boolean aprovado = p.aprovado();
+        CadastroResposta resposta = salvar(p);
+        if (aprovado) {
+            auditoria.registrar(
+                    usuario.id(),
+                    "PROFISSIONAL",
+                    "profissional.perfil-alterado",
+                    "profissional",
+                    p.id(),
+                    null,
+                    Map.of("etapa", etapa),
+                    null);
+        }
+        return resposta;
     }
 
     private CadastroResposta salvar(Profissional p) {
