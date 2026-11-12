@@ -10,7 +10,8 @@ import br.com.coe.servicos.compartilhado.log.Mascara;
  * Mensagem com segredo (código, link) pronta para sair depois do commit. Existe só em memória:
  * código e link nunca são gravados em texto no banco (decisão de 07/10). A prioridade escolhe a fila
  * de envio (CORE-07) e a cota aponta a linha que a gerou, para devolver a cota se for descartada. O id da
- * requisição que a gerou vai junto, para o log do envio (em outra thread) mostrar o mesmo id (CORE-11).
+ * requisição que a gerou vai junto, para o log do envio (em outra thread) mostrar o mesmo id (CORE-11). O aviso sem
+ * segredo (DOM-11) leva a linha de {@code notificacao} que registra o resultado do envio.
  */
 public record MensagemPronta(
         Canal canal,
@@ -19,7 +20,8 @@ public record MensagemPronta(
         String texto,
         Prioridade prioridade,
         Cota cota,
-        String requisicao) {
+        String requisicao,
+        UUID notificacao) {
 
     public enum Canal {
         SMS,
@@ -58,7 +60,7 @@ public record MensagemPronta(
     }
 
     public static MensagemPronta sms(String celular, String texto, Prioridade prioridade, Cota cota) {
-        return new MensagemPronta(Canal.SMS, celular, null, texto, prioridade, cota, Correlacao.atual());
+        return new MensagemPronta(Canal.SMS, celular, null, texto, prioridade, cota, Correlacao.atual(), null);
     }
 
     /** E-mail sem linha de cota (prioridade normal). */
@@ -67,7 +69,17 @@ public record MensagemPronta(
     }
 
     public static MensagemPronta email(String para, String assunto, String texto, Prioridade prioridade, Cota cota) {
-        return new MensagemPronta(Canal.EMAIL, para, assunto, texto, prioridade, cota, Correlacao.atual());
+        return new MensagemPronta(Canal.EMAIL, para, assunto, texto, prioridade, cota, Correlacao.atual(), null);
+    }
+
+    /**
+     * Aviso sem segredo (DOM-11) registrado na linha {@code notificacao} dada: o envio grava ali se saiu ou falhou.
+     * Sempre na fila normal.
+     */
+    public static MensagemPronta aviso(Canal canal, String destino, String assunto, String texto, UUID notificacao) {
+        Objects.requireNonNull(notificacao, "notificacao");
+        return new MensagemPronta(
+                canal, destino, assunto, texto, Prioridade.NORMAL, null, Correlacao.atual(), notificacao);
     }
 
     String destinoMascarado() {

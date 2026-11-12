@@ -49,6 +49,7 @@ public class DespachoDeMensagens implements DisposableBean {
     private final EnviadorSms sms;
     private final EnviadorEmail email;
     private final DevolucaoDeCota devolucao;
+    private final RegistroDeEnvio registro;
     private final ThreadPoolExecutor prioritaria;
     private final ThreadPoolExecutor normal;
     /**
@@ -65,6 +66,7 @@ public class DespachoDeMensagens implements DisposableBean {
             EnviadorSms sms,
             EnviadorEmail email,
             DevolucaoDeCota devolucao,
+            RegistroDeEnvio registro,
             @Value("${coe.mensageria.prioritaria.threads:2}") int threadsPrioritaria,
             @Value("${coe.mensageria.prioritaria.threads-maximo:4}") int maximoPrioritaria,
             @Value("${coe.mensageria.prioritaria.fila:100}") int filaPrioritaria,
@@ -75,15 +77,27 @@ public class DespachoDeMensagens implements DisposableBean {
                 sms,
                 email,
                 devolucao,
+                registro,
                 new Fila(threadsPrioritaria, maximoPrioritaria, filaPrioritaria),
                 new Fila(threadsNormal, maximoNormal, filaNormal));
     }
 
     public DespachoDeMensagens(
             EnviadorSms sms, EnviadorEmail email, DevolucaoDeCota devolucao, Fila prioritaria, Fila normal) {
+        this(sms, email, devolucao, RegistroDeEnvio.NENHUM, prioritaria, normal);
+    }
+
+    public DespachoDeMensagens(
+            EnviadorSms sms,
+            EnviadorEmail email,
+            DevolucaoDeCota devolucao,
+            RegistroDeEnvio registro,
+            Fila prioritaria,
+            Fila normal) {
         this.sms = sms;
         this.email = email;
         this.devolucao = devolucao;
+        this.registro = registro;
         this.prioritaria = executor("envio-prioritario-", prioritaria);
         this.normal = executor("envio-", normal);
         this.devolucoes = executor("devolucao-de-cota-", new Fila(1, 1, CAPACIDADE_DAS_DEVOLUCOES));
@@ -120,6 +134,33 @@ public class DespachoDeMensagens implements DisposableBean {
                     mensagem.canal(),
                     mensagem.destinoMascarado());
             devolverCota(mensagem);
+            registrarDescarte(mensagem);
+        }
+    }
+
+    /** Aviso descartado com a fila cheia: a linha de {@code notificacao} fica como falhou (fora desta thread). */
+    private void registrarDescarte(MensagemPronta mensagem) {
+        if (mensagem.notificacao() == null) {
+            return;
+        }
+        try {
+            devolucoes.execute(() -> registrar(mensagem, false));
+        } catch (RejectedExecutionException cheia) {
+            LOG.error("Resultado do aviso não registrado (fila de devoluções cheia): {}", mensagem.notificacao());
+        }
+    }
+
+    private void registrar(MensagemPronta mensagem, boolean enviada) {
+        if (mensagem.notificacao() == null) {
+            return;
+        }
+        try {
+            registro.registrar(mensagem.notificacao(), enviada);
+        } catch (RuntimeException erro) {
+            LOG.error(
+                    "Resultado do aviso {} não registrado: {}",
+                    mensagem.notificacao(),
+                    erro.getClass().getSimpleName());
         }
     }
 
@@ -161,12 +202,14 @@ public class DespachoDeMensagens implements DisposableBean {
                 case EMAIL -> email.enviar(mensagem.destino(), mensagem.assunto(), mensagem.texto());
             }
             LOG.info("Enviado {} para {}", mensagem.canal(), mensagem.destinoMascarado());
+            registrar(mensagem, true);
         } catch (RuntimeException erro) {
             LOG.error(
                     "Falha ao enviar {} para {}: {}",
                     mensagem.canal(),
                     mensagem.destinoMascarado(),
                     erro.getClass().getSimpleName());
+            registrar(mensagem, false);
         } finally {
             pendentes.decrementAndGet();
             MDC.remove(Correlacao.CHAVE);

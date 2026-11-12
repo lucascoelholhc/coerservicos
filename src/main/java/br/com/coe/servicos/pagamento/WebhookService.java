@@ -30,6 +30,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 import br.com.coe.servicos.compartilhado.auditoria.RegistroDeAuditoria;
 import br.com.coe.servicos.compartilhado.dinheiro.Dinheiro;
+import br.com.coe.servicos.compartilhado.notificacao.Avisos;
 
 /**
  * Webhook do gateway (DOM-07, RN32, RNF06) no formato do Asaas: token no header {@code asaas-access-token} (o Asaas
@@ -60,6 +61,7 @@ class WebhookService {
     private final GatewayPagamento gateway;
     private final LivroCaixa livro;
     private final RegistroDeAuditoria auditoria;
+    private final Avisos avisos;
     private final Clock clock;
     private final byte[] resumoDoToken;
 
@@ -69,6 +71,7 @@ class WebhookService {
             GatewayPagamento gateway,
             LivroCaixa livro,
             RegistroDeAuditoria auditoria,
+            Avisos avisos,
             Clock clock,
             @Value("${coe.gateway.token-webhook}") String token) {
         this.jdbc = jdbc;
@@ -76,6 +79,7 @@ class WebhookService {
         this.gateway = gateway;
         this.livro = livro;
         this.auditoria = auditoria;
+        this.avisos = avisos;
         this.clock = clock;
         this.resumoDoToken = resumo(token);
     }
@@ -214,6 +218,8 @@ class WebhookService {
                 Map.of("status", status),
                 Map.of("status", "pago", "metodo", cobranca.get("metodo"), "valor", valor.toPlainString()),
                 null);
+        avisos.avisarSobreContrato(contrato, Avisos.Para.CLIENTE, Avisos.Aviso.PAGAMENTO_CONFIRMADO);
+        avisos.avisarSobreContrato(contrato, Avisos.Para.PROFISSIONAL, Avisos.Aviso.NOVO_TRABALHO);
         return null;
     }
 

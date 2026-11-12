@@ -168,6 +168,31 @@ class RenovacaoTest extends IntegracaoTest {
     }
 
     @Test
+    @DisplayName("reuso avisa o dono por e-mail confirmado (DOM-11), sem token nem link no texto")
+    void reusoAvisaPorEmail() throws Exception {
+        Conta conta = contas.criar(Papel.CLIENTE);
+        jdbc.update("UPDATE usuario SET email_verificado_em = now() WHERE id = ?", conta.id());
+        String refresh = entrar(conta);
+        renovarComSucesso(refresh);
+        relogio.avancar(Duration.ofSeconds(31));
+
+        recusada(refresh);
+
+        email.aguardarEnvios();
+        assertThat(email.para(conta.email())).hasSize(1);
+        String texto = email.para(conta.email()).get(0).texto();
+        assertThat(texto)
+                .contains("encerramos uma sessão")
+                .doesNotContain(refresh)
+                .doesNotContain("http");
+        assertThat(jdbc.queryForObject(
+                        "SELECT status FROM notificacao WHERE usuario_id = ? AND tipo = 'sessao.reuso-refresh'",
+                        String.class,
+                        conta.id()))
+                .isEqualTo("enviada");
+    }
+
+    @Test
     @DisplayName("reuso não derruba os outros aparelhos do mesmo usuário")
     void reusoSoNaFamilia() throws Exception {
         Conta conta = contas.criar(Papel.CLIENTE);

@@ -19,6 +19,7 @@ import br.com.coe.servicos.compartilhado.dinheiro.Dinheiro;
 import br.com.coe.servicos.compartilhado.dinheiro.Percentual;
 import br.com.coe.servicos.compartilhado.dinheiro.TaxaPagaPor;
 import br.com.coe.servicos.compartilhado.dinheiro.ValoresDiaria;
+import br.com.coe.servicos.compartilhado.notificacao.Avisos;
 import br.com.coe.servicos.pagamento.LivroCaixa;
 
 /**
@@ -50,11 +51,13 @@ public class LiberacaoDeDiaria {
     private final NamedParameterJdbcTemplate jdbc;
     private final LivroCaixa livro;
     private final RegistroDeAuditoria auditoria;
+    private final Avisos avisos;
 
-    LiberacaoDeDiaria(NamedParameterJdbcTemplate jdbc, LivroCaixa livro, RegistroDeAuditoria auditoria) {
+    LiberacaoDeDiaria(NamedParameterJdbcTemplate jdbc, LivroCaixa livro, RegistroDeAuditoria auditoria, Avisos avisos) {
         this.jdbc = jdbc;
         this.livro = livro;
         this.auditoria = auditoria;
+        this.avisos = avisos;
     }
 
     /**
@@ -156,5 +159,6 @@ public class LiberacaoDeDiaria {
             auditoria.registrarDoSistema(
                     "diaria.liberada", "diaria", diaria, Map.of("status", de.codigo()), depois, null);
         }
+        avisos.avisarSobreDiaria(diaria, Avisos.Para.PROFISSIONAL, Avisos.Aviso.LIBERADA);
     }
 }
