@@ -9,7 +9,9 @@ import { MinhaConta } from './paginas/conta/MinhaConta';
 import { RecolocarContato } from './paginas/conta/RecolocarContato';
 import { TrocarSenha } from './paginas/conta/TrocarSenha';
 import { FilaDeVerificacao } from './paginas/admin/FilaDeVerificacao';
+import { Configuracao } from './paginas/admin/Configuracao';
 import { Financeiro } from './paginas/admin/Financeiro';
+import { FotosPendentes } from './paginas/admin/FotosPendentes';
 import { VerificacaoDoCadastro } from './paginas/admin/VerificacaoDoCadastro';
 import { Busca } from './paginas/busca/Busca';
 import { CadastroProfissional } from './paginas/cadastro/CadastroProfissional';
@@ -103,6 +105,22 @@ export function Rotas() {
           element={
             <RotaPrivada papeis={['ADMIN']}>
               <FilaDeVerificacao />
+            </RotaPrivada>
+          }
+        />
+        <Route
+          path={CAMINHOS.adminFotos}
+          element={
+            <RotaPrivada papeis={['ADMIN']}>
+              <FotosPendentes />
+            </RotaPrivada>
+          }
+        />
+        <Route
+          path={CAMINHOS.adminConfiguracao}
+          element={
+            <RotaPrivada papeis={['ADMIN']}>
+              <Configuracao />
             </RotaPrivada>
           }
         />

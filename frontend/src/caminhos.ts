@@ -10,6 +10,8 @@ export const CAMINHOS = {
   cadastro: '/cadastro',
   adminVerificacao: '/admin/verificacao',
   adminFinanceiro: '/admin/financeiro',
+  adminFotos: '/admin/fotos',
+  adminConfiguracao: '/admin/configuracao',
   conta: '/conta',
   confirmarCelular: '/conta/confirmar-celular',
   codigoNoLogin: '/conta/codigo-no-login',

@@ -211,7 +211,7 @@ function CpfParaConferir({ cpf }: { cpf: string }) {
  * "Ver X" busca a URL assinada (curta) e vira o link "Abrir X" (nova aba), que recebe o foco; quando a
  * URL vence, volta a ser "Ver X". Nada de imagem do bucket na tela (nem na CSP).
  */
-function ArquivoPorLink({ rotulo, buscar }: { rotulo: string; buscar: () => Promise<UrlAssinada> }) {
+export function ArquivoPorLink({ rotulo, buscar }: { rotulo: string; buscar: () => Promise<UrlAssinada> }) {
   const [assinada, setAssinada] = useState<UrlAssinada | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const link = useRef<HTMLAnchorElement>(null);
