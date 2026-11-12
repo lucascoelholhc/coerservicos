@@ -62,6 +62,7 @@ class WebhookService {
     private final LivroCaixa livro;
     private final RegistroDeAuditoria auditoria;
     private final Avisos avisos;
+    private final Repasses repasses;
     private final Clock clock;
     private final byte[] resumoDoToken;
 
@@ -72,6 +73,7 @@ class WebhookService {
             LivroCaixa livro,
             RegistroDeAuditoria auditoria,
             Avisos avisos,
+            Repasses repasses,
             Clock clock,
             @Value("${coe.gateway.token-webhook}") String token) {
         this.jdbc = jdbc;
@@ -80,6 +82,7 @@ class WebhookService {
         this.livro = livro;
         this.auditoria = auditoria;
         this.avisos = avisos;
+        this.repasses = repasses;
         this.clock = clock;
         this.resumoDoToken = resumo(token);
     }
@@ -124,7 +127,7 @@ class WebhookService {
         if (gravado.isEmpty()) {
             return Resultado.ACEITO; // repetido: já foi processado
         }
-        String erro = processar(tipo, evento.path("payment"), agora);
+        String erro = processar(tipo, evento, agora);
         if ("cobranca-desconhecida".equals(erro)) {
             // pagamento de cobrança que a COE não conhece: a equipe precisa conciliar com o gateway
             auditoria.registrarDoSistema(
@@ -142,11 +145,14 @@ class WebhookService {
     }
 
     /** Devolve o motivo de não ter efeito (gravado em {@code evento_gateway.erro}) ou nulo. */
-    private String processar(String tipo, JsonNode pagamento, OffsetDateTime agora) {
+    private String processar(String tipo, JsonNode evento, OffsetDateTime agora) {
+        JsonNode pagamento = evento.path("payment");
         String externo = pagamento.path("id").asString("");
         return switch (tipo) {
             case "PAYMENT_RECEIVED", "PAYMENT_CONFIRMED" -> confirmar(externo, pagamento.path("value"), agora);
             case "PAYMENT_OVERDUE" -> vencer(externo);
+            case "TRANSFER_DONE", "TRANSFER_FAILED", "TRANSFER_CANCELLED" ->
+                transferencia(tipo, evento.path("transfer"), agora);
             default -> null; // outros eventos do gateway: guardados, sem efeito
         };
     }
@@ -263,6 +269,29 @@ class WebhookService {
                 UPDATE conversa SET contato_liberado_em = :agora
                  WHERE cliente_id = :cliente AND profissional_id = :profissional AND contato_liberado_em IS NULL
                 """, parametros);
+    }
+
+    /**
+     * Transferência do repasse (PA02): concluída confirma (livro-caixa), falha ou cancelada abre o alerta. Só mexe em
+     * repasse enviado: evento repetido ou atrasado não faz nada.
+     */
+    private String transferencia(String tipo, JsonNode transferencia, OffsetDateTime agora) {
+        List<Map<String, Object>> encontrado = jdbc.queryForList(
+                "SELECT id, status FROM repasse WHERE id_externo = :externo FOR UPDATE",
+                new MapSqlParameterSource("externo", transferencia.path("id").asString("")));
+        if (encontrado.isEmpty()) {
+            return "transferencia-desconhecida";
+        }
+        UUID repasse = (UUID) encontrado.get(0).get("id");
+        if (!"enviado".equals(encontrado.get(0).get("status"))) {
+            return null;
+        }
+        if ("TRANSFER_DONE".equals(tipo)) {
+            repasses.confirmar(repasse, agora);
+        } else {
+            repasses.falhar(repasse, transferencia.path("failReason").asString(tipo));
+        }
+        return null;
     }
 
     private String vencer(String externo) {

@@ -39,6 +39,8 @@ public class ConfiguracaoNegocio {
     private static final Logger LOG = LoggerFactory.getLogger(ConfiguracaoNegocio.class);
     private static final int LIMITE_LC150_MAXIMO = 2;
     private static final Percentual TETO_COMISSAO = Percentual.de("0.30");
+    private static final Dinheiro TETO_TAXA_EM_REAIS = Dinheiro.de("100.00");
+    private static final Percentual TETO_TAXA_PERCENTUAL = Percentual.de("0.20");
 
     /** Os parâmetros em vigor num instante, todos de uma mesma leitura. */
     public record Parametros(
@@ -55,7 +57,15 @@ public class ConfiguracaoNegocio {
             Dinheiro meiaDiariaMinima,
             int sobreMinimoCaracteres,
             int faltasAlerta,
-            Duration faltasJanela) {}
+            Duration faltasJanela,
+            TaxasDoGateway taxasDoGateway) {}
+
+    /**
+     * RN34d: o que o gateway cobra da COE (despesa da COE no livro-caixa, nunca descontada do profissional). Zero
+     * enquanto o comercial do Asaas não confirma os valores.
+     */
+    public record TaxasDoGateway(
+            Dinheiro pix, Percentual cartaoPercentual, Dinheiro cartaoFixa, Dinheiro transferencia) {}
 
     private record Snapshot(Parametros parametros, Instant lidoEm, long geracao) {}
 
@@ -142,6 +152,11 @@ public class ConfiguracaoNegocio {
 
     /** Descarta os valores guardados: a próxima leitura vai ao banco, mesmo que uma leitura esteja em curso. */
     /** Valor mínimo da diária do profissional (RN09). */
+    /** RN34d: as taxas do gateway vigentes (despesa da COE). */
+    public TaxasDoGateway taxasDoGateway() {
+        return parametros().taxasDoGateway();
+    }
+
     public Dinheiro diariaMinima() {
         return parametros().diariaMinima();
     }
@@ -207,7 +222,15 @@ public class ConfiguracaoNegocio {
                 ler(brutos, ChaveConfiguracao.MEIA_DIARIA_MINIMA, ConfiguracaoNegocio::dinheiroPositivo),
                 ler(brutos, ChaveConfiguracao.SOBRE_MINIMO_CARACTERES, texto -> ate(texto, 300)),
                 ler(brutos, ChaveConfiguracao.FALTAS_ALERTA, texto -> ate(texto, 100)),
-                ler(brutos, ChaveConfiguracao.FALTAS_JANELA_DIAS, texto -> Duration.ofDays(ate(texto, 365))));
+                ler(brutos, ChaveConfiguracao.FALTAS_JANELA_DIAS, texto -> Duration.ofDays(ate(texto, 365))),
+                new TaxasDoGateway(
+                        ler(brutos, ChaveConfiguracao.TAXA_GATEWAY_PIX, ConfiguracaoNegocio::taxaEmReais),
+                        ler(
+                                brutos,
+                                ChaveConfiguracao.TAXA_GATEWAY_CARTAO_PERCENTUAL,
+                                ConfiguracaoNegocio::taxaPercentual),
+                        ler(brutos, ChaveConfiguracao.TAXA_GATEWAY_CARTAO_FIXA, ConfiguracaoNegocio::taxaEmReais),
+                        ler(brutos, ChaveConfiguracao.TAXA_GATEWAY_TRANSFERENCIA, ConfiguracaoNegocio::taxaEmReais)));
     }
 
     /** Comissão até o teto de 30% (RN31); o banco tem o mesmo CHECK (V12). */
@@ -217,6 +240,24 @@ public class ConfiguracaoNegocio {
             throw new IllegalArgumentException("não pode passar de 30% (RN31)");
         }
         return comissao;
+    }
+
+    /** Taxa em reais: zero ou mais, com teto (nenhuma taxa de gateway passa de R$ 100). */
+    private static Dinheiro taxaEmReais(String texto) {
+        Dinheiro valor = Dinheiro.de(texto);
+        if (valor.compareTo(Dinheiro.ZERO) < 0 || valor.compareTo(TETO_TAXA_EM_REAIS) > 0) {
+            throw new IllegalArgumentException("precisa ficar entre 0,00 e 100,00");
+        }
+        return valor;
+    }
+
+    /** Taxa percentual: de 0% a 20%. */
+    private static Percentual taxaPercentual(String texto) {
+        Percentual valor = Percentual.de(texto);
+        if (valor.valor().signum() < 0 || valor.valor().compareTo(TETO_TAXA_PERCENTUAL.valor()) > 0) {
+            throw new IllegalArgumentException("precisa ficar entre 0% e 20%");
+        }
+        return valor;
     }
 
     private static Dinheiro dinheiroPositivo(String texto) {

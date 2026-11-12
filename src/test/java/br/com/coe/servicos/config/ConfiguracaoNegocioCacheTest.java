@@ -45,6 +45,10 @@ class ConfiguracaoNegocioCacheTest {
         valores.put("SOBRE_MINIMO_CARACTERES", "25");
         valores.put("FALTAS_ALERTA", "2");
         valores.put("FALTAS_JANELA_DIAS", "90");
+        valores.put("TAXA_GATEWAY_PIX", "0.00");
+        valores.put("TAXA_GATEWAY_CARTAO_PERCENTUAL", "0.0000");
+        valores.put("TAXA_GATEWAY_CARTAO_FIXA", "0.00");
+        valores.put("TAXA_GATEWAY_TRANSFERENCIA", "0.00");
         return valores;
     }
 
