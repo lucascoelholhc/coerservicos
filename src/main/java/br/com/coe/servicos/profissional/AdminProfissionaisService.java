@@ -45,6 +45,7 @@ class AdminProfissionaisService {
     private final RegistroDeAuditoria auditoria;
     private final Avisos avisos;
     private final CifraDeCampo cifra;
+    private final org.springframework.context.ApplicationEventPublisher eventos;
     private final Clock clock;
 
     AdminProfissionaisService(
@@ -54,7 +55,9 @@ class AdminProfissionaisService {
             RegistroDeAuditoria auditoria,
             Avisos avisos,
             CifraDeCampo cifra,
+            org.springframework.context.ApplicationEventPublisher eventos,
             Clock clock) {
+        this.eventos = eventos;
         this.avisos = avisos;
         this.cifra = cifra;
         this.jdbc = jdbc;
@@ -263,6 +266,8 @@ class AdminProfissionaisService {
                         .addValue("motivo", pedido.motivo().strip())
                         .addValue("agora", OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC)));
         auditar("profissional.suspender", id, antes, "suspenso");
+        // RN44f: as diárias pagas e não iniciadas voltam inteiras ao cliente, nesta mesma transação
+        eventos.publishEvent(new ProfissionalSuspenso(id, usuario.id()));
         avisos.avisar(donoDoPerfil(id), Avisos.Aviso.PERFIL_SUSPENSO, java.util.Map.of());
         return detalhe(id);
     }

@@ -54,7 +54,12 @@ class AdminConfiguracaoService {
 
     record Lista(List<Parametro> itens) {}
 
-    record Mudanca(@NotBlank @Size(max = 60) String valor) {}
+    /** RN44g (11/11): o código SMS da ação vai junto (pedido em POST /api/admin/equipe/codigo). */
+    record Mudanca(
+            @NotBlank @Size(max = 60) String valor,
+
+            @NotBlank @jakarta.validation.constraints.Pattern(regexp = "[0-9]{6}")
+            String codigo) {}
 
     @Transactional(readOnly = true)
     Lista listar() {

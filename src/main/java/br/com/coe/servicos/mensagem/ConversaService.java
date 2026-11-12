@@ -180,7 +180,9 @@ class ConversaService {
                         .addValue("agora", agora()));
         // todas as tentativas de chat da conta; zerar quando o admin reativar fica com a decisão do DOM-11
         Integer feitas = jdbc.queryForObject(
-                "SELECT count(*) FROM tentativa_contato WHERE usuario_id = :eu AND origem = 'chat'",
+                "SELECT count(*) FROM tentativa_contato WHERE usuario_id = :eu AND origem = 'chat'"
+                        + " AND criado_em > COALESCE((SELECT tentativas_desde FROM usuario WHERE id = :eu),"
+                        + " '-infinity')",
                 new MapSqlParameterSource("eu", eu),
                 Integer.class);
         int tentativa = feitas == null ? 0 : feitas;

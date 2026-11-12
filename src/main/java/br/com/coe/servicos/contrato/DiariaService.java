@@ -36,6 +36,9 @@ import br.com.coe.servicos.config.ConfiguracaoNegocio;
 @Service
 class DiariaService {
 
+    /** RN29a: até quando antes do dia o cliente ainda cancela com reembolso integral (decisão de 11/11). */
+    private static final java.time.Duration ANTECEDENCIA_DO_CANCELAMENTO = java.time.Duration.ofHours(24);
+
     private static final String NAO_ENCONTRADA = "Diária não encontrada.";
     private static final int FOTOS_POR_DIA = 5;
 
@@ -46,6 +49,7 @@ class DiariaService {
     private final ValidadorDeImagem validador;
     private final Armazenamento armazenamento;
     private final LiberacaoDeDiaria liberacao;
+    private final ReembolsoDeDiaria reembolso;
     private final Avisos avisos;
     private final java.time.Duration validadeDaUrl;
     private final Clock clock;
@@ -58,6 +62,7 @@ class DiariaService {
             ValidadorDeImagem validador,
             Armazenamento armazenamento,
             LiberacaoDeDiaria liberacao,
+            ReembolsoDeDiaria reembolso,
             Avisos avisos,
             br.com.coe.servicos.compartilhado.armazenamento.PropriedadesDoArmazenamento propriedades,
             Clock clock) {
@@ -68,6 +73,7 @@ class DiariaService {
         this.validador = validador;
         this.armazenamento = armazenamento;
         this.liberacao = liberacao;
+        this.reembolso = reembolso;
         this.avisos = avisos;
         this.validadeDaUrl = propriedades.validadeUrl();
         this.clock = clock;
@@ -107,6 +113,41 @@ class DiariaService {
     }
 
     /** O cliente aprova o dia (RN37): só de aguardando; contestada fica com a equipe; não se desfaz. */
+    /**
+     * RN29a (PA09, 11/11): o cliente cancela uma diária paga até 24 h antes do início do dia dela (00:00 no fuso de
+     * negócio), com reembolso integral do que pagou por ela; com menos de 24 h, não cancela (pode reclamar no dia).
+     */
+    DiariaDtos.Diaria cancelar(UUID id) {
+        return transacao.execute(t -> {
+            Travada diaria = travar(id, "SELECT contrato_id FROM diaria WHERE id = :id AND cliente_id = :eu");
+            if (diaria.status() != StatusDiaria.PAGA) {
+                throw new RegraDeNegocioException(
+                        "cancelamento-indisponivel", "Só dá para cancelar uma diária paga que ainda não começou.");
+            }
+            OffsetDateTime agora = agora();
+            if (agora.toInstant()
+                    .isAfter(diaria.data()
+                            .atStartOfDay(FusoDeNegocio.ZONA)
+                            .minus(ANTECEDENCIA_DO_CANCELAMENTO)
+                            .toInstant())) {
+                throw new RegraDeNegocioException(
+                        "cancelamento-fora-do-prazo",
+                        "Só dá para cancelar até 24 horas antes do dia. Se houver algum problema no dia, faça uma"
+                                + " reclamação.");
+            }
+            reembolso.reembolsar(
+                    diaria.contrato(),
+                    id,
+                    StatusDiaria.PAGA,
+                    ReembolsoDeDiaria.Motivo.CANCELAMENTO,
+                    usuario.id(),
+                    "CLIENTE",
+                    agora);
+            avisos.avisarSobreDiaria(id, Avisos.Para.PROFISSIONAL, Avisos.Aviso.DIARIA_CANCELADA);
+            return detalhe(id);
+        });
+    }
+
     DiariaDtos.Diaria aprovar(UUID id) {
         return transacao.execute(t -> {
             Travada diaria = travar(id, "SELECT contrato_id FROM diaria WHERE id = :id AND cliente_id = :eu");

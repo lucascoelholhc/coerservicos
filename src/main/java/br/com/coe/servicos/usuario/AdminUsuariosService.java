@@ -153,10 +153,29 @@ class AdminUsuariosService {
             throw new ConflitoException(
                     "status-invalido", "Só dá para reativar uma conta suspensa ou em análise.", null);
         }
+        // RN44g (11/11): a contagem de tentativas de contato recomeça; as tentativas antigas ficam no histórico
+        Integer zeradas = jdbc.queryForObject("""
+                SELECT count(*) FROM tentativa_contato t
+                 WHERE t.usuario_id = :id
+                   AND t.criado_em > COALESCE((SELECT tentativas_desde FROM usuario WHERE id = :id), '-infinity')
+                """, new MapSqlParameterSource("id", id), Integer.class);
         jdbc.update(
-                "UPDATE usuario SET status = 'ativo', motivo_status = NULL WHERE id = :id",
-                new MapSqlParameterSource("id", id));
-        auditar("conta.reativar", id, antes, "ativo");
+                """
+                UPDATE usuario SET status = 'ativo', motivo_status = NULL, tentativas_desde = :agora WHERE id = :id
+                """,
+                new MapSqlParameterSource("id", id)
+                        .addValue(
+                                "agora",
+                                java.time.OffsetDateTime.ofInstant(clock.instant(), java.time.ZoneOffset.UTC)));
+        auditoria.registrar(
+                usuario.id(),
+                "ADMIN",
+                "conta.reativar",
+                "usuario",
+                id,
+                Map.of("status", antes),
+                Map.of("status", "ativo", "tentativasZeradas", zeradas),
+                null);
         avisos.avisar(id, Avisos.Aviso.CONTA_REATIVADA, java.util.Map.of());
         return buscar(id);
     }

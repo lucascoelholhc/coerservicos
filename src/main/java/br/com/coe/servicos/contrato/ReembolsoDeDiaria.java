@@ -33,7 +33,11 @@ public class ReembolsoDeDiaria {
     /** Por que o dinheiro volta (coluna {@code reembolso.motivo}). */
     public enum Motivo {
         DISPUTA("disputa"),
-        FALTA_PROFISSIONAL("falta_profissional");
+        FALTA_PROFISSIONAL("falta_profissional"),
+        /** RN29a (PA09): o cliente cancelou com 24 h ou mais de antecedência. */
+        CANCELAMENTO("cancelamento"),
+        /** RN44f: o profissional foi suspenso com a diária paga e não iniciada. */
+        OUTRO("outro");
 
         private final String codigo;
 
