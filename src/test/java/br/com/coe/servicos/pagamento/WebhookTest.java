@@ -287,7 +287,8 @@ class WebhookTest extends IntegracaoTest {
     }
 
     @Test
-    @DisplayName("valor diferente do cobrado: registrado com erro, contrato continua esperando")
+    @DisplayName(
+            "valor diferente do cobrado: registrado com erro, contrato continua esperando e o dinheiro vira a devolver (RN34c)")
     void valorDivergente() throws Exception {
         String pagamento = cobrar("pix");
         String id = novoEvento();
@@ -298,11 +299,15 @@ class WebhookTest extends IntegracaoTest {
         assertThat(statusDoContrato()).isEqualTo("aguardando_pagamento");
         assertThat(jdbc.queryForObject("SELECT erro FROM evento_gateway WHERE id_evento = ?", String.class, id))
                 .isEqualTo("valor-divergente");
-        assertThat(transacoesDoContrato()).isZero();
+        // só o "a devolver" (sem_pedido): nada vai para a custódia do pedido
+        assertThat(transacoesDoContrato()).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                        "SELECT tipo FROM transacao_financeira WHERE contrato_id = ?", String.class, contrato))
+                .isEqualTo("sem_pedido");
     }
 
     @Test
-    @DisplayName("pagamento de contrato já pago por outra cobrança: registrado com erro e auditado, sem efeito")
+    @DisplayName("pagamento de contrato já pago por outra cobrança: registrado com erro, auditado e a devolver (RN34c)")
     void contratoSemPagamentoPendente() throws Exception {
         String pix = cobrar("pix");
         String cartao = cobrar("cartao");
@@ -312,7 +317,7 @@ class WebhookTest extends IntegracaoTest {
         enviar(evento(segundo, "PAYMENT_CONFIRMED", cartao, total()), token).andExpect(status().isOk());
         assertThat(jdbc.queryForObject("SELECT erro FROM evento_gateway WHERE id_evento = ?", String.class, segundo))
                 .isEqualTo("contrato-ja-pago");
-        assertThat(transacoesDoContrato()).isEqualTo(1);
+        assertThat(transacoesDoContrato()).isEqualTo(2); // o pagamento e o sem_pedido do cartão
         assertThat(jdbc.queryForObject("""
                         SELECT count(*) FROM log_auditoria
                          WHERE acao = 'pagamento.sem-contrato-pendente' AND entidade_id = ?

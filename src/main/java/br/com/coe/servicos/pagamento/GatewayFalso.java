@@ -146,8 +146,8 @@ public class GatewayFalso implements GatewayPagamento {
     }
 
     /** Teste: soma essa diferença ao saldo do gateway (para a conciliação achar). */
-    public void simularDiferencaNoSaldo(Dinheiro valor) {
-        diferenca.set(valor.valor());
+    public void simularDiferencaNoSaldo(BigDecimal valor) {
+        diferenca.set(valor);
     }
 
     /** Teste: volta ao estado sem falha nem diferença. */

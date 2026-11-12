@@ -100,11 +100,17 @@ class FinanceiroAdminTest extends ExecucaoDeDiariaTeste {
         // o dinheiro no gateway é o espelho de tudo o que está guardado, a repassar, a estornar e da receita
         assertThat(valor(json, "$.saldos.noGateway"))
                 .isEqualByComparingTo(saldoDaView("gateway").negate());
+        assertThat(valor(json, "$.saldos.aDevolver")).isEqualByComparingTo(saldoDaView("a_devolver"));
+        assertThat(valor(json, "$.saldos.taxasDoGateway"))
+                .isEqualByComparingTo(saldoDaView("despesa_coe").negate());
+        // partidas dobradas: o que está no gateway é tudo o que a COE deve ou ganhou, menos as taxas pagas
         assertThat(valor(json, "$.saldos.noGateway"))
                 .isEqualByComparingTo(saldoDaView("custodia")
                         .add(saldoDaView("profissional"))
                         .add(saldoDaView("receita_coe"))
-                        .add(saldoDaView("cliente")));
+                        .add(saldoDaView("cliente"))
+                        .add(saldoDaView("a_devolver"))
+                        .add(saldoDaView("despesa_coe")));
         assertThat(valor(json, "$.periodo.recebido")).isGreaterThanOrEqualTo(totalDoContrato());
         assertThat(JsonPath.<String>read(json, "$.periodo.de"))
                 .isEqualTo(hojeNoBanco().minusDays(30).toString());

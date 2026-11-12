@@ -29,16 +29,19 @@ public class Repasses {
     private final LivroCaixa livro;
     private final AlertasFinanceiros alertas;
     private final RegistroDeAuditoria auditoria;
+    private final Estornos estornos;
 
     Repasses(
             NamedParameterJdbcTemplate jdbc,
             LivroCaixa livro,
             AlertasFinanceiros alertas,
-            RegistroDeAuditoria auditoria) {
+            RegistroDeAuditoria auditoria,
+            Estornos estornos) {
         this.jdbc = jdbc;
         this.livro = livro;
         this.alertas = alertas;
         this.auditoria = auditoria;
+        this.estornos = estornos;
     }
 
     /**
@@ -90,6 +93,7 @@ public class Repasses {
                 "SELECT id FROM transacao_financeira WHERE chave_idempotencia = :chave",
                 new MapSqlParameterSource("chave", "repasse:" + diaria),
                 UUID.class);
+        estornos.taxaDaTransferencia((UUID) r.get("contrato_id"), diaria);
         jdbc.update(
                 """
                 UPDATE repasse SET status = 'confirmado', confirmado_em = :agora, transacao_id = :transacao, erro = NULL

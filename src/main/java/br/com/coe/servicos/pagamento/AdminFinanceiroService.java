@@ -46,6 +46,8 @@ class AdminFinanceiroService {
             Dinheiro aRepassar,
             Dinheiro receita,
             Dinheiro aEstornar,
+            Dinheiro aDevolver,
+            Dinheiro taxasDoGateway,
             Dinheiro noGateway,
             Dinheiro emDisputa) {}
 
@@ -187,6 +189,8 @@ class AdminFinanceiroService {
                        COALESCE(SUM(saldo) FILTER (WHERE tipo = 'profissional'), 0) AS a_repassar,
                        COALESCE(SUM(saldo) FILTER (WHERE tipo = 'receita_coe'), 0)  AS receita,
                        COALESCE(SUM(saldo) FILTER (WHERE tipo = 'cliente'), 0)      AS a_estornar,
+                       COALESCE(SUM(saldo) FILTER (WHERE tipo = 'a_devolver'), 0)   AS a_devolver,
+                       COALESCE(SUM(saldo) FILTER (WHERE tipo = 'despesa_coe'), 0)  AS despesas,
                        COALESCE(SUM(saldo) FILTER (WHERE tipo = 'gateway'), 0)      AS gateway
                   FROM saldo_conta
                 """, Map.of());
@@ -195,6 +199,9 @@ class AdminFinanceiroService {
                 reais((BigDecimal) s.get("a_repassar")),
                 reais((BigDecimal) s.get("receita")),
                 reais((BigDecimal) s.get("a_estornar")),
+                reais((BigDecimal) s.get("a_devolver")),
+                // a despesa é devedora: as taxas pagas são o oposto do saldo
+                reais(((BigDecimal) s.get("despesas")).negate()),
                 // a conta do gateway é devedora (créditos − débitos negativo): o dinheiro lá é o oposto do saldo
                 reais(((BigDecimal) s.get("gateway")).negate()),
                 emDisputa());

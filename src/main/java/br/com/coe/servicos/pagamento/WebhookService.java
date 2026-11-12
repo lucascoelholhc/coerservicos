@@ -63,6 +63,8 @@ class WebhookService {
     private final RegistroDeAuditoria auditoria;
     private final Avisos avisos;
     private final Repasses repasses;
+    private final Estornos estornos;
+    private final AlertasFinanceiros alertas;
     private final Clock clock;
     private final byte[] resumoDoToken;
 
@@ -74,6 +76,8 @@ class WebhookService {
             RegistroDeAuditoria auditoria,
             Avisos avisos,
             Repasses repasses,
+            Estornos estornos,
+            AlertasFinanceiros alertas,
             Clock clock,
             @Value("${coe.gateway.token-webhook}") String token) {
         this.jdbc = jdbc;
@@ -83,6 +87,8 @@ class WebhookService {
         this.auditoria = auditoria;
         this.avisos = avisos;
         this.repasses = repasses;
+        this.estornos = estornos;
+        this.alertas = alertas;
         this.clock = clock;
         this.resumoDoToken = resumo(token);
     }
@@ -137,6 +143,8 @@ class WebhookService {
                     null,
                     Map.of("tipo", tipo),
                     null);
+            // PA02: dinheiro de cobrança que a COE não conhece não volta sozinho (pode não ser de pedido da COE)
+            alertas.abrir(AlertasFinanceiros.Tipo.COBRANCA_DESCONHECIDA, gravado.get(0), Map.of("tipo", tipo));
         }
         jdbc.update(
                 "UPDATE evento_gateway SET processado_em = :agora, erro = :erro WHERE id = :id",
@@ -153,6 +161,7 @@ class WebhookService {
             case "PAYMENT_OVERDUE" -> vencer(externo);
             case "TRANSFER_DONE", "TRANSFER_FAILED", "TRANSFER_CANCELLED" ->
                 transferencia(tipo, evento.path("transfer"), agora);
+            case "PAYMENT_REFUNDED", "PAYMENT_PARTIALLY_REFUNDED" -> estorno(externo, evento.path("refund"), agora);
             default -> null; // outros eventos do gateway: guardados, sem efeito
         };
     }
@@ -181,6 +190,14 @@ class WebhookService {
         }
         BigDecimal valor = (BigDecimal) cobranca.get("valor");
         if (!valorRecebido.isNumber() || valorRecebido.decimalValue().compareTo(valor) != 0) {
+            if (valorRecebido.isNumber() && valorRecebido.decimalValue().signum() > 0) {
+                // RN34c: o que chegou com valor diferente do pedido volta inteiro
+                estornos.registrarSemPedido(
+                        contrato,
+                        (UUID) cobranca.get("id"),
+                        new Dinheiro(valorRecebido.decimalValue().setScale(2, java.math.RoundingMode.UNNECESSARY)),
+                        "valor-divergente");
+            }
             auditoria.registrarDoSistema(
                     "pagamento.valor-divergente",
                     "contrato",
@@ -193,8 +210,9 @@ class WebhookService {
         UUID idCobranca = (UUID) cobranca.get("id");
         String status = (String) c.get("status");
         if (!"aguardando_pagamento".equals(status)) {
-            // dinheiro recebido sem pedido esperando: o que fazer com ele é A DEFINIR (a equipe vê pela auditoria)
-            String motivo = "pago".equals(status) ? "contrato-ja-pago" : "contrato-" + status;
+            // RN34c (11/11): dinheiro recebido sem pedido esperando volta inteiro; o pedido nunca é reativado
+            String motivo = "pago".equals(status) ? "contrato-ja-pago" : "contrato-" + status.replace('_', '-');
+            estornos.registrarSemPedido(contrato, idCobranca, new Dinheiro(valor), motivo);
             auditoria.registrarDoSistema(
                     "pagamento.sem-contrato-pendente",
                     "contrato",
@@ -217,6 +235,8 @@ class WebhookService {
                         new LivroCaixa.Lancamento(LivroCaixa.Conta.GATEWAY, LivroCaixa.Natureza.DEBITO, pago),
                         new LivroCaixa.Lancamento(LivroCaixa.Conta.CUSTODIA, LivroCaixa.Natureza.CREDITO, pago))));
         exigirRegistrado(registrado, idCobranca);
+        estornos.taxaDoRecebimento(
+                contrato, idCobranca, GatewayPagamento.Metodo.doCodigo((String) cobranca.get("metodo")), pago);
         auditoria.registrarDoSistema(
                 "pagamento.confirmado",
                 "contrato",
@@ -292,6 +312,38 @@ class WebhookService {
             repasses.falhar(repasse, transferencia.path("failReason").asString(tipo));
         }
         return null;
+    }
+
+    /**
+     * Estorno concluído (PA02): pelo id do estorno; sem ele, a mais antiga enviada daquela cobrança com o mesmo valor
+     * (diária reembolsada ou devolução). Só mexe em linha enviada: evento repetido não faz nada.
+     */
+    private String estorno(String cobrancaExterna, JsonNode estorno, OffsetDateTime agora) {
+        String idDoEstorno = estorno.path("id").asString("");
+        BigDecimal valor =
+                estorno.path("value").isNumber() ? estorno.path("value").decimalValue() : null;
+        for (Estornos.Destino destino : Estornos.Destino.values()) {
+            String coluna = destino == Estornos.Destino.REEMBOLSO ? "x.valor_total" : "x.valor";
+            List<UUID> achado = jdbc.queryForList(
+                    "SELECT x.id FROM " + destino.tabela + " x JOIN cobranca c ON c.id = x.cobranca_id"
+                            + " WHERE x.status = 'enviado' AND ((CAST(:estorno AS text) <> '' AND x.id_externo = :estorno)"
+                            + " OR (CAST(:estorno AS text) = '' AND c.id_externo = :cobranca AND " + coluna
+                            + " = CAST(:valor AS numeric)))"
+                            + " ORDER BY x.enviado_em, x.id LIMIT 1 FOR UPDATE OF x",
+                    new MapSqlParameterSource("estorno", idDoEstorno)
+                            .addValue("cobranca", cobrancaExterna)
+                            .addValue("valor", valor),
+                    UUID.class);
+            if (!achado.isEmpty()) {
+                if (destino == Estornos.Destino.REEMBOLSO) {
+                    estornos.confirmarReembolso(achado.get(0), agora);
+                } else {
+                    estornos.confirmarDevolucao(achado.get(0), agora);
+                }
+                return null;
+            }
+        }
+        return "estorno-desconhecido";
     }
 
     private String vencer(String externo) {
