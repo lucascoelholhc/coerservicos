@@ -9,6 +9,7 @@ import { MinhaConta } from './paginas/conta/MinhaConta';
 import { RecolocarContato } from './paginas/conta/RecolocarContato';
 import { TrocarSenha } from './paginas/conta/TrocarSenha';
 import { FilaDeVerificacao } from './paginas/admin/FilaDeVerificacao';
+import { Financeiro } from './paginas/admin/Financeiro';
 import { VerificacaoDoCadastro } from './paginas/admin/VerificacaoDoCadastro';
 import { Busca } from './paginas/busca/Busca';
 import { CadastroProfissional } from './paginas/cadastro/CadastroProfissional';
@@ -102,6 +103,14 @@ export function Rotas() {
           element={
             <RotaPrivada papeis={['ADMIN']}>
               <FilaDeVerificacao />
+            </RotaPrivada>
+          }
+        />
+        <Route
+          path={CAMINHOS.adminFinanceiro}
+          element={
+            <RotaPrivada papeis={['ADMIN']}>
+              <Financeiro />
             </RotaPrivada>
           }
         />
