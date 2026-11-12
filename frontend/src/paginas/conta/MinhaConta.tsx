@@ -118,6 +118,16 @@ function EquipeDaCoe() {
             Financeiro e repasses
           </Link>
         </li>
+        <li className={estilos.item}>
+          <Link className={estilos.linkDoItem} to={CAMINHOS.adminFotos}>
+            Fotos novas para conferir
+          </Link>
+        </li>
+        <li className={estilos.item}>
+          <Link className={estilos.linkDoItem} to={CAMINHOS.adminConfiguracao}>
+            Configuração
+          </Link>
+        </li>
       </ul>
     </section>
   );
