@@ -125,6 +125,36 @@ class RegrasDoDia11Test extends ExecucaoDeDiariaTeste {
     }
 
     @Test
+    @DisplayName("suspender expira o pedido que ainda espera pagamento (nada é pago com o profissional suspenso)")
+    void suspensaoExpiraPedidoNaoPago() throws Exception {
+        String corpo = """
+                {"profissionalId":"%s","dias":[{"data":"%s","tipo":"inteira"}],"servicos":["Corte de grama"],
+                 "material":"cliente_tem","endereco":{"cep":"88301000","cidade":4208203,"logradouro":"Rua A","numero":"1"},
+                 "versaoTermosAceita":"%s"}""".formatted(profissional.profissional(), dia.plusDays(1), configuracao.versaoTermos());
+        UUID pendente = UUID.fromString(JsonPath.read(
+                mockMvc.perform(post("/api/contratos")
+                                .header("Authorization", doCliente())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(corpo))
+                        .andExpect(status().isCreated())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString(StandardCharsets.UTF_8),
+                "$.id"));
+
+        mockMvc.perform(post("/api/admin/profissionais/" + profissional.profissional() + "/suspender")
+                        .header("Authorization", bearer(admin, Papel.ADMIN))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"motivo\":\"Faltas seguidas sem aviso.\"}"))
+                .andExpect(status().isOk());
+
+        assertThat(jdbc.queryForObject("SELECT status FROM contrato WHERE id = ?", String.class, pendente))
+                .isEqualTo("expirado");
+        assertThat(jdbc.queryForObject("SELECT status FROM diaria WHERE contrato_id = ?", String.class, pendente))
+                .isEqualTo("cancelada");
+    }
+
+    @Test
     @DisplayName("o profissional não vê a comissão nem o total do cliente no contrato (RN34f); o cliente vê")
     void profissionalSemComissao() throws Exception {
         String doProfissional = mockMvc.perform(
