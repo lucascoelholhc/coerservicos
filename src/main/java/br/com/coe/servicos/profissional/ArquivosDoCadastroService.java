@@ -106,6 +106,25 @@ class ArquivosDoCadastroService {
             String chave = armazenamento.guardar(arquivo, tipo.categoria());
             DocumentoVerificacao documento = documentos.save(new DocumentoVerificacao(p.id(), tipo, chave));
             auditarDocumento("profissional.documento-enviado", documento);
+            if (p.aprovado()) {
+                // RN15a: documento novo de perfil aprovado = o cadastro volta inteiro para a conferência do admin
+                // (sai da busca; o selo NR-10 volta a depender do certificado), pela fila de verificação do DOM-03
+                p.enviarParaAnalise(
+                        clock.instant(),
+                        documentos
+                                .findByProfissionalIdAndTipo(p.id(), TipoDeDocumento.CERTIFICADO_NR10.codigo())
+                                .isPresent());
+                profissionais.save(p);
+                auditoria.registrar(
+                        usuario.id(),
+                        "PROFISSIONAL",
+                        "profissional.voltou-para-analise",
+                        "profissional",
+                        p.id(),
+                        java.util.Map.of("status", "ativo"),
+                        java.util.Map.of("motivo", "documento-novo"),
+                        null);
+            }
             return new CadastroResposta.DocumentoResposta(documento.getId(), documento.tipo(), documento.status());
         });
     }

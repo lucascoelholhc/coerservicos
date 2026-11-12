@@ -160,7 +160,7 @@ class PerfilEditavelTest extends IntegracaoTest {
     }
 
     @Test
-    @DisplayName("aprovado: documento novo fica pendente; o admin aprova ou recusa (com motivo), auditado")
+    @DisplayName("aprovado: documento novo manda o cadastro inteiro para a fila de verificação e o tira da busca")
     void documentoNovoEsperaOAdmin() throws Exception {
         String documento = JsonPath.read(
                 enviarDocumento()
@@ -175,26 +175,45 @@ class PerfilEditavelTest extends IntegracaoTest {
                         UUID.fromString(documento)))
                 .isEqualTo("pendente");
 
-        mockMvc.perform(post("/api/admin/profissionais/" + criado.profissional() + "/documentos/" + documento
-                                + "/recusar")
-                        .header("Authorization", doAdmin())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"motivo\":\"A foto da CNH ficou ilegível.\"}"))
-                .andExpect(status().isNoContent());
-
-        assertThat(jdbc.queryForObject(
-                        "SELECT status FROM documento_verificacao WHERE id = ?",
-                        String.class,
-                        UUID.fromString(documento)))
-                .isEqualTo("recusado");
+        // o cadastro inteiro volta para a fila de verificação do admin e sai da busca até a nova aprovação
         assertThat(jdbc.queryForObject(
                         "SELECT status FROM profissional WHERE id = ?", String.class, criado.profissional()))
-                .isEqualTo("ativo");
+                .isEqualTo("em_analise");
+        mockMvc.perform(get("/api/publico/profissionais/" + criado.profissional())
+                        .with(r -> {
+                            r.setRemoteAddr("10.78.0.9");
+                            return r;
+                        }))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/admin/verificacao").header("Authorization", doAdmin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.itens[?(@.id == '" + criado.profissional() + "')]")
+                        .isNotEmpty());
         assertThat(jdbc.queryForObject(
-                        "SELECT count(*) FROM log_auditoria WHERE acao = 'profissional.documento-recusado' AND entidade_id = ?",
+                        "SELECT count(*) FROM log_auditoria WHERE acao = 'profissional.voltou-para-analise' AND entidade_id = ?",
                         Integer.class,
                         criado.profissional()))
                 .isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("o admin não aprova foto do próprio perfil (403 verificacao-propria)")
+    void adminNaoDecideOProprio() throws Exception {
+        jdbc.update(
+                "INSERT INTO usuario_papel (usuario_id, papel) VALUES (?, 'ADMIN') ON CONFLICT DO NOTHING",
+                criado.usuario());
+        String foto = JsonPath.read(
+                enviarFoto()
+                        .andExpect(status().isCreated())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString(StandardCharsets.UTF_8),
+                "$.id");
+
+        mockMvc.perform(post("/api/admin/profissionais/" + criado.profissional() + "/fotos/" + foto + "/aprovar")
+                        .header("Authorization", bearer(criado.usuario(), Papel.ADMIN)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:verificacao-propria"));
     }
 
     @Test
