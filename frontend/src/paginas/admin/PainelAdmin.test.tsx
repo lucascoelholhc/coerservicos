@@ -59,6 +59,24 @@ describe('Fotos novas de perfis aprovados (FE-07)', () => {
     expect(screen.queryByText('Corte de grama · Gramado novo')).not.toBeInTheDocument();
   });
 
+  it('recusa a foto: ela continua fora do perfil', async () => {
+    const usuario = userEvent.setup();
+    const feitos: string[] = [];
+    simularFetch((pedido: Pedido) => {
+      if (pedido.metodo === 'POST') {
+        feitos.push(pedido.url);
+        return new Response(null, { status: 204 });
+      }
+      return json(PENDENCIAS);
+    });
+    abrir(<FotosPendentes />);
+
+    await usuario.click(await screen.findByRole('button', { name: 'Recusar a foto Gramado novo' }));
+
+    expect(feitos).toEqual(['/api/admin/profissionais/p1/fotos/f1/recusar']);
+    expect(await screen.findByText('Foto recusada. Ela continua fora do perfil.')).toBeInTheDocument();
+  });
+
   it('sem pendências mostra o estado vazio', async () => {
     simularFetch(() => json({ itens: [] }));
     abrir(<FotosPendentes />);
