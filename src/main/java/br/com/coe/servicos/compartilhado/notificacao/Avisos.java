@@ -76,6 +76,18 @@ public class Avisos implements RegistroDeEnvio {
                 "Diária liberada",
                 "COE: {nome}, a diária de {data} (pedido nº {pedido}) foi liberada para você.",
                 Set.of(Canal.SMS)),
+        DIARIA_CANCELADA(
+                "diaria.cancelada",
+                "Diária cancelada",
+                "COE: {nome}, o cliente cancelou a diária de {data} (pedido nº {pedido}). O dia ficou livre na sua"
+                        + " agenda.",
+                Set.of(Canal.SMS)),
+        DIARIA_REEMBOLSADA_SUSPENSAO(
+                "diaria.reembolsada-suspensao",
+                "Diária cancelada",
+                "COE: {nome}, a diária de {data} (pedido nº {pedido}) foi cancelada porque o profissional não está"
+                        + " atendendo. Você recebe de volta tudo o que pagou por ela.",
+                Set.of(Canal.SMS, Canal.EMAIL)),
         DISPUTA_ABERTA(
                 "disputa.aberta",
                 "Reclamação aberta",

@@ -53,6 +53,13 @@ class DiariaController {
         return diarias.fotos(id);
     }
 
+    @PostMapping("/{id}/cancelar")
+    @PreAuthorize("hasRole('CLIENTE')")
+    @LimitadoPorUsuario("cancelar-usuario")
+    DiariaDtos.Diaria cancelar(@PathVariable UUID id) {
+        return diarias.cancelar(id);
+    }
+
     @PostMapping("/{id}/aprovar")
     @PreAuthorize("hasRole('CLIENTE')")
     @LimitadoPorUsuario("diaria-usuario")

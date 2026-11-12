@@ -39,19 +39,49 @@ class AdminConfiguracaoTest extends IntegracaoTest {
     private PasswordEncoder codificador;
 
     private UUID admin;
+    private String celular;
 
     @BeforeEach
     void criarAdmin() {
-        admin = new ContasDeTeste(jdbc, codificador)
-                .criarConfirmada(Papel.ADMIN)
-                .id();
+        ContasDeTeste.Conta conta = new ContasDeTeste(jdbc, codificador).criarConfirmada(Papel.ADMIN);
+        admin = conta.id();
+        celular = conta.celular();
     }
 
+    /** RN44g (11/11): mudar a configuração pede o código SMS da ação, na hora. */
     private ResultActions mudar(String chave, String valor) throws Exception {
+        // uma hora depois: a espera de 60 s e o teto de 5 códigos por hora não atrapalham a sequência do teste
+        relogio.avancar(java.time.Duration.ofMinutes(61));
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(
+                                "/api/admin/equipe/codigo")
+                        .header("Authorization", bearer(admin, Papel.ADMIN)))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status()
+                        .isAccepted());
+        String codigo = sms.ultimoCodigo(celular).orElseThrow();
+        return mudarComCodigo(chave, valor, codigo);
+    }
+
+    private ResultActions mudarComCodigo(String chave, String valor, String codigo) throws Exception {
         return mockMvc.perform(put("/api/admin/configuracao/" + chave)
                 .header("Authorization", bearer(admin, Papel.ADMIN))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"valor\":\"" + valor + "\"}"));
+                .content("{\"valor\":\"" + valor + "\",\"codigo\":\"" + codigo + "\"}"));
+    }
+
+    @Test
+    @DisplayName("sem o código SMS a configuração não muda (400); código errado = 422 codigo-invalido")
+    void exigeCodigoSms() throws Exception {
+        mockMvc.perform(put("/api/admin/configuracao/COMISSAO")
+                        .header("Authorization", bearer(admin, Papel.ADMIN))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"valor\":\"0.12\"}"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status()
+                        .isBadRequest());
+        mudarComCodigo("COMISSAO", "0.12", "000000")
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status()
+                        .isUnprocessableEntity())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.type")
+                        .value("urn:coe:erro:codigo-invalido"));
     }
 
     @Test

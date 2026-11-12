@@ -440,8 +440,9 @@ class ContratoService {
                 (String) c.get("descricao"),
                 (String) c.get("material"),
                 new Dinheiro((BigDecimal) c.get("valor_servicos")),
-                new Dinheiro((BigDecimal) c.get("valor_comissao")),
-                new Dinheiro((BigDecimal) c.get("valor_total")),
+                // RN34f: o profissional vê o valor do serviço, nunca a comissão nem o total do cliente
+                souCliente ? new Dinheiro((BigDecimal) c.get("valor_comissao")) : null,
+                souCliente ? new Dinheiro((BigDecimal) c.get("valor_total")) : null,
                 instante(c.get("pagamento_expira_em")),
                 endereco,
                 contatoDoOutroLado(c, souCliente));

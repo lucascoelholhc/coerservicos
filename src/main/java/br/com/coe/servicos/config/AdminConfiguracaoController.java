@@ -18,9 +18,16 @@ import br.com.coe.servicos.compartilhado.limite.LimitadoPorUsuario;
 class AdminConfiguracaoController {
 
     private final AdminConfiguracaoService servico;
+    private final br.com.coe.servicos.usuario.CodigoDaAcaoDoAdmin codigoDaAcao;
+    private final br.com.coe.servicos.compartilhado.seguranca.UsuarioAutenticado usuario;
 
-    AdminConfiguracaoController(AdminConfiguracaoService servico) {
+    AdminConfiguracaoController(
+            AdminConfiguracaoService servico,
+            br.com.coe.servicos.usuario.CodigoDaAcaoDoAdmin codigoDaAcao,
+            br.com.coe.servicos.compartilhado.seguranca.UsuarioAutenticado usuario) {
         this.servico = servico;
+        this.codigoDaAcao = codigoDaAcao;
+        this.usuario = usuario;
     }
 
     @GetMapping
@@ -34,6 +41,8 @@ class AdminConfiguracaoController {
     @LimitadoPorUsuario("admin-usuario")
     AdminConfiguracaoService.Parametro mudar(
             @PathVariable String chave, @Valid @RequestBody AdminConfiguracaoService.Mudanca pedido) {
+        // fora da transação da mudança: o código errado conta mesmo com a mudança recusada
+        codigoDaAcao.exigir(usuario.id(), pedido.codigo());
         return servico.mudar(chave, pedido);
     }
 }

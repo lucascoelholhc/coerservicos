@@ -11,6 +11,8 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 import br.com.coe.servicos.compartilhado.dinheiro.Dinheiro;
 
 /** Pedidos e respostas da contratação (DOM-06). Valores sempre em {@link Dinheiro} (texto "280.00" no JSON). */
@@ -94,8 +96,8 @@ final class ContratoDtos {
             String descricao,
             String material,
             Dinheiro valorServicos,
-            Dinheiro valorComissao,
-            Dinheiro valorTotal,
+            @JsonInclude(JsonInclude.Include.NON_NULL) Dinheiro valorComissao,
+            @JsonInclude(JsonInclude.Include.NON_NULL) Dinheiro valorTotal,
             Instant pagamentoExpiraEm,
             EnderecoGuardado endereco,
             ContatoLiberado contato) {}

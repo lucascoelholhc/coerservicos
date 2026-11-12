@@ -162,6 +162,7 @@ coe:
       foto-url-usuario: { capacidade: 300, janela: 1h }   # ver as fotos do dia (URL assinada, FE-05)
       diaria-usuario: { capacidade: 60, janela: 1h }      # Cheguei, Terminei e aprovar (DOM-08)
       agenda-usuario: { capacidade: 120, janela: 1h }     # marcar e tirar folga (FE-06)
+      cancelar-usuario: { capacidade: 20, janela: 1h }    # cancelar diária com 24 h de antecedência (PA09)
       disputa-usuario: { capacidade: 30, janela: 1h }     # reclamar, responder e escolher as outras diárias (DOM-09)
       avaliacao-usuario: { capacidade: 20, janela: 1h }   # avaliar o outro lado do contrato (DOM-10)
       denuncia-usuario: { capacidade: 10, janela: 24h }   # denunciar quem está na conversa (DOM-11)
