@@ -62,6 +62,9 @@ class WebhookService {
     private final LivroCaixa livro;
     private final RegistroDeAuditoria auditoria;
     private final Avisos avisos;
+    private final Repasses repasses;
+    private final Estornos estornos;
+    private final AlertasFinanceiros alertas;
     private final Clock clock;
     private final byte[] resumoDoToken;
 
@@ -72,6 +75,9 @@ class WebhookService {
             LivroCaixa livro,
             RegistroDeAuditoria auditoria,
             Avisos avisos,
+            Repasses repasses,
+            Estornos estornos,
+            AlertasFinanceiros alertas,
             Clock clock,
             @Value("${coe.gateway.token-webhook}") String token) {
         this.jdbc = jdbc;
@@ -80,6 +86,9 @@ class WebhookService {
         this.livro = livro;
         this.auditoria = auditoria;
         this.avisos = avisos;
+        this.repasses = repasses;
+        this.estornos = estornos;
+        this.alertas = alertas;
         this.clock = clock;
         this.resumoDoToken = resumo(token);
     }
@@ -124,7 +133,7 @@ class WebhookService {
         if (gravado.isEmpty()) {
             return Resultado.ACEITO; // repetido: já foi processado
         }
-        String erro = processar(tipo, evento.path("payment"), agora);
+        String erro = processar(tipo, evento, agora);
         if ("cobranca-desconhecida".equals(erro)) {
             // pagamento de cobrança que a COE não conhece: a equipe precisa conciliar com o gateway
             auditoria.registrarDoSistema(
@@ -134,6 +143,8 @@ class WebhookService {
                     null,
                     Map.of("tipo", tipo),
                     null);
+            // PA02: dinheiro de cobrança que a COE não conhece não volta sozinho (pode não ser de pedido da COE)
+            alertas.abrir(AlertasFinanceiros.Tipo.COBRANCA_DESCONHECIDA, gravado.get(0), Map.of("tipo", tipo));
         }
         jdbc.update(
                 "UPDATE evento_gateway SET processado_em = :agora, erro = :erro WHERE id = :id",
@@ -142,11 +153,15 @@ class WebhookService {
     }
 
     /** Devolve o motivo de não ter efeito (gravado em {@code evento_gateway.erro}) ou nulo. */
-    private String processar(String tipo, JsonNode pagamento, OffsetDateTime agora) {
+    private String processar(String tipo, JsonNode evento, OffsetDateTime agora) {
+        JsonNode pagamento = evento.path("payment");
         String externo = pagamento.path("id").asString("");
         return switch (tipo) {
             case "PAYMENT_RECEIVED", "PAYMENT_CONFIRMED" -> confirmar(externo, pagamento.path("value"), agora);
             case "PAYMENT_OVERDUE" -> vencer(externo);
+            case "TRANSFER_DONE", "TRANSFER_FAILED", "TRANSFER_CANCELLED" ->
+                transferencia(tipo, evento.path("transfer"), agora);
+            case "PAYMENT_REFUNDED", "PAYMENT_PARTIALLY_REFUNDED" -> estorno(externo, evento.path("refund"), agora);
             default -> null; // outros eventos do gateway: guardados, sem efeito
         };
     }
@@ -175,6 +190,16 @@ class WebhookService {
         }
         BigDecimal valor = (BigDecimal) cobranca.get("valor");
         if (!valorRecebido.isNumber() || valorRecebido.decimalValue().compareTo(valor) != 0) {
+            if (valorRecebido.isNumber()
+                    && valorRecebido.decimalValue().signum() > 0
+                    && valorRecebido.decimalValue().stripTrailingZeros().scale() <= 2) {
+                // RN34c: o que chegou com valor diferente do pedido volta inteiro
+                estornos.registrarSemPedido(
+                        contrato,
+                        (UUID) cobranca.get("id"),
+                        new Dinheiro(valorRecebido.decimalValue()),
+                        "valor-divergente");
+            }
             auditoria.registrarDoSistema(
                     "pagamento.valor-divergente",
                     "contrato",
@@ -187,8 +212,9 @@ class WebhookService {
         UUID idCobranca = (UUID) cobranca.get("id");
         String status = (String) c.get("status");
         if (!"aguardando_pagamento".equals(status)) {
-            // dinheiro recebido sem pedido esperando: o que fazer com ele é A DEFINIR (a equipe vê pela auditoria)
-            String motivo = "pago".equals(status) ? "contrato-ja-pago" : "contrato-" + status;
+            // RN34c (11/11): dinheiro recebido sem pedido esperando volta inteiro; o pedido nunca é reativado
+            String motivo = "pago".equals(status) ? "contrato-ja-pago" : "contrato-" + status.replace('_', '-');
+            estornos.registrarSemPedido(contrato, idCobranca, new Dinheiro(valor), motivo);
             auditoria.registrarDoSistema(
                     "pagamento.sem-contrato-pendente",
                     "contrato",
@@ -211,6 +237,8 @@ class WebhookService {
                         new LivroCaixa.Lancamento(LivroCaixa.Conta.GATEWAY, LivroCaixa.Natureza.DEBITO, pago),
                         new LivroCaixa.Lancamento(LivroCaixa.Conta.CUSTODIA, LivroCaixa.Natureza.CREDITO, pago))));
         exigirRegistrado(registrado, idCobranca);
+        estornos.taxaDoRecebimento(
+                contrato, idCobranca, GatewayPagamento.Metodo.doCodigo((String) cobranca.get("metodo")), pago);
         auditoria.registrarDoSistema(
                 "pagamento.confirmado",
                 "contrato",
@@ -263,6 +291,65 @@ class WebhookService {
                 UPDATE conversa SET contato_liberado_em = :agora
                  WHERE cliente_id = :cliente AND profissional_id = :profissional AND contato_liberado_em IS NULL
                 """, parametros);
+    }
+
+    /**
+     * Transferência do repasse (PA02): concluída confirma (livro-caixa), falha ou cancelada abre o alerta. Só mexe em
+     * repasse enviado: evento repetido ou atrasado não faz nada.
+     */
+    private String transferencia(String tipo, JsonNode transferencia, OffsetDateTime agora) {
+        List<Map<String, Object>> encontrado = jdbc.queryForList(
+                "SELECT id, status FROM repasse WHERE id_externo = :externo FOR UPDATE",
+                new MapSqlParameterSource("externo", transferencia.path("id").asString("")));
+        if (encontrado.isEmpty()) {
+            return "transferencia-desconhecida";
+        }
+        UUID repasse = (UUID) encontrado.get(0).get("id");
+        if (!"enviado".equals(encontrado.get(0).get("status"))) {
+            return null;
+        }
+        if ("TRANSFER_DONE".equals(tipo)) {
+            repasses.confirmar(repasse, agora);
+        } else {
+            repasses.falhar(repasse, transferencia.path("failReason").asString(tipo));
+        }
+        return null;
+    }
+
+    /**
+     * Estorno concluído (PA02): pelo id do estorno; sem ele, a mais antiga enviada daquela cobrança com o mesmo valor
+     * (diária reembolsada ou devolução). Só mexe em linha enviada: evento repetido não faz nada.
+     */
+    private String estorno(String cobrancaExterna, JsonNode estorno, OffsetDateTime agora) {
+        String idDoEstorno = estorno.path("id").asString("");
+        BigDecimal valor =
+                estorno.path("value").isNumber() ? estorno.path("value").decimalValue() : null;
+        for (Estornos.Destino destino : Estornos.Destino.values()) {
+            String coluna = destino == Estornos.Destino.REEMBOLSO ? "x.valor_total" : "x.valor";
+            List<UUID> achado = jdbc.queryForList(
+                    // pelo id do estorno; sem ele (ou com o id ainda não gravado), pela cobrança e pelo valor. Aceita
+                    // falhou também: um estorno dado como recusado pode ter saído (o gateway confirma depois)
+                    "SELECT x.id FROM " + destino.tabela + " x JOIN cobranca c ON c.id = x.cobranca_id"
+                            + " WHERE x.status IN ('enviado', 'falhou')"
+                            + " AND ((CAST(:estorno AS text) <> '' AND x.id_externo = :estorno)"
+                            + " OR ((CAST(:estorno AS text) = '' OR x.id_externo IS NULL)"
+                            + " AND c.id_externo = :cobranca AND " + coluna + " = CAST(:valor AS numeric)))"
+                            + " ORDER BY (x.id_externo IS NOT DISTINCT FROM CAST(:estorno AS text)) DESC,"
+                            + " x.enviado_em, x.id LIMIT 1 FOR UPDATE OF x",
+                    new MapSqlParameterSource("estorno", idDoEstorno)
+                            .addValue("cobranca", cobrancaExterna)
+                            .addValue("valor", valor),
+                    UUID.class);
+            if (!achado.isEmpty()) {
+                if (destino == Estornos.Destino.REEMBOLSO) {
+                    estornos.confirmarReembolso(achado.get(0), agora);
+                } else {
+                    estornos.confirmarDevolucao(achado.get(0), agora);
+                }
+                return null;
+            }
+        }
+        return "estorno-desconhecido";
     }
 
     private String vencer(String externo) {

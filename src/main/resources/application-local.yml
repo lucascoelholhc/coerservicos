@@ -15,6 +15,8 @@ coe.seguranca.origem-das-imagens: http://localhost:8333
 coe.front.url-base: http://localhost:5173
 # Token do webhook do gateway FALSO (não é segredo: só serve no perfil local)
 coe.gateway.token-webhook: token-local-do-gateway-falso
+# Gateway falso: transferência e estorno já voltam concluídos (no navegador não há quem mande o webhook)
+coe.gateway.falso.imediato: true
 coe.email.remetente: nao-responda@coe.local
 spring.mail.host: localhost
 spring.mail.port: 1025

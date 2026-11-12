@@ -49,6 +49,21 @@ class AdminProfissionaisController {
         return servico.suspender(id, pedido);
     }
 
+    @GetMapping("/{id}/pix")
+    @PreAuthorize("hasRole('ADMIN')")
+    @LimitadoPorUsuario("admin-detalhe-usuario")
+    AdminProfissionaisService.PixParaConferir pix(@PathVariable UUID id) {
+        return servico.pix(id);
+    }
+
+    @PostMapping("/{id}/pix/conferido")
+    @PreAuthorize("hasRole('ADMIN')")
+    @LimitadoPorUsuario("admin-usuario")
+    @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    void conferirPix(@PathVariable UUID id, @Valid @RequestBody AdminProfissionaisService.ConferenciaDoPix pedido) {
+        servico.conferirPix(id, pedido.versao());
+    }
+
     @PostMapping("/{id}/reativar")
     @PreAuthorize("hasRole('ADMIN')")
     @LimitadoPorUsuario("admin-usuario")

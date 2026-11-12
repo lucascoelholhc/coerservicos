@@ -106,7 +106,7 @@ class CobrancaService {
         UUID id = UUID.randomUUID();
         Dinheiro valor = new Dinheiro((BigDecimal) c.get("valor_total"));
         GatewayPagamento.CobrancaNoGateway criada = gateway.criarCobranca(new GatewayPagamento.NovaCobranca(
-                id, valor, metodo, expira, "COE - pedido nº " + ((Number) c.get("numero")).longValue()));
+                contrato, valor, metodo, expira, "COE - pedido nº " + ((Number) c.get("numero")).longValue()));
         jdbc.update(
                 """
                 INSERT INTO cobranca (id, contrato_id, gateway, id_externo, metodo, valor, status, pix_copia_cola,

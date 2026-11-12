@@ -18,6 +18,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.com.coe.servicos.compartilhado.auditoria.RegistroDeAuditoria;
+import br.com.coe.servicos.compartilhado.cripto.Campo;
+import br.com.coe.servicos.compartilhado.cripto.CifraDeCampo;
 import br.com.coe.servicos.compartilhado.erro.AcaoProibidaException;
 import br.com.coe.servicos.compartilhado.erro.ConflitoException;
 import br.com.coe.servicos.compartilhado.erro.RecursoNaoEncontradoException;
@@ -42,6 +44,7 @@ class AdminProfissionaisService {
     private final UsuarioAutenticado usuario;
     private final RegistroDeAuditoria auditoria;
     private final Avisos avisos;
+    private final CifraDeCampo cifra;
     private final Clock clock;
 
     AdminProfissionaisService(
@@ -50,8 +53,10 @@ class AdminProfissionaisService {
             UsuarioAutenticado usuario,
             RegistroDeAuditoria auditoria,
             Avisos avisos,
+            CifraDeCampo cifra,
             Clock clock) {
         this.avisos = avisos;
+        this.cifra = cifra;
         this.jdbc = jdbc;
         this.configuracao = configuracao;
         this.usuario = usuario;
@@ -93,6 +98,76 @@ class AdminProfissionaisService {
             int totalAvaliacoes) {}
 
     record Suspensao(@NotBlank @Size(min = 10, max = 300) String motivo) {}
+
+    /** A versão (resumo) da chave que o admin viu: a conferência só vale para ela. */
+    record ConferenciaDoPix(@NotBlank @Size(max = 64) String versao) {}
+
+    /** A chave Pix em claro só para o admin conferir que é do profissional (RN15); nome completo para comparar. */
+    record PixParaConferir(
+            String tipo, String chave, String nome, String versao, boolean conferida, java.time.Instant conferidaEm) {
+
+        @Override
+        public String toString() {
+            return "PixParaConferir[tipo=" + tipo + ", chave=***, conferida=" + conferida + "]";
+        }
+    }
+
+    /** RN15: a chave em claro para o admin conferir (auditado, sem a chave na auditoria). */
+    @Transactional
+    PixParaConferir pix(UUID id) {
+        java.util.List<java.util.Map<String, Object>> linhas =
+                jdbc.queryForList("""
+                SELECT p.chave_pix_tipo, p.chave_pix_cifrada, u.nome, p.pix_conferido_em,
+                       encode(sha256(p.chave_pix_cifrada), 'hex') AS versao
+                  FROM profissional p JOIN usuario u ON u.id = p.usuario_id
+                 WHERE p.id = :id
+                """, new MapSqlParameterSource("id", id));
+        if (linhas.isEmpty() || linhas.get(0).get("chave_pix_cifrada") == null) {
+            throw new RecursoNaoEncontradoException("Chave Pix não encontrada.");
+        }
+        java.util.Map<String, Object> p = linhas.get(0);
+        auditoria.registrar(usuario.id(), "ADMIN", "profissional.pix-visto", "profissional", id, null, Map.of(), null);
+        OffsetDateTime conferida = (OffsetDateTime) p.get("pix_conferido_em");
+        return new PixParaConferir(
+                (String) p.get("chave_pix_tipo"),
+                cifra.decifrar((byte[]) p.get("chave_pix_cifrada"), Campo.CHAVE_PIX),
+                (String) p.get("nome"),
+                (String) p.get("versao"),
+                conferida != null,
+                conferida == null ? null : conferida.toInstant());
+    }
+
+    /**
+     * RN15: o admin confirma que a chave é do profissional; sem isso nenhum repasse sai. Vale só para a chave que ele viu
+     * (a {@code versao} do {@link #pix}): se o profissional trocou no meio, 409 e o admin confere de novo.
+     */
+    @Transactional
+    void conferirPix(UUID id, String versao) {
+        travar(id);
+        int conferidas = jdbc.update(
+                """
+                UPDATE profissional SET pix_conferido_em = :agora, pix_conferido_por = :admin
+                 WHERE id = :id AND chave_pix_cifrada IS NOT NULL
+                   AND encode(sha256(chave_pix_cifrada), 'hex') = :versao
+                """,
+                new MapSqlParameterSource("id", id)
+                        .addValue("admin", usuario.id())
+                        .addValue("versao", versao)
+                        .addValue("agora", OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC)));
+        if (conferidas == 0) {
+            throw new ConflitoException(
+                    "pix-mudou", "A chave Pix mudou ou não existe. Abra a chave de novo antes de conferir.", null);
+        }
+        auditoria.registrar(
+                usuario.id(),
+                "ADMIN",
+                "profissional.pix-conferido",
+                "profissional",
+                id,
+                Map.of(),
+                Map.of("conferida", true),
+                null);
+    }
 
     private static final String COLUNAS = """
             SELECT p.id, p.usuario_id, u.nome, pr.nome AS profissao, c.nome AS cidade, c.uf, p.status,

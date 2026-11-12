@@ -35,6 +35,10 @@ class ConfiguracaoNegocioFalhaTest {
         valores.put("SOBRE_MINIMO_CARACTERES", "25");
         valores.put("FALTAS_ALERTA", "2");
         valores.put("FALTAS_JANELA_DIAS", "90");
+        valores.put("TAXA_GATEWAY_PIX", "0.00");
+        valores.put("TAXA_GATEWAY_CARTAO_PERCENTUAL", "0.0000");
+        valores.put("TAXA_GATEWAY_CARTAO_FIXA", "0.00");
+        valores.put("TAXA_GATEWAY_TRANSFERENCIA", "0.00");
         return valores;
     }
 
@@ -87,7 +91,11 @@ class ConfiguracaoNegocioFalhaTest {
         "MEIA_DIARIA_MINIMA, -1",
         "SOBRE_MINIMO_CARACTERES, 0",
         "FALTAS_ALERTA, 0",
-        "FALTAS_JANELA_DIAS, abc"
+        "FALTAS_JANELA_DIAS, abc",
+        "TAXA_GATEWAY_PIX, -1.00",
+        "TAXA_GATEWAY_PIX, 100.01",
+        "TAXA_GATEWAY_CARTAO_PERCENTUAL, 0.2100",
+        "TAXA_GATEWAY_TRANSFERENCIA, abc"
     })
     @DisplayName("com valor inválido, não sobe e a mensagem diz a chave e o valor")
     void valorInvalido(String chave, String valor) {

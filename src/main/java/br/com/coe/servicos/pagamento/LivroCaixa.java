@@ -30,7 +30,11 @@ public class LivroCaixa {
         CUSTODIA("custodia"),
         RECEITA_COE("receita_coe"),
         PROFISSIONAL("profissional"),
-        CLIENTE("cliente");
+        CLIENTE("cliente"),
+        /** PA02: dinheiro recebido sem pedido, até o estorno integral sair (RN34c). */
+        A_DEVOLVER("a_devolver"),
+        /** PA02: taxas do gateway, despesa da COE (RN34d). */
+        DESPESA_COE("despesa_coe");
 
         private final String tipo;
 

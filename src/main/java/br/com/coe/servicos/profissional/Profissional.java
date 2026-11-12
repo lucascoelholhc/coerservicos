@@ -21,6 +21,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 import jakarta.persistence.Version;
 
+import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.springframework.data.domain.Persistable;
@@ -38,6 +39,9 @@ import br.com.coe.servicos.compartilhado.pessoal.Cpf;
  */
 @Entity
 @Table(name = "profissional")
+// só as colunas que mudaram: a chave Pix cifrada (nonce novo a cada cifra) não é regravada sem mudar, e a conferência
+// do admin (RN15, gatilho da V26) não cai num save qualquer
+@DynamicUpdate
 class Profissional implements Persistable<UUID> {
 
     static final String RASCUNHO = "rascunho";

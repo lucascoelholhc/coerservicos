@@ -18,5 +18,10 @@ public enum ChaveConfiguracao {
     /** RN44d: quantas faltas acendem o alerta do profissional no painel (DB-14). */
     FALTAS_ALERTA,
     /** RN44d: a janela, em dias, para contar as faltas (DB-14). */
-    FALTAS_JANELA_DIAS
+    FALTAS_JANELA_DIAS,
+    /** RN34d: taxas do gateway (despesa da COE), R$ 0,00 até o comercial do Asaas confirmar (A DEFINIR). */
+    TAXA_GATEWAY_PIX,
+    TAXA_GATEWAY_CARTAO_PERCENTUAL,
+    TAXA_GATEWAY_CARTAO_FIXA,
+    TAXA_GATEWAY_TRANSFERENCIA
 }

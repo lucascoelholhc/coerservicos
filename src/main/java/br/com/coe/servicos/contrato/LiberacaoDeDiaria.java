@@ -21,6 +21,7 @@ import br.com.coe.servicos.compartilhado.dinheiro.TaxaPagaPor;
 import br.com.coe.servicos.compartilhado.dinheiro.ValoresDiaria;
 import br.com.coe.servicos.compartilhado.notificacao.Avisos;
 import br.com.coe.servicos.pagamento.LivroCaixa;
+import br.com.coe.servicos.pagamento.Repasses;
 
 /**
  * Libera uma diária (RN37–RN39): status {@code liberada}, histórico, livro-caixa (D custódia o que o cliente pagou
@@ -52,12 +53,19 @@ public class LiberacaoDeDiaria {
     private final LivroCaixa livro;
     private final RegistroDeAuditoria auditoria;
     private final Avisos avisos;
+    private final Repasses repasses;
 
-    LiberacaoDeDiaria(NamedParameterJdbcTemplate jdbc, LivroCaixa livro, RegistroDeAuditoria auditoria, Avisos avisos) {
+    LiberacaoDeDiaria(
+            NamedParameterJdbcTemplate jdbc,
+            LivroCaixa livro,
+            RegistroDeAuditoria auditoria,
+            Avisos avisos,
+            Repasses repasses) {
         this.jdbc = jdbc;
         this.livro = livro;
         this.auditoria = auditoria;
         this.avisos = avisos;
+        this.repasses = repasses;
     }
 
     /**
@@ -135,6 +143,8 @@ public class LiberacaoDeDiaria {
         if (!registrada) {
             throw new IllegalStateException("Diária já liberada no livro-caixa: " + diaria);
         }
+        // PA02 (conta única): o repasse por Pix nasce junto, pendente até o envio
+        repasses.agendar(diaria, (UUID) d.get("profissional_id"), valores.repasseProfissional());
 
         Map<String, Object> depois = Map.of(
                 "status",
