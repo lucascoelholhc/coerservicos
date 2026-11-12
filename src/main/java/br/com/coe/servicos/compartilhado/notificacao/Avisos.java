@@ -13,12 +13,19 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -27,8 +34,9 @@ import br.com.coe.servicos.compartilhado.mensageria.MensagemPronta.Canal;
 import br.com.coe.servicos.compartilhado.mensageria.RegistroDeEnvio;
 
 /**
- * Avisos sem segredo ao cliente e ao profissional (DOM-11 parte 2b, RN35): uma linha de {@code notificacao} por canal
- * e a mensagem na fila normal, que sai depois do commit (rollback não avisa). Só para contato confirmado (RN61); se
+ * Avisos sem segredo ao cliente e ao profissional (DOM-11 parte 2b, RN35): depois do commit de quem pediu, numa
+ * transação própria, uma linha de {@code notificacao} por canal e a mensagem na fila normal (rollback não avisa; erro
+ * no aviso não desfaz a ação). Só para contato confirmado (RN61); se
  * nenhum canal preferido estiver confirmado, vai pelo outro (menos os avisos só por e-mail). O texto leva só o
  * primeiro nome de quem recebe e os {@code valores} dados (número do pedido, data); nunca contato, endereço, código ou
  * link. O despacho grava aqui se o aviso saiu ou falhou.
@@ -139,16 +147,27 @@ public class Avisos implements RegistroDeEnvio {
         }
     }
 
+    private static final Logger LOG = LoggerFactory.getLogger(Avisos.class);
+
     private final NamedParameterJdbcTemplate jdbc;
     private final ApplicationEventPublisher eventos;
     private final JsonMapper json;
     private final Clock clock;
+    /** O aviso grava numa transação própria, depois do commit de quem pediu: erro no aviso nunca desfaz a ação. */
+    private final TransactionTemplate novaTransacao;
 
-    Avisos(NamedParameterJdbcTemplate jdbc, ApplicationEventPublisher eventos, JsonMapper json, Clock clock) {
+    Avisos(
+            NamedParameterJdbcTemplate jdbc,
+            ApplicationEventPublisher eventos,
+            JsonMapper json,
+            Clock clock,
+            PlatformTransactionManager transacoes) {
         this.jdbc = jdbc;
         this.eventos = eventos;
         this.json = json;
         this.clock = clock;
+        this.novaTransacao = new TransactionTemplate(transacoes);
+        this.novaTransacao.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     /** Quem recebe um aviso sobre uma diária ou um contrato. */
@@ -160,6 +179,10 @@ public class Avisos implements RegistroDeEnvio {
     /** Aviso sobre uma diária ao cliente ou ao profissional dela, com o número do pedido e a data. */
     @Transactional(propagation = Propagation.MANDATORY)
     public void avisarSobreDiaria(UUID diaria, Para para, Aviso aviso) {
+        depoisDoCommit(aviso, () -> gravarSobreDiaria(diaria, para, aviso));
+    }
+
+    private void gravarSobreDiaria(UUID diaria, Para para, Aviso aviso) {
         Map<String, Object> d = jdbc.queryForMap("""
                 SELECT d.data, c.numero, d.cliente_id, p.usuario_id AS profissional
                   FROM diaria d
@@ -167,7 +190,7 @@ public class Avisos implements RegistroDeEnvio {
                   JOIN profissional p ON p.id = d.profissional_id
                  WHERE d.id = :id
                 """, new MapSqlParameterSource("id", diaria));
-        avisar(
+        gravar(
                 (UUID) d.get(para == Para.CLIENTE ? "cliente_id" : "profissional"),
                 aviso,
                 Map.of(
@@ -178,12 +201,16 @@ public class Avisos implements RegistroDeEnvio {
     /** Aviso sobre um contrato ao cliente ou ao profissional dele, com o número do pedido. */
     @Transactional(propagation = Propagation.MANDATORY)
     public void avisarSobreContrato(UUID contrato, Para para, Aviso aviso) {
+        depoisDoCommit(aviso, () -> gravarSobreContrato(contrato, para, aviso));
+    }
+
+    private void gravarSobreContrato(UUID contrato, Para para, Aviso aviso) {
         Map<String, Object> c = jdbc.queryForMap("""
                 SELECT c.numero, c.cliente_id, p.usuario_id AS profissional
                   FROM contrato c JOIN profissional p ON p.id = c.profissional_id
                  WHERE c.id = :id
                 """, new MapSqlParameterSource("id", contrato));
-        avisar(
+        gravar(
                 (UUID) c.get(para == Para.CLIENTE ? "cliente_id" : "profissional"),
                 aviso,
                 Map.of("pedido", String.valueOf(((Number) c.get("numero")).longValue())));
@@ -195,11 +222,36 @@ public class Avisos implements RegistroDeEnvio {
     }
 
     /**
-     * Grava e agenda o aviso na transação de quem chama (sai depois do commit). Conta excluída ou sem contato
+     * Agenda o aviso para depois do commit de quem chama (rollback não avisa). Conta excluída ou sem contato
      * confirmado: nada.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void avisar(UUID usuario, Aviso aviso, Map<String, String> valores) {
+        Map<String, String> copia = Map.copyOf(valores);
+        depoisDoCommit(aviso, () -> gravar(usuario, aviso, copia));
+    }
+
+    /**
+     * Depois do commit, numa transação nova: um erro aqui (linha sumida, texto que o banco recusa) só vai para o log
+     * e nunca desfaz o pagamento, a liberação ou a decisão que pediu o aviso.
+     */
+    private void depoisDoCommit(Aviso aviso, Runnable gravacao) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    novaTransacao.executeWithoutResult(status -> gravacao.run());
+                } catch (RuntimeException erro) {
+                    LOG.error(
+                            "Aviso {} não gravado: {}",
+                            aviso.tipo,
+                            erro.getClass().getSimpleName());
+                }
+            }
+        });
+    }
+
+    private void gravar(UUID usuario, Aviso aviso, Map<String, String> valores) {
         List<Contato> encontrado = jdbc.query(
                 """
                 SELECT nome,

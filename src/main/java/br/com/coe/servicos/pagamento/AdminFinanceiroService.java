@@ -35,6 +35,9 @@ class AdminFinanceiroService {
     private static final int DIAS_PADRAO = 30;
     private static final int DIAS_MAXIMOS = 366;
     private static final int POR_PAGINA = 50;
+    /** Teto da página (50 mil diárias): página maior volta a última permitida, sem OFFSET gigante. */
+    private static final int PAGINA_MAXIMA = 1_000;
+
     private static final Set<String> GUARDADAS = Set.of("paga", "andamento", "aguardando");
     private static final Dinheiro NADA = Dinheiro.de("0.00");
 
@@ -99,27 +102,32 @@ class AdminFinanceiroService {
         Intervalo intervalo = intervalo(de, ate);
         List<Linha> linhas = jdbc.query(
                 """
+                WITH contratos AS (
+                    SELECT DISTINCT t.contrato_id
+                      FROM transacao_financeira t
+                     WHERE t.criado_em >= :inicio AND t.criado_em < :fim
+                       AND t.contrato_id IS NOT NULL
+                       AND (CAST(:contrato AS uuid) IS NULL OR t.contrato_id = :contrato)
+                )
                 SELECT d.id, d.contrato_id, c.numero, d.data, d.tipo, d.status, d.valor,
                        c.comissao_pct, c.taxa_paga_por,
                        COALESCE(m.liberado, 0) AS liberado, COALESCE(m.receita, 0) AS receita,
                        COALESCE(m.reembolsado, 0) AS reembolsado
-                  FROM diaria d
-                  JOIN contrato c ON c.id = d.contrato_id
+                  FROM contratos x
+                  JOIN contrato c ON c.id = x.contrato_id
+                  JOIN diaria d ON d.contrato_id = x.contrato_id
                   LEFT JOIN LATERAL (
-                      SELECT SUM(l.valor) FILTER (WHERE r.tipo = 'profissional' AND l.natureza = 'C') AS liberado,
-                             SUM(l.valor) FILTER (WHERE r.tipo = 'receita_coe' AND l.natureza = 'C') AS receita,
-                             SUM(l.valor) FILTER (WHERE r.tipo = 'cliente' AND l.natureza = 'C') AS reembolsado
+                      SELECT SUM(l.valor) FILTER (
+                                 WHERE t.tipo = 'liberacao' AND r.tipo = 'profissional' AND l.natureza = 'C') AS liberado,
+                             SUM(l.valor) FILTER (
+                                 WHERE t.tipo = 'liberacao' AND r.tipo = 'receita_coe' AND l.natureza = 'C') AS receita,
+                             SUM(l.valor) FILTER (
+                                 WHERE t.tipo = 'reembolso' AND r.tipo = 'cliente' AND l.natureza = 'C') AS reembolsado
                         FROM transacao_financeira t
                         JOIN lancamento l ON l.transacao_id = t.id
                         JOIN conta_razao r ON r.id = l.conta_id
                        WHERE t.diaria_id = d.id AND t.criado_em >= :inicio AND t.criado_em < :fim
                   ) m ON true
-                 WHERE (CAST(:contrato AS uuid) IS NULL OR d.contrato_id = :contrato)
-                   AND EXISTS (
-                       SELECT 1 FROM transacao_financeira t
-                        WHERE t.contrato_id = d.contrato_id
-                          AND (t.diaria_id IS NULL OR t.diaria_id = d.id)
-                          AND t.criado_em >= :inicio AND t.criado_em < :fim)
                  ORDER BY d.data, d.id
                  LIMIT :limite OFFSET :pular
                 """,
@@ -127,7 +135,7 @@ class AdminFinanceiroService {
                         .addValue("fim", intervalo.fim())
                         .addValue("contrato", contrato)
                         .addValue("limite", POR_PAGINA + 1)
-                        .addValue("pular", Math.max(pagina, 0) * POR_PAGINA),
+                        .addValue("pular", (long) Math.clamp(pagina, 0, PAGINA_MAXIMA) * POR_PAGINA),
                 (rs, n) -> linha(
                         rs.getObject("id", UUID.class),
                         rs.getObject("contrato_id", UUID.class),
