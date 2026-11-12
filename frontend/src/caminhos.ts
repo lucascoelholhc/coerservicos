@@ -9,6 +9,7 @@ export const CAMINHOS = {
   criarContaProfissional: '/criar-conta/profissional',
   cadastro: '/cadastro',
   adminVerificacao: '/admin/verificacao',
+  adminFinanceiro: '/admin/financeiro',
   conta: '/conta',
   confirmarCelular: '/conta/confirmar-celular',
   codigoNoLogin: '/conta/codigo-no-login',

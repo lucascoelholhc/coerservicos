@@ -102,7 +102,7 @@ function situacaoDoCodigo(conta: Conta): string {
   return conta.mfaAtivo ? 'Ligado' : 'Desligado';
 }
 
-/** Atalhos da equipe (ADMIN): a fila de verificação (FE-07). */
+/** Atalhos da equipe (ADMIN): a fila de verificação e o financeiro (FE-07). */
 function EquipeDaCoe() {
   return (
     <section className={estilos.secao} aria-labelledby="titulo-equipe">
@@ -111,6 +111,11 @@ function EquipeDaCoe() {
         <li className={estilos.item}>
           <Link className={estilos.linkDoItem} to={CAMINHOS.adminVerificacao}>
             Verificação de cadastros
+          </Link>
+        </li>
+        <li className={estilos.item}>
+          <Link className={estilos.linkDoItem} to={CAMINHOS.adminFinanceiro}>
+            Financeiro e repasses
           </Link>
         </li>
       </ul>
