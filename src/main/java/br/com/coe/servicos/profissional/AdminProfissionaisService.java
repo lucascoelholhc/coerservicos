@@ -99,8 +99,12 @@ class AdminProfissionaisService {
 
     record Suspensao(@NotBlank @Size(min = 10, max = 300) String motivo) {}
 
+    /** A versão (resumo) da chave que o admin viu: a conferência só vale para ela. */
+    record ConferenciaDoPix(@NotBlank @Size(max = 64) String versao) {}
+
     /** A chave Pix em claro só para o admin conferir que é do profissional (RN15); nome completo para comparar. */
-    record PixParaConferir(String tipo, String chave, String nome, boolean conferida, java.time.Instant conferidaEm) {
+    record PixParaConferir(
+            String tipo, String chave, String nome, String versao, boolean conferida, java.time.Instant conferidaEm) {
 
         @Override
         public String toString() {
@@ -113,7 +117,8 @@ class AdminProfissionaisService {
     PixParaConferir pix(UUID id) {
         java.util.List<java.util.Map<String, Object>> linhas =
                 jdbc.queryForList("""
-                SELECT p.chave_pix_tipo, p.chave_pix_cifrada, u.nome, p.pix_conferido_em
+                SELECT p.chave_pix_tipo, p.chave_pix_cifrada, u.nome, p.pix_conferido_em,
+                       encode(sha256(p.chave_pix_cifrada), 'hex') AS versao
                   FROM profissional p JOIN usuario u ON u.id = p.usuario_id
                  WHERE p.id = :id
                 """, new MapSqlParameterSource("id", id));
@@ -127,24 +132,31 @@ class AdminProfissionaisService {
                 (String) p.get("chave_pix_tipo"),
                 cifra.decifrar((byte[]) p.get("chave_pix_cifrada"), Campo.CHAVE_PIX),
                 (String) p.get("nome"),
+                (String) p.get("versao"),
                 conferida != null,
                 conferida == null ? null : conferida.toInstant());
     }
 
-    /** RN15: o admin confirma que a chave é do profissional; sem isso nenhum repasse sai. Trocar a chave desfaz. */
+    /**
+     * RN15: o admin confirma que a chave é do profissional; sem isso nenhum repasse sai. Vale só para a chave que ele viu
+     * (a {@code versao} do {@link #pix}): se o profissional trocou no meio, 409 e o admin confere de novo.
+     */
     @Transactional
-    void conferirPix(UUID id) {
+    void conferirPix(UUID id, String versao) {
         travar(id);
         int conferidas = jdbc.update(
                 """
                 UPDATE profissional SET pix_conferido_em = :agora, pix_conferido_por = :admin
                  WHERE id = :id AND chave_pix_cifrada IS NOT NULL
+                   AND encode(sha256(chave_pix_cifrada), 'hex') = :versao
                 """,
                 new MapSqlParameterSource("id", id)
                         .addValue("admin", usuario.id())
+                        .addValue("versao", versao)
                         .addValue("agora", OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC)));
         if (conferidas == 0) {
-            throw new ConflitoException("sem-chave-pix", "Esse profissional ainda não tem chave Pix.", null);
+            throw new ConflitoException(
+                    "pix-mudou", "A chave Pix mudou ou não existe. Abra a chave de novo antes de conferir.", null);
         }
         auditoria.registrar(
                 usuario.id(),

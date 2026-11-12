@@ -33,6 +33,8 @@ public class EnvioDeRepasses {
 
     private static final Logger LOG = LoggerFactory.getLogger(EnvioDeRepasses.class);
     private static final int LOTE = 50;
+    /** Enviado há mais que isso sem resposta: pergunta ao gateway (o webhook pode ter chegado antes da gravação). */
+    private static final java.time.Duration ESPERA_DA_RESPOSTA = java.time.Duration.ofMinutes(10);
 
     private final NamedParameterJdbcTemplate jdbc;
     private final TransactionTemplate transacao;
@@ -74,6 +76,52 @@ public class EnvioDeRepasses {
                 // um repasse com problema não segura os outros; volta na próxima rodada
                 LOG.error("Repasse {} não enviado: {}", repasse, erro.getClass().getSimpleName());
             }
+        }
+        reconsultarEnviados();
+    }
+
+    /**
+     * Repasse enviado sem resposta há mais de {@link #ESPERA_DA_RESPOSTA}: pergunta ao gateway pela referência e
+     * confirma ou falha como o webhook faria (o evento pode ter chegado antes de a COE gravar o id da transferência).
+     */
+    private void reconsultarEnviados() {
+        OffsetDateTime limite = OffsetDateTime.ofInstant(clock.instant().minus(ESPERA_DA_RESPOSTA), ZoneOffset.UTC);
+        List<Map<String, Object>> enviados =
+                jdbc.queryForList("""
+                SELECT r.id, r.id_externo, rd.diaria_id
+                  FROM repasse r JOIN repasse_diaria rd ON rd.repasse_id = r.id
+                 WHERE r.status = 'enviado' AND r.enviado_em < :limite
+                 ORDER BY r.enviado_em
+                 LIMIT :lote
+                """, new MapSqlParameterSource("limite", limite).addValue("lote", LOTE));
+        for (Map<String, Object> enviado : enviados) {
+            UUID repasse = (UUID) enviado.get("id");
+            try {
+                gateway.transferenciaPorReferencia(enviado.get("diaria_id").toString())
+                        .filter(t -> t.idExterno().equals(enviado.get("id_externo")))
+                        .filter(t -> t.concluida() || t.falhou())
+                        .ifPresent(t -> transacao.executeWithoutResult(status -> resolver(repasse, t)));
+            } catch (RuntimeException erro) {
+                LOG.error(
+                        "Repasse {} não reconsultado: {}",
+                        repasse,
+                        erro.getClass().getSimpleName());
+            }
+        }
+    }
+
+    private void resolver(UUID repasse, GatewayPagamento.TransferenciaNoGateway transferencia) {
+        String situacao = jdbc.queryForObject(
+                "SELECT status FROM repasse WHERE id = :id FOR UPDATE",
+                new MapSqlParameterSource("id", repasse),
+                String.class);
+        if (!"enviado".equals(situacao)) {
+            return;
+        }
+        if (transferencia.concluida()) {
+            repasses.confirmar(repasse, OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC));
+        } else {
+            repasses.falhar(repasse, transferencia.motivoFalha());
         }
     }
 

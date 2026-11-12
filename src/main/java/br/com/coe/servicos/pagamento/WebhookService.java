@@ -190,12 +190,14 @@ class WebhookService {
         }
         BigDecimal valor = (BigDecimal) cobranca.get("valor");
         if (!valorRecebido.isNumber() || valorRecebido.decimalValue().compareTo(valor) != 0) {
-            if (valorRecebido.isNumber() && valorRecebido.decimalValue().signum() > 0) {
+            if (valorRecebido.isNumber()
+                    && valorRecebido.decimalValue().signum() > 0
+                    && valorRecebido.decimalValue().stripTrailingZeros().scale() <= 2) {
                 // RN34c: o que chegou com valor diferente do pedido volta inteiro
                 estornos.registrarSemPedido(
                         contrato,
                         (UUID) cobranca.get("id"),
-                        new Dinheiro(valorRecebido.decimalValue().setScale(2, java.math.RoundingMode.UNNECESSARY)),
+                        new Dinheiro(valorRecebido.decimalValue()),
                         "valor-divergente");
             }
             auditoria.registrarDoSistema(
@@ -325,11 +327,15 @@ class WebhookService {
         for (Estornos.Destino destino : Estornos.Destino.values()) {
             String coluna = destino == Estornos.Destino.REEMBOLSO ? "x.valor_total" : "x.valor";
             List<UUID> achado = jdbc.queryForList(
+                    // pelo id do estorno; sem ele (ou com o id ainda não gravado), pela cobrança e pelo valor. Aceita
+                    // falhou também: um estorno dado como recusado pode ter saído (o gateway confirma depois)
                     "SELECT x.id FROM " + destino.tabela + " x JOIN cobranca c ON c.id = x.cobranca_id"
-                            + " WHERE x.status = 'enviado' AND ((CAST(:estorno AS text) <> '' AND x.id_externo = :estorno)"
-                            + " OR (CAST(:estorno AS text) = '' AND c.id_externo = :cobranca AND " + coluna
-                            + " = CAST(:valor AS numeric)))"
-                            + " ORDER BY x.enviado_em, x.id LIMIT 1 FOR UPDATE OF x",
+                            + " WHERE x.status IN ('enviado', 'falhou')"
+                            + " AND ((CAST(:estorno AS text) <> '' AND x.id_externo = :estorno)"
+                            + " OR ((CAST(:estorno AS text) = '' OR x.id_externo IS NULL)"
+                            + " AND c.id_externo = :cobranca AND " + coluna + " = CAST(:valor AS numeric)))"
+                            + " ORDER BY (x.id_externo IS NOT DISTINCT FROM CAST(:estorno AS text)) DESC,"
+                            + " x.enviado_em, x.id LIMIT 1 FOR UPDATE OF x",
                     new MapSqlParameterSource("estorno", idDoEstorno)
                             .addValue("cobranca", cobrancaExterna)
                             .addValue("valor", valor),

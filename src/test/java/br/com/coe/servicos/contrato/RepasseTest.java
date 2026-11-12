@@ -21,6 +21,8 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.ResultActions;
 
+import com.jayway.jsonpath.JsonPath;
+
 import br.com.coe.servicos.compartilhado.cripto.Campo;
 import br.com.coe.servicos.compartilhado.cripto.CifraDeCampo;
 import br.com.coe.servicos.compartilhado.dinheiro.Dinheiro;
@@ -73,8 +75,21 @@ class RepasseTest extends ExecucaoDeDiariaTeste {
     }
 
     private ResultActions conferirPix() throws Exception {
+        String versao = JsonPath.read(
+                mockMvc.perform(get("/api/admin/profissionais/" + profissional.profissional() + "/pix")
+                                .header("Authorization", doAdmin()))
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString(java.nio.charset.StandardCharsets.UTF_8),
+                "$.versao");
+        return conferirPix(versao);
+    }
+
+    private ResultActions conferirPix(String versao) throws Exception {
         return mockMvc.perform(post("/api/admin/profissionais/" + profissional.profissional() + "/pix/conferido")
-                .header("Authorization", doAdmin()));
+                .header("Authorization", doAdmin())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"versao\":\"" + versao + "\"}"));
     }
 
     private ResultActions eventoDeTransferencia(String evento, String idExterno, String motivo) throws Exception {
@@ -149,6 +164,23 @@ class RepasseTest extends ExecucaoDeDiariaTeste {
     }
 
     @Test
+    @DisplayName("sem webhook (chegou antes da gravação): depois de 10 min o envio pergunta ao gateway e confirma")
+    void reconsultaOEnviadoSemResposta() throws Exception {
+        conferirPix().andExpect(status().isNoContent());
+        envio.executar();
+        String externo = (String) repasse().get("id_externo");
+        gateway.concluirTransferencia(externo, true, null);
+
+        envio.executar();
+        assertThat(repasse().get("status")).isEqualTo("enviado"); // ainda dentro da espera
+
+        relogio.avancar(java.time.Duration.ofMinutes(11));
+        envio.executar();
+
+        assertThat(repasse().get("status")).isEqualTo("confirmado");
+    }
+
+    @Test
     @DisplayName("caiu depois de mandar: a próxima rodada acha a transferência pela referência e não manda de novo")
     void naoMandaDuasVezes() throws Exception {
         conferirPix().andExpect(status().isNoContent());
@@ -201,6 +233,31 @@ class RepasseTest extends ExecucaoDeDiariaTeste {
                         Integer.class,
                         repasse))
                 .isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("a conferência vale só para a chave que o admin viu: trocou no meio = 409 pix-mudou")
+    void conferenciaDaChaveVista() throws Exception {
+        String vista = JsonPath.read(
+                mockMvc.perform(get("/api/admin/profissionais/" + profissional.profissional() + "/pix")
+                                .header("Authorization", doAdmin()))
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString(java.nio.charset.StandardCharsets.UTF_8),
+                "$.versao");
+        jdbc.update(
+                "UPDATE profissional SET chave_pix_cifrada = ? WHERE id = ?",
+                contexto.getBean(CifraDeCampo.class).cifrar(UUID.randomUUID().toString(), Campo.CHAVE_PIX),
+                profissional.profissional());
+
+        conferirPix(vista)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.type").value("urn:coe:erro:pix-mudou"));
+        assertThat(jdbc.queryForObject(
+                        "SELECT pix_conferido_em IS NULL FROM profissional WHERE id = ?",
+                        Boolean.class,
+                        profissional.profissional()))
+                .isTrue();
     }
 
     @Test

@@ -150,6 +150,45 @@ class EstornoEConciliacaoTest extends ExecucaoDeDiariaTeste {
     }
 
     @Test
+    @DisplayName(
+            "gateway sem resposta no estorno: fica enviado (incerto) com alerta, nunca sai de novo; o webhook confirma")
+    void estornoSemResposta() throws Exception {
+        pagar();
+        trabalharODia(diarias.get(0), dia);
+        reclamarEDecidirAFavorDoCliente(diarias.get(0));
+        gateway.semRespostaNoProximoEstorno();
+
+        estornos.executar();
+        estornos.executar();
+
+        Map<String, Object> incerto = jdbc.queryForMap(
+                "SELECT id, status, erro, tentativas, valor_total FROM reembolso WHERE diaria_id = ?", diarias.get(0));
+        assertThat(incerto.get("status")).isEqualTo("enviado");
+        assertThat(incerto.get("erro")).isEqualTo("incerto");
+        assertThat(((Number) incerto.get("tentativas")).intValue()).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                        "SELECT count(*) FROM alerta_financeiro WHERE tipo = 'estorno-falhou' AND referencia = ?",
+                        Integer.class,
+                        incerto.get("id")))
+                .isEqualTo(1);
+
+        String cobranca = jdbc.queryForObject(
+                "SELECT c.id_externo FROM reembolso r JOIN cobranca c ON c.id = r.cobranca_id WHERE r.diaria_id = ?",
+                String.class,
+                diarias.get(0));
+        evento(
+                        "PAYMENT_PARTIALLY_REFUNDED",
+                        "\"payment\":{\"id\":\"" + cobranca + "\"},\"refund\":{\"id\":\"ref_x"
+                                + UUID.randomUUID().toString().substring(0, 8) + "\",\"value\":"
+                                + incerto.get("valor_total") + "}")
+                .andExpect(status().isOk());
+
+        assertThat(jdbc.queryForObject(
+                        "SELECT status FROM reembolso WHERE diaria_id = ?", String.class, diarias.get(0)))
+                .isEqualTo("confirmado");
+    }
+
+    @Test
     @DisplayName("dinheiro sem pedido: vira a devolver, sai o estorno integral e o pedido nunca é reativado")
     void dinheiroSemPedido() throws Exception {
         String cartao = cobrancaExterna("cartao");

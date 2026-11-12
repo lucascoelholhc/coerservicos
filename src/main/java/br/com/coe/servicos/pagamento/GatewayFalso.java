@@ -101,8 +101,20 @@ public class GatewayFalso implements GatewayPagamento {
                 .max(java.util.Comparator.comparingLong(t -> ordem.getOrDefault(t.idExterno(), 0L)));
     }
 
+    private final java.util.concurrent.atomic.AtomicBoolean semRespostaNoProximoEstorno =
+            new java.util.concurrent.atomic.AtomicBoolean();
+
+    /** Teste: o próximo estorno sai do gateway, mas a resposta não chega (tempo esgotado). */
+    public void semRespostaNoProximoEstorno() {
+        semRespostaNoProximoEstorno.set(true);
+    }
+
     @Override
     public EstornoNoGateway estornar(String cobrancaExterna, Dinheiro valor, String referencia) {
+        if (semRespostaNoProximoEstorno.getAndSet(false)) {
+            estornos.put(id("ref_"), new EstornoPendente(valor, false));
+            throw new IllegalStateException("Tempo esgotado esperando o gateway (simulado)");
+        }
         String id = id("ref_");
         estornos.put(id, new EstornoPendente(valor, imediato));
         return new EstornoNoGateway(id, imediato ? "DONE" : "PENDING");
@@ -153,6 +165,7 @@ public class GatewayFalso implements GatewayPagamento {
     /** Teste: volta ao estado sem falha nem diferença. */
     public void restaurar() {
         proximaFalha.set(null);
+        semRespostaNoProximoEstorno.set(false);
         diferenca.set(BigDecimal.ZERO);
     }
 

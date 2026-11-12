@@ -127,6 +127,20 @@ public class Estornos {
     }
 
     /**
+     * O gateway não respondeu ao pedido de estorno: pode ter saído ou não. Continua enviado (nada sai de novo), com o
+     * erro {@code incerto} e alerta para a equipe conferir no painel do gateway; o webhook ainda confirma.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    void incerto(Destino destino, UUID id) {
+        jdbc.update(
+                "UPDATE " + destino.tabela + " SET erro = 'incerto' WHERE id = :id AND status = 'enviado'",
+                new MapSqlParameterSource("id", id));
+        alertas.abrir(destino.alerta, id, Map.of("motivo", "incerto"));
+        auditoria.registrarDoSistema(
+                destino.tabela + ".incerto", destino.tabela, id, null, Map.of("motivo", "incerto"), null);
+    }
+
+    /**
      * Dinheiro recebido sem pedido esperando (RN34c): vai para "a devolver" e nasce a devolução integral (o pedido
      * nunca é reativado). O mesmo dinheiro avisado de novo pelo gateway não lança duas vezes.
      */

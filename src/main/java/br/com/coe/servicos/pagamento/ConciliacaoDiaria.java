@@ -50,9 +50,15 @@ public class ConciliacaoDiaria {
     @Scheduled(cron = "${coe.pagamento.conciliacao:0 0 6 * * *}", zone = "America/Sao_Paulo")
     @SchedulerLock(name = "conciliacao-diaria", lockAtMostFor = "PT30M")
     public void executar() {
-        Resultado resultado = calcular();
-        if (!divergente(resultado.saldoGateway(), resultado.esperado())) {
+        Resultado primeira = calcular();
+        if (!divergente(primeira.saldoGateway(), primeira.esperado())) {
             LOG.info("Conciliação do gateway sem diferença");
+            return;
+        }
+        // o gateway e o livro-caixa não são lidos no mesmo instante: só vale a diferença que se repete
+        Resultado resultado = calcular();
+        if (resultado.diferenca().compareTo(primeira.diferenca()) != 0) {
+            LOG.info("Conciliação do gateway mudou entre as leituras; fica para a próxima rodada");
             return;
         }
         Map<String, String> detalhe = Map.of(

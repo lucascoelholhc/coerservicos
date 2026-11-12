@@ -88,7 +88,8 @@ public class EnvioDeEstornos {
         try {
             estorno = gateway.estornar(pedido.cobrancaExterna(), pedido.valor(), pedido.referencia());
         } catch (RuntimeException erro) {
-            transacao.executeWithoutResult(status -> estornos.falhar(destino, id, "gateway-recusou"));
+            // sem resposta não quer dizer que não saiu: fica enviado (incerto), com alerta; o webhook ainda confirma
+            transacao.executeWithoutResult(status -> estornos.incerto(destino, id));
             throw erro;
         }
         transacao.executeWithoutResult(status -> gravar(destino, id, estorno, agora));
